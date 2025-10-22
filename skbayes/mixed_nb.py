@@ -211,7 +211,11 @@ class MixedNB(BaseEstimator, ClassifierMixin):
             
         if self.estimators_:
             any_estimator = next(iter(self.estimators_.values()))
-            self.class_log_prior_ = any_estimator.class_log_prior_
+            # GaussianNB stores 'class_prior_' (probs), others store 'class_log_prior_' (logs)
+            if hasattr(any_estimator, 'class_prior_'):
+                self.class_log_prior_ = np.log(any_estimator.class_prior_)
+            else:
+                self.class_log_prior_ = any_estimator.class_log_prior_
         else:
             le = LabelEncoder().fit(y)
             class_counts = np.bincount(le.transform(y))

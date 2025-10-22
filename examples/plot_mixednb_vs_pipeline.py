@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 =====================================================
 Handling Mixed Data Types with MixedNB
@@ -25,7 +24,7 @@ The OHE pipeline performs poorly, as the `GaussianNB` fails to model
 the 0/1 features. The Discretizer pipeline creates rigid, axis-aligned
 boundaries that are an approximation of the true data distribution.
 
-`MixedNB` achieves the best fit (highest log-loss) by avoiding
+`MixedNB` achieves the best fit by avoiding
 both information loss (from discretization) and flawed distributional
 assumptions (from OHE).
 """
@@ -41,43 +40,41 @@ from sklearn.preprocessing import OneHotEncoder, KBinsDiscretizer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import make_pipeline
 from sklearn.metrics import accuracy_score, log_loss
-from sklearn.inspection import DecisionBoundaryDisplay
 
 from skbayes.mixed_nb import MixedNB
 
-# 1. Generate a 2D Mixed-Type dataset
+# --- 1. Generate a 2D Mixed-Type dataset
 # Feature 0: Gaussian
 # Feature 1: Categorical (0, 1, 2)
 np.random.seed(42)
 n_samples = 300
-X = np.zeros((n_samples, 2))
-X[:, 0] = np.random.randn(n_samples)  # Gaussian
-X[:, 1] = np.random.randint(0, 3, size=n_samples)  # Categorical
-X = X.astype(object) # Use object dtype to satisfy ColumnTransformer
-X[:, 0] = X[:, 0].astype(float)
-X[:, 1] = X[:, 1].astype(int)
+X_num = np.zeros((n_samples, 2))
+X_num[:, 0] = np.random.randn(n_samples)  # Gaussian
+X_num[:, 1] = np.random.randint(0, 3, size=n_samples)  # Categorical
 
 # Target 'y' depends on both features
-y = (X[:, 0] > 0.5) & (X[:, 1] == 1)
-y = y | ((X[:, 0] < -0.5) & (X[:, 1] == 2))
+y = (X_num[:, 0] > 0.5) & (X_num[:, 1] == 1)
+y = y | ((X_num[:, 0] < -0.5) & (X_num[:, 1] == 2))
 y = y.astype(int)
 
 # --- 2. Define the three models ---
+# Create X_obj for scikit-learn pipelines that require object dtype for ColumnTransformer
+X_obj = X_num.astype(object)
 
-# Model 1: skbayes MixedNB
+# Model 1: skbayes MixedNB (fits on numeric data)
 mnb = MixedNB()
-mnb.fit(X, y)
+mnb.fit(X_num, y)
 
 # Model 2: Flawed OHE + GaussianNB Pipeline
 preprocessor_ohe = ColumnTransformer(
     [
-        ("onehot", OneHotEncoder(drop='first'), [1]),
+        ("onehot", OneHotEncoder(drop='first', handle_unknown='ignore'), [1]),
         ("gauss", "passthrough", [0])
     ],
     remainder="passthrough"
 )
 pipe_ohe = make_pipeline(preprocessor_ohe, GaussianNB())
-pipe_ohe.fit(X, y)
+pipe_ohe.fit(X_obj, y)
 
 # Model 3: Traditional Discretizer + CategoricalNB Pipeline
 preprocessor_kbins = ColumnTransformer(
@@ -88,7 +85,7 @@ preprocessor_kbins = ColumnTransformer(
     remainder="passthrough"
 )
 pipe_kbins = make_pipeline(preprocessor_kbins, CategoricalNB())
-pipe_kbins.fit(X, y)
+pipe_kbins.fit(X_obj, y)
 
 models = [mnb, pipe_ohe, pipe_kbins]
 titles = [
@@ -97,27 +94,38 @@ titles = [
     "3. Pipeline (Discretizer + CatNB)"
 ]
 
-# --- 3. Plot decision boundaries ---
+# --- 3. Plot decision boundaries and metrics ---
 fig, axes = plt.subplots(1, 3, figsize=(18, 5), sharey=True)
 
+# Create a meshgrid for plotting
+h = 0.05  # step size in the mesh
+x_min, x_max = X_num[:, 0].min() - 1, X_num[:, 0].max() + 1
+y_min, y_max = X_num[:, 1].min() - 0.5, X_num[:, 1].max() + 0.5
+xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, 1))
+
+# Plot for each model
 for ax, model, title in zip(axes, models, titles):
-    DecisionBoundaryDisplay.from_estimator(
-        model, X, ax=ax, response_method="predict_proba",
-        plot_method="pcolormesh", shading="auto", alpha=0.8,
-        # We need to tell the display how to handle object dtype
-        # by specifying the features we want to plot
-        features=[0, 1], feature_names=["Gaussian", "Categorical"]
-    )
+    # Prepare the grid for prediction based on model type
+    grid_num = np.c_[xx.ravel(), yy.ravel()]
+    if title == titles[0]: # MixedNB
+        Z = model.predict_proba(grid_num)[:, 1]
+    else: # Pipelines
+        grid_obj = grid_num.astype(object)
+        Z = model.predict_proba(grid_obj)[:, 1]
+
+    Z = Z.reshape(xx.shape)
+    ax.pcolormesh(xx, yy, Z, alpha=0.8, shading="auto", vmin=0, vmax=1)
     
     # Add jitter to the categorical axis for visualization
-    X_plot = X.copy().astype(float)
+    X_plot = X_num.copy()
     X_plot[:, 1] += np.random.rand(n_samples) * 0.4 - 0.2
     
     ax.scatter(X_plot[:, 0], X_plot[:, 1], c=y, edgecolors="k")
     
     # Calculate and display metrics
-    acc = accuracy_score(y, model.predict(X))
-    ll = log_loss(y, model.predict_proba(X))
+    X_fit = X_num if title == titles[0] else X_obj
+    acc = accuracy_score(y, model.predict(X_fit))
+    ll = log_loss(y, model.predict_proba(X_fit))
     ax.text(
         0.05, 0.95,
         f"Accuracy: {acc:.3f}\nLog-Loss: {ll:.3f}",
@@ -127,6 +135,7 @@ for ax, model, title in zip(axes, models, titles):
     )
     ax.set_title(title)
     ax.set_xlabel("Feature 0 (Continuous)")
+    ax.set_yticks([0, 1, 2]) # Set categorical ticks
 
 axes[0].set_ylabel("Feature 1 (Categorical)")
 plt.tight_layout()
