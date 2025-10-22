@@ -1,18 +1,16 @@
-project-template - A template for scikit-learn contributions
-============================================================
+# scikit-bayes
 
-![tests](https://github.com/scikit-learn-contrib/project-template/actions/workflows/python-app.yml/badge.svg)
-[![codecov](https://codecov.io/gh/scikit-learn-contrib/project-template/graph/badge.svg?token=L0XPWwoPLw)](https://codecov.io/gh/scikit-learn-contrib/project-template)
-![doc](https://github.com/scikit-learn-contrib/project-template/actions/workflows/deploy-gh-pages.yml/badge.svg)
+[![tests](https://github.com/ptorrijos99/scikit-bayes/actions/workflows/python-app.yml/badge.svg)](https://github.com/ptorrijos99/scikit-bayes/actions/workflows/python-app.yml)
+[![codecov](https://codecov.io/gh/ptorrijos99/scikit-bayes/graph/badge.svg)](https://codecov.io/gh/ptorrijos99/scikit-bayes)
+[![doc](https://github.com/ptorrijos99/scikit-bayes/actions/workflows/deploy-gh-pages.yml/badge.svg)](https://ptorrijos99.github.io/scikit-bayes/)
 
-**project-template** is a template project for [scikit-learn](https://scikit-learn.org)
-compatible extensions.
+**scikit-bayes** is a Python package that extends `scikit-learn` with a suite of Bayesian Network Classifiers.
 
-It aids development of estimators that can be used in scikit-learn pipelines and
-(hyper)parameter search, while facilitating testing (including some API compliance),
-documentation, open source development, packaging, and continuous integration.
+The primary goal of this package is to provide robust, `scikit-learn`-compatible implementations of advanced Bayesian classifiers that are not available in the core library. This includes models that relax the feature independence assumption of Naive Bayes and estimators that can natively handle mixed data types.
 
-Refer to the documentation to modify the template for your own scikit-learn
-contribution: https://contrib.scikit-learn.org/project-template
+## Installation
 
-*Thank you for cleanly contributing to the scikit-learn ecosystem!*
+Once available on PyPI, you can install the package using pip:
+
+```bash
+pip install scikit-bayes

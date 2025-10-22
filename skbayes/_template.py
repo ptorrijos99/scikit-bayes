@@ -2,7 +2,7 @@
 This is a module to be used as a reference for building other modules
 """
 
-# Authors: scikit-learn-contrib developers
+# Authors: scikit-bayes developers
 # License: BSD 3 clause
 
 import numpy as np
@@ -37,7 +37,7 @@ class TemplateEstimator(BaseEstimator):
 
     Examples
     --------
-    >>> from skltemplate import TemplateEstimator
+    >>> from skbayes import TemplateEstimator
     >>> import numpy as np
     >>> X = np.arange(100).reshape(100, 1)
     >>> y = np.zeros((100, ))
@@ -138,7 +138,7 @@ class TemplateClassifier(ClassifierMixin, BaseEstimator):
     Examples
     --------
     >>> from sklearn.datasets import load_iris
-    >>> from skltemplate import TemplateClassifier
+    >>> from skbayes import TemplateClassifier
     >>> X, y = load_iris(return_X_y=True)
     >>> clf = TemplateClassifier().fit(X, y)
     >>> clf.predict(X)

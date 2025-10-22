@@ -1,9 +1,9 @@
-# Authors: scikit-learn-contrib developers
+# Authors: scikit-bayes developers
 # License: BSD 3 clause
 
 import pytest
 
-from skltemplate.utils.discovery import all_displays, all_estimators, all_functions
+from .utils.discovery import all_displays, all_estimators, all_functions
 
 
 def test_all_estimators():

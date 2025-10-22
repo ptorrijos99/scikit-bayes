@@ -2,5 +2,5 @@
 
 [run]
 branch = True
-source = skltemplate
-include = */skltemplate/*
+source = skbayes
+include = */skbayes/*

@@ -1,10 +1,10 @@
 """
-The :mod:`skltemplate.utils.discovery` module includes utilities to discover
-objects (i.e. estimators, displays, functions) from the `skltemplate` package.
+The :mod:`skbayes.utils.discovery` module includes utilities to discover
+objects (i.e. estimators, displays, functions) from the `skbayes` package.
 """
 
 # Adapted from scikit-learn
-# Authors: scikit-learn-contrib developers
+# Authors: scikit-bayes developers
 # License: BSD 3 clause
 
 import inspect
@@ -26,7 +26,7 @@ _MODULE_TO_IGNORE = {"tests"}
 
 
 def all_estimators(type_filter=None):
-    """Get a list of all estimators from `skltemplate`.
+    """Get a list of all estimators from `skbayes`.
 
     This function crawls the module and gets all classes that inherit
     from `BaseEstimator`. Classes that are defined in test-modules are not
@@ -50,7 +50,7 @@ def all_estimators(type_filter=None):
 
     Examples
     --------
-    >>> from skltemplate.utils.discovery import all_estimators
+    >>> from skbayes.utils.discovery import all_estimators
     >>> estimators = all_estimators()
     >>> type(estimators)
     <class 'list'>
@@ -64,12 +64,12 @@ def all_estimators(type_filter=None):
         return True
 
     all_classes = []
-    root = str(Path(__file__).parent.parent)  # skltemplate package
+    root = str(Path(__file__).parent.parent)  # skbayes package
     # Ignore deprecation warnings triggered at import time and from walking
     # packages
     with ignore_warnings(category=FutureWarning):
         for _, module_name, _ in pkgutil.walk_packages(
-            path=[root], prefix="skltemplate."
+            path=[root], prefix="skbayes."
         ):
             module_parts = module_name.split(".")
             if any(part in _MODULE_TO_IGNORE for part in module_parts):
@@ -126,7 +126,7 @@ def all_estimators(type_filter=None):
 
 
 def all_displays():
-    """Get a list of all displays from `skltemplate`.
+    """Get a list of all displays from `skbayes`.
 
     Returns
     -------
@@ -136,16 +136,16 @@ def all_displays():
 
     Examples
     --------
-    >>> from skltemplate.utils.discovery import all_displays
+    >>> from skbayes.utils.discovery import all_displays
     >>> displays = all_displays()
     """
     all_classes = []
-    root = str(Path(__file__).parent.parent)  # skltemplate package
+    root = str(Path(__file__).parent.parent)  # skbayes package
     # Ignore deprecation warnings triggered at import time and from walking
     # packages
     with ignore_warnings(category=FutureWarning):
         for _, module_name, _ in pkgutil.walk_packages(
-            path=[root], prefix="skltemplate."
+            path=[root], prefix="skbayes."
         ):
             module_parts = module_name.split(".")
             if any(part in _MODULE_TO_IGNORE for part in module_parts):
@@ -170,14 +170,14 @@ def _is_checked_function(item):
         return False
 
     mod = item.__module__
-    if not mod.startswith("skltemplate.") or mod.endswith("estimator_checks"):
+    if not mod.startswith("skbayes.") or mod.endswith("estimator_checks"):
         return False
 
     return True
 
 
 def all_functions():
-    """Get a list of all functions from `skltemplate`.
+    """Get a list of all functions from `skbayes`.
 
     Returns
     -------
@@ -187,16 +187,16 @@ def all_functions():
 
     Examples
     --------
-    >>> from skltemplate.utils.discovery import all_functions
+    >>> from skbayes.utils.discovery import all_functions
     >>> functions = all_functions()
     """
     all_functions = []
-    root = str(Path(__file__).parent.parent)  # skltemplate package
+    root = str(Path(__file__).parent.parent)  # skbayes package
     # Ignore deprecation warnings triggered at import time and from walking
     # packages
     with ignore_warnings(category=FutureWarning):
         for _, module_name, _ in pkgutil.walk_packages(
-            path=[root], prefix="skltemplate."
+            path=[root], prefix="skbayes."
         ):
             module_parts = module_name.split(".")
             if any(part in _MODULE_TO_IGNORE for part in module_parts):
