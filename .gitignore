@@ -68,6 +68,7 @@ doc/sg_execution_times.rst
 target/
 
 .pixi
+pixi.lock
 
 # General
 .DS_Store
