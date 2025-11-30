@@ -11,7 +11,7 @@ from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 from sklearn.utils.multiclass import unique_labels
 
 
-class MixedNB(BaseEstimator, ClassifierMixin):
+class MixedNB(ClassifierMixin, BaseEstimator):
     """
     Mixed Naive Bayes classifier for heterogeneous data.
 
@@ -146,8 +146,6 @@ class MixedNB(BaseEstimator, ClassifierMixin):
         X, y = check_X_y(X, y)
         self.classes_ = unique_labels(y)
         self.n_features_in_ = X.shape[1]
-        if hasattr(X, "columns"):
-            self.feature_names_in_ = np.array(X.columns, dtype=object)
 
         # --- Parameter and Feature Type Validation ---
         cat_feats = self._validate_feature_indices(
@@ -176,12 +174,21 @@ class MixedNB(BaseEstimator, ClassifierMixin):
             feature_col = X[:, i]
             unique_vals = np.unique(feature_col)
 
+            # Check if float column essentially contains integers
+            is_integer_like = False
+            if np.issubdtype(feature_col.dtype, np.integer):
+                is_integer_like = True
+            elif np.issubdtype(feature_col.dtype, np.floating):
+                # Check if all fractional parts are zero
+                if np.all(np.mod(feature_col, 1) == 0):
+                    is_integer_like = True
+
             if len(unique_vals) == 1:
                 # Constant feature, can be ignored
                 continue
             elif len(unique_vals) == 2:
                 self.feature_types_['bernoulli'].append(i)
-            elif np.issubdtype(feature_col.dtype, np.integer):
+            elif is_integer_like:
                 self.feature_types_['categorical'].append(i)
             else: # np.issubdtype(feature_col.dtype, np.floating)
                 self.feature_types_['gaussian'].append(i)
