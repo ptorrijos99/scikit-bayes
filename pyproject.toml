@@ -41,7 +41,7 @@ Issues = "https://github.com/ptorrijos99/scikit-bayes/issues"
 version_file = "skbayes/_version.py"
 
 # --- PIXI CONFIGURATION ---
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
 
@@ -139,3 +139,5 @@ ignore=[
 [tool.pytest.ini_options]
 addopts = "--doctest-modules --color=yes"
 doctest_optionflags = "NORMALIZE_WHITESPACE"
+testpaths = ["skbayes"]
+norecursedirs = ["doc", "examples", "build", "dist"]
