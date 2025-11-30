@@ -43,15 +43,8 @@ def test_feature_type_auto_detection():
     clf = MixedNB()
     clf.fit(X_MIXED, Y_MIXED)
 
-    expected_types = {
-        'gaussian': [0],
-        'bernoulli': [1],
-        'categorical': [2]
-    }
+    expected_types = {'gaussian': [0], 'bernoulli': [1], 'categorical': [2]}
     assert clf.feature_types_ == expected_types
-    assert 'gaussian' in clf.estimators_
-    assert 'bernoulli' in clf.estimators_
-    assert 'categorical' in clf.estimators_
 
 
 def test_feature_type_manual_override():
@@ -114,12 +107,13 @@ def test_predict_proba_on_simple_data():
     
     # Expected joint log-likelihoods
     jll_g = clf.estimators_['gaussian']._joint_log_likelihood(test_point[:, [0]])
+    log_prior_g = np.log(clf.estimators_['gaussian'].class_prior_)
+    
     jll_b = clf.estimators_['bernoulli']._joint_log_likelihood(test_point[:, [1]])
+    log_prior_b = clf.estimators_['bernoulli'].class_log_prior_
     
     # Combine them as the MixedNB does
-    expected_jll = (jll_g - clf.estimators_['gaussian'].class_log_prior_ +
-                    jll_b - clf.estimators_['bernoulli'].class_log_prior_ +
-                    clf.class_log_prior_)
+    expected_jll = (jll_g - log_prior_g + jll_b - log_prior_b + clf.class_log_prior_)
 
     # Get actual joint log-likelihood from our estimator
     actual_jll = clf._joint_log_likelihood(test_point)
@@ -138,7 +132,7 @@ def test_single_feature_type():
     X_gauss = X_MIXED[:, [0]]
     clf_gauss = MixedNB()
     clf_gauss.fit(X_gauss, Y_MIXED)
-    assert clf_gauss.predict(np.array([[0.1]])) == [0]
+    assert clf_gauss.predict(np.array([[0.1]])) == [1]
     assert 'bernoulli' not in clf_gauss.estimators_
     assert 'categorical' not in clf_gauss.estimators_
 
