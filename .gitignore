@@ -77,3 +77,5 @@ pixi.lock
 
 # auto-generated files
 skbayes/_version.py
+
+instructions.py
