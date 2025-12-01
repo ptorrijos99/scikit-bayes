@@ -21,7 +21,7 @@ from skbayes.ande import AnDE, ALR
 
 # --- 1. Generate Dataset with Heavy Noise ---
 np.random.seed(42)
-n_samples = 2000
+n_samples = 20000 # Large sample size to allow convergence of weights
 n_features = 10
 
 # A. Informative Features (Mixed Type)
@@ -61,7 +61,18 @@ features = [f"F{i}\n(Signal)" if i < 2 else f"F{i}\n(Noise)" for i in range(n_fe
 indices = np.arange(n_features)
 
 ande_weights = np.ones(n_features)
-alr_weights = alr.weights_
+
+# Detect if we have weights per class (Level 3) or simple weights (Level 1)
+n_models = len(alr.ensemble_)
+
+if alr.learned_weights_.size == n_models:
+    # Level 1: One weight per feature. Use directly.
+    alr_weights = alr.learned_weights_
+else:
+    # Level 3: Weights per class. Reshape and average.
+    n_classes = len(alr.classes_)
+    weights_matrix = alr.learned_weights_.reshape(n_models, n_classes)
+    alr_weights = np.mean(weights_matrix, axis=1)
 
 fig, axes = plt.subplots(1, 2, figsize=(16, 7), sharey=True)
 
@@ -72,27 +83,33 @@ def add_score_box(ax, acc, ll):
         f'Accuracy: {acc:.3f}',
         f'Log Loss: {ll:.3f}'))
     props = dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor='gray')
-    # x=0.95 (Right), ha='right' aligns the text box to the right edge
     ax.text(0.95, 0.95, textstr, transform=ax.transAxes, fontsize=12,
             verticalalignment='top', horizontalalignment='right', bbox=props)
 
-# Plot AnDE
+# Plot AnDE (Generative)
 axes[0].bar(indices, ande_weights, color='lightgray', edgecolor='gray')
 axes[0].set_title("AnDE (Generative)\nStrategy: Uniform Attention", fontsize=14)
 axes[0].set_xlabel("Feature (as Super-Parent)", fontsize=12)
 axes[0].set_ylabel("Weight Magnitude", fontsize=12)
 axes[0].set_xticks(indices)
 axes[0].set_xticklabels(features, rotation=45, ha='right')
-axes[0].patches[0].set_facecolor('skyblue')
-axes[0].patches[1].set_facecolor('skyblue')
+
+# Highlight Signal Features with GOLD (to show ground truth importance)
+axes[0].patches[0].set_facecolor('gold')
+axes[0].patches[0].set_edgecolor('orange')
+axes[0].patches[1].set_facecolor('gold')
+axes[0].patches[1].set_edgecolor('orange')
+
 add_score_box(axes[0], acc_ande, ll_ande)
 
-# Plot ALR
-bars = axes[1].bar(indices, alr_weights, color='salmon', edgecolor='red')
+# Plot ALR (Hybrid)
+# Use INDIGO for learned weights
+bars = axes[1].bar(indices, alr_weights, color='indigo', edgecolor='black', alpha=0.8)
 axes[1].set_title("ALR (Hybrid)\nStrategy: Learned Attention", fontsize=14)
 axes[1].set_xlabel("Feature (as Super-Parent)", fontsize=12)
 axes[1].set_xticks(indices)
 axes[1].set_xticklabels(features, rotation=45, ha='right')
+
 add_score_box(axes[1], acc_alr, ll_alr)
 
 # Annotate values on ALR
@@ -102,7 +119,7 @@ for bar in bars:
         axes[1].annotate(f'{height:.2f}',
                          xy=(bar.get_x() + bar.get_width() / 2, height),
                          xytext=(0, 3), textcoords="offset points",
-                         ha='center', va='bottom', fontweight='bold')
+                         ha='center', va='bottom', fontweight='bold', color='indigo')
 
 fig.suptitle("Impact of Noise on Model Weights and Performance", fontsize=18)
 plt.tight_layout()

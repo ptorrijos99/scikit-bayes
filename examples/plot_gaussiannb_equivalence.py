@@ -55,21 +55,35 @@ except AssertionError as e:
 print(f"GaussianNB vs MixedNB Equivalence Check: {equivalence_message}")
 
 # 4. Plot decision boundaries
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
+fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
 
-DecisionBoundaryDisplay.from_estimator(
-    gnb, X, ax=ax1, response_method="predict_proba",
-    plot_method="pcolormesh", shading="auto", alpha=0.8
-)
-ax1.scatter(X[:, 0], X[:, 1], c=y, edgecolors="k")
-ax1.set_title("1. scikit-learn GaussianNB")
+models = [gnb, mnb]
+titles = ["1. scikit-learn GaussianNB", "2. skbayes MixedNB (auto-detected)"]
 
-DecisionBoundaryDisplay.from_estimator(
-    mnb, X, ax=ax2, response_method="predict_proba",
-    plot_method="pcolormesh", shading="auto", alpha=0.8
-)
-ax2.scatter(X[:, 0], X[:, 1], c=y, edgecolors="k")
-ax2.set_title("2. skbayes MixedNB (auto-detected)")
+for ax, model, title in zip(axes, models, titles):
+    # Plot Decision Boundary - VIRIDIS
+    DecisionBoundaryDisplay.from_estimator(
+        model, X, ax=ax, response_method="predict_proba",
+        plot_method="pcolormesh", shading="auto", alpha=0.8, cmap='viridis'
+    )
+    
+    # Overlay real data points with consistent style
+    # Class 0 -> Indigo
+    ax.scatter(X[y==0, 0], X[y==0, 1], 
+               c='indigo', marker='o', s=40, alpha=0.8, 
+               edgecolors='w', linewidth=0.8, label='Class 0')
+    
+    # Class 1 -> Gold
+    ax.scatter(X[y==1, 0], X[y==1, 1], 
+               c='gold', marker='^', s=40, alpha=0.9, 
+               edgecolors='k', linewidth=0.5, label='Class 1')
+    
+    ax.set_title(title, fontsize=12)
 
-fig.suptitle("Equivalence of MixedNB and GaussianNB on continuous data")
+# Add Legend to the first plot
+axes[0].legend(loc='lower right')
+
+fig.suptitle("Equivalence of MixedNB and GaussianNB on Continuous Data", fontsize=16)
+plt.tight_layout()
+plt.subplots_adjust(top=0.85)
 plt.show()

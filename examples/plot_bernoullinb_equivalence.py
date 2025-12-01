@@ -19,14 +19,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy.testing import assert_allclose
 
-from sklearn.inspection import DecisionBoundaryDisplay
 from sklearn.naive_bayes import BernoulliNB
-
 from skbayes.mixed_nb import MixedNB
 
 # 1. Generate a 2D Bernoulli dataset (0s and 1s)
 np.random.seed(42)
-X = np.random.randint(0, 2, size=(100, 2), dtype=int)
+n_samples = 100
+X = np.random.randint(0, 2, size=(n_samples, 2), dtype=int)
+# Logic: AND gate (Class 1 only if both are 1)
 y = (X[:, 0] & X[:, 1]).astype(int)
 
 # 2. Fit both classifiers
@@ -49,30 +49,56 @@ except AssertionError as e:
 print(f"BernoulliNB vs MixedNB Equivalence Check: {equivalence_message}")
 
 # 4. Plot decision boundaries
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
+fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
 
-# Create a meshgrid for plotting
-xx, yy = np.meshgrid(
-    np.arange(-0.5, 2, 1),
-    np.arange(-0.5, 2, 1)
-)
-grid = np.c_[xx.ravel(), yy.ravel()]
+models = [bnb, mnb]
+titles = ["1. scikit-learn BernoulliNB", "2. skbayes MixedNB (auto-detected)"]
 
-# Plot for BernoulliNB
-Z_bnb = bnb.predict_proba(grid)[:, 1].reshape(xx.shape)
-ax1.pcolormesh(xx, yy, Z_bnb, alpha=0.8, shading="auto", vmin=0, vmax=1)
-ax1.scatter(X[:, 0], X[:, 1], c=y, edgecolors="k")
-ax1.set_title("1. scikit-learn BernoulliNB")
-ax1.set_xticks([0, 1])
-ax1.set_yticks([0, 1])
+# Define grid (Centers for prediction, Edges for plotting)
+# Binary features: 0, 1
+centers = np.array([0, 1])
+edges = np.array([-0.5, 0.5, 1.5])
 
-# Plot for MixedNB
-Z_mnb = mnb.predict_proba(grid)[:, 1].reshape(xx.shape)
-ax2.pcolormesh(xx, yy, Z_mnb, alpha=0.8, shading="auto", vmin=0, vmax=1)
-ax2.scatter(X[:, 0], X[:, 1], c=y, edgecolors="k")
-ax2.set_title("2. skbayes MixedNB (auto-detected)")
-ax2.set_xticks([0, 1])
-ax2.set_yticks([0, 1])
+# Create prediction grid
+xx, yy = np.meshgrid(centers, centers)
+grid_pred = np.c_[xx.ravel(), yy.ravel()]
 
-fig.suptitle("Equivalence of MixedNB and BernoulliNB on binary data")
+for ax, model, title in zip(axes, models, titles):
+    # Predict probabilities on binary grid
+    probs = model.predict_proba(grid_pred)[:, 1]
+    Z = probs.reshape(xx.shape)
+
+    # Plot Heatmap - VIRIDIS
+    # Using pcolormesh with edges defines the 4 quadrants perfectly
+    ax.pcolormesh(edges, edges, Z, cmap='viridis', vmin=0, vmax=1, 
+                  shading='flat', alpha=0.8, edgecolors='none')
+
+    # Overlay real data points with consistent style
+    # Jitter points slightly to show density (since many points overlap on 0/1)
+    x_jit = X[:, 0] + np.random.uniform(-0.15, 0.15, size=n_samples)
+    y_jit = X[:, 1] + np.random.uniform(-0.15, 0.15, size=n_samples)
+
+    # Class 0 -> Indigo Circle
+    ax.scatter(x_jit[y==0], y_jit[y==0], 
+               c='indigo', marker='o', s=50, alpha=0.8, 
+               edgecolors='w', linewidth=0.8, label='Class 0')
+    
+    # Class 1 -> Gold Triangle
+    ax.scatter(x_jit[y==1], y_jit[y==1], 
+               c='gold', marker='^', s=50, alpha=0.9, 
+               edgecolors='k', linewidth=0.5, label='Class 1')
+
+    ax.set_title(title, fontsize=12)
+    ax.set_xticks([0, 1])
+    ax.set_yticks([0, 1])
+    ax.grid(True, alpha=0.2, linestyle='--')
+
+axes[0].set_ylabel("Feature 1 (Bernoulli)")
+axes[0].set_xlabel("Feature 0 (Bernoulli)")
+axes[1].set_xlabel("Feature 0 (Bernoulli)")
+axes[0].legend(loc='lower left')
+
+fig.suptitle("Equivalence of MixedNB and BernoulliNB on Binary Data", fontsize=16)
+plt.tight_layout()
+plt.subplots_adjust(top=0.85)
 plt.show()

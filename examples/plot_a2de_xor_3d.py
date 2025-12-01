@@ -65,9 +65,8 @@ for i, (model, name, score) in enumerate(zip(fitted_models, names, scores)):
     probs = model.predict_proba(X_grid)[:, 1]
     
     # Visualization Trick:
-    # Instead of plotting everything, we plot points where the model is confident.
-    # High prob (Yellow) and Low prob (Purple). We skip the "uncertain" middle 
-    # slightly to create separation between the volumes.
+    # Plot points where the model is confident.
+    # High prob (Yellow) and Low prob (Purple). 
     mask = np.abs(probs - 0.5) > 0.1 
     
     xs = X_grid[mask, 0]
@@ -75,15 +74,31 @@ for i, (model, name, score) in enumerate(zip(fitted_models, names, scores)):
     zs = X_grid[mask, 2]
     c_vals = probs[mask]
     
+    # 1. Plot Voxel Cloud (Model Belief)
+    # cmap='viridis' matches our theme: 0 (Purple) -> 1 (Yellow)
     p = ax.scatter(xs, ys, zs, c=c_vals, cmap='viridis', 
-                   s=30, alpha=0.6, edgecolors='none', marker='s')
+                   s=30, alpha=0.3, edgecolors='none', marker='s')
     
-    # Add axes lines crossing at zero for reference
-    ax.plot([-2.5, 2.5], [0, 0], [0, 0], 'k-', lw=2, alpha=0.5)
-    ax.plot([0, 0], [-2.5, 2.5], [0, 0], 'k-', lw=2, alpha=0.5)
-    ax.plot([0, 0], [0, 0], [-2.5, 2.5], 'k-', lw=2, alpha=0.5)
+    # 2. Overlay Real Data Points (Ground Truth)
+    # Subsample to avoid cluttering the 3D view
+    mask_sub = np.random.choice(n_samples, 100, replace=False)
+    X_sub = X[mask_sub]
+    y_sub = y[mask_sub]
 
-    ax.set_title(f"{name}\nAccuracy: {score:.3f}")
+    # Class 0 -> Indigo Circle
+    ax.scatter(X_sub[y_sub==0, 0], X_sub[y_sub==0, 1], X_sub[y_sub==0, 2],
+               c='indigo', marker='o', s=20, alpha=0.9, edgecolors='w', label='Class 0')
+    
+    # Class 1 -> Gold Triangle
+    ax.scatter(X_sub[y_sub==1, 0], X_sub[y_sub==1, 1], X_sub[y_sub==1, 2],
+               c='gold', marker='^', s=20, alpha=1.0, edgecolors='k', label='Class 1')
+
+    # Add axes lines crossing at zero for reference
+    ax.plot([-2.5, 2.5], [0, 0], [0, 0], 'k-', lw=1, alpha=0.3)
+    ax.plot([0, 0], [-2.5, 2.5], [0, 0], 'k-', lw=1, alpha=0.3)
+    ax.plot([0, 0], [0, 0], [-2.5, 2.5], 'k-', lw=1, alpha=0.3)
+
+    ax.set_title(f"{name}\nAccuracy: {score:.3f}", fontsize=12)
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
@@ -99,6 +114,10 @@ for i, (model, name, score) in enumerate(zip(fitted_models, names, scores)):
 # Add colorbar
 cbar_ax = fig.add_axes([0.92, 0.15, 0.01, 0.7])
 fig.colorbar(p, cax=cbar_ax, label="P(Class 1)")
+
+# Add legend to the first plot only (to save space)
+axes_3d = fig.get_axes()[0]
+axes_3d.legend(loc='lower left', fontsize=9)
 
 plt.suptitle("3D Volumetric Decision Boundaries: Solving the XOR Problem", fontsize=16)
 plt.show()

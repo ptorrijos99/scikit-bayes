@@ -63,23 +63,31 @@ models = [mnb, ande]
 titles = ["Naive Bayes (MixedNB)", "AnDE (n=1, AODE)"]
 
 # --- 3. Plotting ---
-fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
+fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
 
 for ax, model, title in zip(axes, models, titles):
     # Calculate accuracy
     acc = accuracy_score(y, model.predict(X))
     
-    # Plot Decision Boundary
-    disp = DecisionBoundaryDisplay.from_estimator(
+    # Plot Decision Boundary - VIRIDIS
+    DecisionBoundaryDisplay.from_estimator(
         model, X, response_method="predict_proba",
         plot_method="pcolormesh", shading="auto", alpha=0.8,
-        ax=ax, vmin=0, vmax=1
+        ax=ax, vmin=0, vmax=1, cmap='viridis'
     )
     
-    # Plot data points
-    scatter = ax.scatter(X[:, 0], X[:, 1], c=y, edgecolors="k", s=30, cmap="viridis")
+    # Overlay real data points with consistent style
+    # Class 0 -> Indigo Circle
+    ax.scatter(X[y==0, 0], X[y==0, 1], 
+               c='indigo', marker='o', s=40, alpha=0.8, 
+               edgecolors='w', linewidth=0.8, label='Class 0')
     
-    ax.set_title(f"{title}\nAccuracy: {acc:.2f}")
+    # Class 1 -> Gold Triangle
+    ax.scatter(X[y==1, 0], X[y==1, 1], 
+               c='gold', marker='^', s=40, alpha=0.9, 
+               edgecolors='k', linewidth=0.5, label='Class 1')
+    
+    ax.set_title(f"{title}\nAccuracy: {acc:.2f}", fontsize=12)
     ax.set_xlabel("Feature 1")
     
     # Add quadrant lines for reference
@@ -87,6 +95,9 @@ for ax, model, title in zip(axes, models, titles):
     ax.axhline(0, color='white', linestyle='--', alpha=0.3)
 
 axes[0].set_ylabel("Feature 2")
-fig.suptitle("Impact of Higher-Order Dependencies on Classification Boundaries")
+axes[0].legend(loc='lower left')
+
+fig.suptitle("Impact of Higher-Order Dependencies on Classification Boundaries (XOR Problem)", fontsize=16)
 plt.tight_layout()
+plt.subplots_adjust(top=0.85)
 plt.show()

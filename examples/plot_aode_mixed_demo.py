@@ -25,7 +25,7 @@ from sklearn.metrics import accuracy_score
 from skbayes.mixed_nb import MixedNB
 from skbayes.ande import AnDE
 
-# Suppress discretization warnings for this demo (caused by float conversion of categories)
+# Suppress discretization warnings for this demo
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # --- 1. Generate Mixed Dataset ---
@@ -37,7 +37,7 @@ X_cont = np.random.randn(n_samples, 1) * 1.5
 # Feature 1: Categorical (0, 1, 2)
 X_cat = np.random.randint(0, 3, size=(n_samples, 1))
 
-# Stack them (NumPy will cast everything to float, which is fine for the model)
+# Stack them
 X = np.hstack([X_cont, X_cat])
 
 # Logic:
@@ -95,9 +95,9 @@ for ax, model, title in zip(axes, models, titles):
         probs = model.predict_proba(batch_X)[:, 1]
         prob_map[cat_val, :] = probs
 
-    # Plot Heatmap
-    # Now dimensions match: x_edges (201), y_edges (4), prob_map (3, 200)
-    pcm = ax.pcolormesh(x_edges, y_edges, prob_map, cmap='RdBu', 
+    # Plot Heatmap - VIRIDIS
+    # cmap='viridis': Purple (0.0) -> Yellow (1.0)
+    pcm = ax.pcolormesh(x_edges, y_edges, prob_map, cmap='viridis', 
                         vmin=0, vmax=1, shading='flat', alpha=0.8)
     
     # Overlay real data points
@@ -108,8 +108,16 @@ for ax, model, title in zip(axes, models, titles):
     # Jitter Y for visibility
     y_jitter = X_sub[:, 1] + np.random.uniform(-0.2, 0.2, size=len(X_sub))
     
-    ax.scatter(X_sub[y_sub==0, 0], y_jitter[y_sub==0], c='darkred', s=15, alpha=0.5, label='Class 0')
-    ax.scatter(X_sub[y_sub==1, 0], y_jitter[y_sub==1], c='navy', s=15, alpha=0.5, label='Class 1')
+    # Class 0 -> Indigo Circle (Low prob)
+    ax.scatter(X_sub[y_sub==0, 0], y_jitter[y_sub==0], 
+               c='indigo', marker='o', s=30, alpha=0.6, 
+               edgecolors='w', linewidth=0.8, label='Class 0')
+    
+    # Class 1 -> Gold Triangle (High prob)
+    # Black edge for contrast against yellow background
+    ax.scatter(X_sub[y_sub==1, 0], y_jitter[y_sub==1], 
+               c='gold', marker='^', s=30, alpha=0.8, 
+               edgecolors='k', linewidth=0.5, label='Class 1')
 
     ax.set_title(f"{title}\nAccuracy: {acc:.3f}")
     ax.set_xlabel("Continuous Feature Value")

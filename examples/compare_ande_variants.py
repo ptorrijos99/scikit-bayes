@@ -1,24 +1,21 @@
 """
 ====================================================================
-Benchmark: Generative vs. Hybrid AnDE on Mixed Data
+Data Efficiency & Complexity: Generative vs. Hybrid Levels (L1-L4)
 ====================================================================
 
-This example compares the performance and computational cost of the four
-variants of the AnDE family implemented in scikit-bayes:
+This experiment compares the full hierarchy of parameter granularity in ALR.
 
-1.  **AnDE**: Generative, Arithmetic Mean (The classic AODE/A2DE).
-2.  **AnJE**: Generative, Geometric Mean (The base for ALR).
-3.  **ALR**: Hybrid, Geometric Mean (Convex Optimization).
-4.  **WeightedAnDE**: Hybrid, Arithmetic Mean (Non-Convex Optimization).
+**Models Compared:**
+1.  **AnDE (Generative):** Baseline. No weights.
+2.  **ALR Level 1 (Model):** 1 weight per SPODE. (Low Variance).
+3.  **ALR Level 2 (Value):** 1 weight per SPODE per Parent Value. (High Variance).
+4.  **ALR Level 3 (Class):** 1 weight per SPODE per Class. (Balanced).
+5.  **ALR Level 4 (Val+Cls):** 1 weight per SPODE per Parent Value per Class. (Max Variance).
 
-**Experimental Setup:**
--   **Data:** Synthetic dataset with 10 features (5 Continuous, 5 Categorical).
--   **Task:** Binary classification with noise (class overlap) to make
-    probability estimation challenging.
--   **Metrics:**
-    -   **Training Time:** Measures the cost of the optimization phase.
-    -   **Log Loss:** The primary metric for probability calibration (ALR optimizes this).
-    -   **Accuracy:** The standard classification metric.
+**Hypothesis:**
+-   **Small N:** L1/L3 should win. L2/L4 might overfit or be unstable.
+-   **Large N:** L2/L4 should eventually overtake if the true distribution is complex.
+-   **Time:** L2/L4 will be significantly slower due to larger optimization space.
 """
 
 # Author: The scikit-bayes Developers
@@ -27,114 +24,122 @@ variants of the AnDE family implemented in scikit-bayes:
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import ScalarFormatter
 from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, log_loss
-from sklearn.preprocessing import KBinsDiscretizer
+from sklearn.metrics import log_loss, accuracy_score
+from skbayes.ande import AnDE, ALR
 
-from skbayes.ande import AnDE, AnJE, ALR, WeightedAnDE
+# Setup
+seeds = [1, 2, 3, 42, 123]
+# Full range of sizes to see the crossover
+sizes = [100, 500, 1000, 5000, 10000, 20000]
 
-# --- 1. Generate Complex Mixed Dataset ---
-print("Generating dataset...")
-n_samples = 20000
-n_features = 10
-# Generate standard continuous data
-X, y = make_classification(
-    n_samples=n_samples, 
-    n_features=n_features,
-    n_informative=6, 
-    n_redundant=2, 
-    n_classes=2,
-    flip_y=0.1, # Add noise (10% labels flipped)
-    random_state=42
-)
-
-# Make it MIXED: Force the first 5 features to be Categorical (Integers 0..4)
-est = KBinsDiscretizer(n_bins=5, encode='ordinal', strategy='uniform')
-X[:, :5] = est.fit_transform(X[:, :5]).astype(int)
-
-# Split Train/Test
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-
-# --- 2. Define Models to Benchmark ---
-common_params = {'n_dependence': 1, 'n_bins': 5}
-hybrid_params = {'max_iter': 100, 'l2_reg': 1e-3}
-
-models = [
-    ("AnDE (Gen Aritm)", AnDE(**common_params)),
-    ("AnJE (Gen Geom)", AnJE(**common_params)),
-    ("WeightedAnDE (Hyb Aritm)", WeightedAnDE(**common_params, **hybrid_params)),
-    ("ALR (Hyb Geom)", ALR(**common_params, **hybrid_params)),
+models_config = [
+    ("AnDE (Gen)", lambda: AnDE(n_dependence=1, n_jobs=-1)),
+    ("ALR L1 (Model)", lambda: ALR(n_dependence=1, weight_level=1, l2_reg=1e-3, n_jobs=-1)),
+    ("ALR L2 (Value)", lambda: ALR(n_dependence=1, weight_level=2, l2_reg=1e-3, n_jobs=-1)),
+    ("ALR L3 (Class)", lambda: ALR(n_dependence=1, weight_level=3, l2_reg=1e-3, n_jobs=-1)),
+    ("ALR L4 (Val+Cls)", lambda: ALR(n_dependence=1, weight_level=4, l2_reg=1e-3, n_jobs=-1)),
 ]
 
-# --- 3. Run Benchmark ---
-results = []
+# Results storage: [seed, size, model]
+n_models = len(models_config)
+res_ll = np.zeros((len(seeds), len(sizes), n_models))
+res_acc = np.zeros((len(seeds), len(sizes), n_models))
+res_time = np.zeros((len(seeds), len(sizes), n_models))
 
-for name, clf in models:
-    print(f"Training {name}...")
+print("Running benchmark with all 4 granularity levels...")
+
+for i, seed in enumerate(seeds):
+    # Using a slightly larger dataset to ensure we have enough for the biggest train split
+    X, y = make_classification(n_samples=30000, n_features=10, n_informative=8, random_state=seed)
     
-    # 1. Training Time
-    start_time = time.time()
-    clf.fit(X_train, y_train)
-    train_time = time.time() - start_time
+    for j, n_train in enumerate(sizes):
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, train_size=n_train, test_size=5000, random_state=seed
+        )
+        
+        for k, (name, factory) in enumerate(models_config):
+            clf = factory()
+            
+            start = time.time()
+            clf.fit(X_train, y_train)
+            res_time[i, j, k] = time.time() - start
+            
+            # Use predict_proba for both metrics to save one inference pass if wanted, 
+            # but predict() is safer for accuracy consistency.
+            y_prob = clf.predict_proba(X_test)
+            y_pred = clf.predict(X_test)
+            
+            res_ll[i, j, k] = log_loss(y_test, y_prob)
+            res_acc[i, j, k] = accuracy_score(y_test, y_pred)
+            
+        print(f"Seed {seed}, N={n_train} done.")
+
+# Average
+mean_ll = res_ll.mean(axis=0)
+mean_acc = res_acc.mean(axis=0)
+mean_time = res_time.mean(axis=0)
+
+# --- Visualization ---
+fig, axes = plt.subplots(1, 3, figsize=(22, 6), layout='constrained')
+
+# Define Colors: 
+# AnDE gets a unique cool color. 
+# ALR levels get a warm sequential gradient (Light Orange -> Dark Red/Brown)
+cmap = plt.cm.Oranges
+# Generate 4 colors from the colormap, starting from 0.4 to avoid too light colors
+alr_colors = [cmap(x) for x in np.linspace(0.4, 1.0, 4)]
+colors = ['royalblue'] + alr_colors
+
+# Markers: Distinct shapes
+markers = ['o', 's', 'D', '^', 'v']
+
+for k, (name, _) in enumerate(models_config):
+    # Plot 1: Log Loss
+    axes[0].plot(sizes, mean_ll[:, k], marker=markers[k], label=name, color=colors[k], lw=2, markersize=6)
+    # Plot 2: Accuracy
+    axes[1].plot(sizes, mean_acc[:, k], marker=markers[k], label=name, color=colors[k], lw=2, markersize=6)
+    # Plot 3: Training Time
+    axes[2].plot(sizes, mean_time[:, k], marker=markers[k], label=name, color=colors[k], lw=2, markersize=6)
+
+# --- Formatting ---
+
+# Panel 1: Log Loss
+axes[0].set_ylabel("Test Log Loss (Lower is Better)", fontsize=12)
+axes[0].set_title("Probability Calibration (Log Loss)", fontsize=14, pad=10)
+
+# Panel 2: Accuracy
+axes[1].set_ylabel("Test Accuracy (Higher is Better)", fontsize=12)
+axes[1].set_title("Classification Accuracy", fontsize=14, pad=10)
+
+# Panel 3: Time
+axes[2].set_ylabel("Training Time (s)", fontsize=12)
+axes[2].set_title("Computational Cost", fontsize=14, pad=10)
+axes[2].set_yscale('log')
+
+# Common formatting for all subplots
+for ax in axes:
+    ax.set_xlabel("Training Set Size (log scale)", fontsize=12)
+    ax.set_xscale('log')
+    ax.grid(True, which="major", ls="-", alpha=0.3)
+    ax.legend(fontsize=10, loc='best')
     
-    # 2. Inference
-    y_pred_test = clf.predict(X_test)
-    y_prob_test = clf.predict_proba(X_test)
+    # --- FIX: Readable X-Axis Labels ---
+    # 1. Force matplotlib to use exactly our dataset sizes as ticks
+    ax.set_xticks(sizes)
     
-    # 3. Metrics
-    acc = accuracy_score(y_test, y_pred_test)
-    ll = log_loss(y_test, y_prob_test)
+    # 2. Format as plain integers (e.g., 100, 500) instead of scientific (1e2)
+    ax.get_xaxis().set_major_formatter(ScalarFormatter())
     
-    # Store
-    results.append({
-        "Model": name,
-        "Time (s)": train_time,
-        "Accuracy": acc,
-        "Log Loss": ll
-    })
+    # 3. Rotate labels to prevent horizontal overlapping
+    ax.set_xticklabels(sizes, rotation=45, ha='right')
+    
+    # 4. Remove minor ticks to clean up the log-scale look
+    ax.minorticks_off()
 
-# --- 4. Display Results (Console) ---
-print("\nBenchmark Results:")
-print(f"{'Model':<30} | {'Time (s)':<10} | {'Accuracy':<10} | {'Log Loss':<10}")
-print("-" * 70)
-for r in results:
-    print(f"{r['Model']:<30} | {r['Time (s)']:<10.4f} | {r['Accuracy']:<10.4f} | {r['Log Loss']:<10.4f}")
+# Global Title
+fig.suptitle(f"Granularity Trade-off: Full Hierarchy (L1-L4) vs Generative (n=1)", fontsize=18)
 
-# --- 5. Visualization (Improved) ---
-model_names = [r['Model'] for r in results]
-times = [r['Time (s)'] for r in results]
-accs = [r['Accuracy'] for r in results]
-lls = [r['Log Loss'] for r in results]
-
-fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-
-# Plot Time
-bars_time = axes[0].bar(model_names, times, color=['skyblue', 'skyblue', 'orange', 'orange'])
-axes[0].set_title("Training Time (Lower is Better)")
-axes[0].set_ylabel("Seconds")
-axes[0].bar_label(bars_time, fmt='%.3f')
-axes[0].tick_params(axis='x', rotation=20)
-
-# Plot Accuracy (Dynamic Zoom)
-bars_acc = axes[1].bar(model_names, accs, color='lightgreen')
-axes[1].set_title("Test Accuracy (Higher is Better)")
-# Dynamic limits: Focus on the variation
-min_acc = min(accs)
-max_acc = max(accs)
-margin = (max_acc - min_acc) * 2 if max_acc != min_acc else 0.01
-axes[1].set_ylim(max(0, min_acc - margin), min(1, max_acc + margin))
-axes[1].bar_label(bars_acc, fmt='%.4f')
-axes[1].tick_params(axis='x', rotation=20)
-
-# Plot Log Loss
-bars_ll = axes[2].bar(model_names, lls, color='salmon')
-axes[2].set_title("Test Log Loss (Lower is Better)")
-axes[2].set_ylabel("NLL")
-axes[2].bar_label(bars_ll, fmt='%.3f')
-axes[2].tick_params(axis='x', rotation=20)
-
-plt.suptitle(f"AnDE Family Benchmark (n=1) on Mixed Data ({n_samples} samples)", fontsize=16)
-plt.tight_layout()
-plt.subplots_adjust(top=0.85, bottom=0.2) # Adjust bottom for rotated labels
 plt.show()

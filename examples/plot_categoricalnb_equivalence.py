@@ -19,16 +19,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy.testing import assert_allclose
 
-from sklearn.inspection import DecisionBoundaryDisplay
 from sklearn.naive_bayes import CategoricalNB
-
 from skbayes.mixed_nb import MixedNB
 
 # 1. Generate a 2D Categorical dataset (3 categories for f0, 4 for f1)
 np.random.seed(42)
-X = np.zeros((100, 2), dtype=int)
-X[:, 0] = np.random.randint(0, 3, size=100)
-X[:, 1] = np.random.randint(0, 4, size=100)
+n_samples = 150
+X = np.zeros((n_samples, 2), dtype=int)
+X[:, 0] = np.random.randint(0, 3, size=n_samples)
+X[:, 1] = np.random.randint(0, 4, size=n_samples)
+# Logic: Interaction between categories
 y = (X[:, 0] + X[:, 1] >= 3).astype(int)
 
 # 2. Fit both classifiers
@@ -51,30 +51,59 @@ except AssertionError as e:
 print(f"CategoricalNB vs MixedNB Equivalence Check: {equivalence_message}")
 
 # 4. Plot decision boundaries
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
+fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
 
-# Plotting categorical data requires a meshgrid
-xx, yy = np.meshgrid(
-    np.arange(-0.5, 3, 1),
-    np.arange(-0.5, 4, 1)
-)
-grid = np.c_[xx.ravel(), yy.ravel()]
+models = [cnb, mnb]
+titles = ["1. scikit-learn CategoricalNB", "2. skbayes MixedNB (auto-detected)"]
 
-# Plot for CategoricalNB
-Z_cnb = cnb.predict_proba(grid)[:, 1].reshape(xx.shape)
-ax1.pcolormesh(xx, yy, Z_cnb, alpha=0.8, shading="auto")
-ax1.scatter(X[:, 0], X[:, 1], c=y, edgecolors="k")
-ax1.set_title("1. scikit-learn CategoricalNB")
-ax1.set_xticks([0, 1, 2])
-ax1.set_yticks([0, 1, 2, 3])
+# Define grid for visualization (Centers for prediction, Edges for plotting)
+# Feature 0: Categories 0, 1, 2
+x_centers = np.arange(3)
+x_edges = np.arange(4) - 0.5
 
-# Plot for MixedNB
-Z_mnb = mnb.predict_proba(grid)[:, 1].reshape(xx.shape)
-ax2.pcolormesh(xx, yy, Z_mnb, alpha=0.8, shading="auto")
-ax2.scatter(X[:, 0], X[:, 1], c=y, edgecolors="k")
-ax2.set_title("2. skbayes MixedNB (auto-detected)")
-ax2.set_xticks([0, 1, 2])
-ax2.set_yticks([0, 1, 2, 3])
+# Feature 1: Categories 0, 1, 2, 3
+y_centers = np.arange(4)
+y_edges = np.arange(5) - 0.5
 
-fig.suptitle("Equivalence of MixedNB and CategoricalNB on discrete data")
+# Create prediction grid (Integer combinations)
+xx, yy = np.meshgrid(x_centers, y_centers)
+grid_pred = np.c_[xx.ravel(), yy.ravel()]
+
+for ax, model, title in zip(axes, models, titles):
+    # Predict probabilities on integer grid
+    probs = model.predict_proba(grid_pred)[:, 1]
+    Z = probs.reshape(xx.shape)
+
+    # Plot Heatmap - VIRIDIS
+    # Using pcolormesh with edges defines the "blocks" perfectly
+    ax.pcolormesh(x_edges, y_edges, Z, cmap='viridis', vmin=0, vmax=1, 
+                  shading='flat', alpha=0.8, edgecolors='none')
+
+    # Overlay real data points with consistent style
+    # Jitter points slightly to show density
+    x_jit = X[:, 0] + np.random.uniform(-0.2, 0.2, size=n_samples)
+    y_jit = X[:, 1] + np.random.uniform(-0.2, 0.2, size=n_samples)
+
+    # Class 0 -> Indigo Circle
+    ax.scatter(x_jit[y==0], y_jit[y==0], 
+               c='indigo', marker='o', s=40, alpha=0.8, 
+               edgecolors='w', linewidth=0.8, label='Class 0')
+    
+    # Class 1 -> Gold Triangle
+    ax.scatter(x_jit[y==1], y_jit[y==1], 
+               c='gold', marker='^', s=40, alpha=0.9, 
+               edgecolors='k', linewidth=0.5, label='Class 1')
+
+    ax.set_title(title, fontsize=12)
+    ax.set_xlabel("Feature 0 (Categorical)")
+    ax.set_xticks(x_centers)
+    ax.set_yticks(y_centers)
+    ax.grid(True, alpha=0.2, linestyle='--')
+
+axes[0].set_ylabel("Feature 1 (Categorical)")
+axes[0].legend(loc='lower right')
+
+fig.suptitle("Equivalence of MixedNB and CategoricalNB on Discrete Data", fontsize=16)
+plt.tight_layout()
+plt.subplots_adjust(top=0.85)
 plt.show()
