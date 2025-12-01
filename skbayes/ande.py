@@ -395,7 +395,7 @@ class _HybridOptimizer(_BaseAnDE):
     def _setup_weights(self, X_parents_disc):
         """
         Prepares weight offsets based on granularity level.
-        Calculates mapping from (Model, Sample) -> Weight Index.
+        Handles n-dependence > 1 by linearizing parent value combinations.
         """
         n_models = len(self.ensemble_)
         n_classes = len(self.classes_)
@@ -403,31 +403,52 @@ class _HybridOptimizer(_BaseAnDE):
         self._weight_offsets = [0]
         current_offset = 0
         
-        # 1. Determine Size of Weight Vector
+        # Store strides/cardinalities to re-use during test time if needed
+        self._model_strides = [] 
+
+        # 1. Determine Size of Weight Vector per Model
         for m_idx in range(n_models):
-            if self.weight_level == 1: # Level 1: Per Model
+            p_indices = self.ensemble_[m_idx]['parent_indices']
+            
+            # Cardinality for each parent feature (based on training data)
+            # We use max()+1 to determine the range size 0..K
+            # Shape: (n_parents,) e.g. [5, 5] for n=2 with 5 bins
+            if len(p_indices) > 0:
+                cards = np.max(X_parents_disc[:, p_indices], axis=0) + 1
+            else:
+                cards = np.array([1]) # Case n=0
+
+            # Calculate total combinations (Cartesian product size)
+            # n=1: size = cards[0]
+            # n=2: size = cards[0] * cards[1]
+            n_combinations = np.prod(cards)
+            
+            # Save cardinalities/strides for linear indexing
+            # Standard C-order flattening: idx = v1*stride1 + v2*stride2 ... + vn*1
+            # Strides are cumprod of sizes in reverse
+            if len(p_indices) > 0:
+                strides = np.cumprod(np.concatenate(([1], cards[::-1][:-1])))[::-1]
+            else:
+                strides = np.array([0])
+            
+            self._model_strides.append((p_indices, cards, strides))
+
+            # Calculate final block size based on Level
+            if self.weight_level == 1: # Model
                 size = 1
-            elif self.weight_level == 2: # Level 2: Per Model + Parent Value
-                p_indices = self.ensemble_[m_idx]['parent_indices']
-                if len(p_indices) == 1:
-                    size = np.max(X_parents_disc[:, p_indices[0]]) + 1
-                else:
-                    size = 1 # Fallback for higher order
-            elif self.weight_level == 3: # Level 3: Per Model + Class
+            elif self.weight_level == 2: # Value
+                size = n_combinations
+            elif self.weight_level == 3: # Class
                 size = n_classes
-            elif self.weight_level == 4: # Level 4: Per Model + Value + Class
-                p_indices = self.ensemble_[m_idx]['parent_indices']
-                if len(p_indices) == 1:
-                    size = (np.max(X_parents_disc[:, p_indices[0]]) + 1) * n_classes
-                else:
-                    size = n_classes
+            elif self.weight_level == 4: # Value + Class
+                size = n_combinations * n_classes
             
             current_offset += size
             self._weight_offsets.append(current_offset)
             
         self.n_weights_ = current_offset
         
-        # 2. Pre-compute Weight Indices for Samples
+        # 2. Pre-compute Weight Indices for Samples (Linearized)
         n_samples = X_parents_disc.shape[0]
         self._w_indices = np.zeros((n_samples, n_models), dtype=int)
         
@@ -437,19 +458,27 @@ class _HybridOptimizer(_BaseAnDE):
             if self.weight_level in [1, 3]:
                 self._w_indices[:, m_idx] = base_off
             elif self.weight_level in [2, 4]:
-                p_indices = self.ensemble_[m_idx]['parent_indices']
-                if len(p_indices) == 1:
-                    vals = X_parents_disc[:, p_indices[0]]
-                    # Safety clip for test data
-                    max_val_supported = self._weight_offsets[m_idx+1] - self._weight_offsets[m_idx]
-                    if self.weight_level == 4: max_val_supported //= n_classes
+                p_indices, cards, strides = self._model_strides[m_idx]
+                
+                if len(p_indices) > 0:
+                    # Get values for all parents: (N, n_parents)
+                    vals = X_parents_disc[:, p_indices]
                     
-                    vals = np.clip(vals, 0, max_val_supported - 1)
+                    # Safety clip (critical for Test data robustness)
+                    # Clip each column j to [0, cards[j]-1]
+                    # This maps unseen outliers to the last valid bin instead of crashing
+                    vals = np.minimum(vals, cards - 1)
+                    vals = np.maximum(vals, 0)
+                    
+                    # Linearize indices: dot product with strides
+                    # Row i: v_i1*s1 + v_i2*s2 ...
+                    linear_vals = vals @ strides
                     
                     if self.weight_level == 2:
-                        self._w_indices[:, m_idx] = base_off + vals
-                    else: # Level 4
-                        self._w_indices[:, m_idx] = base_off + (vals * n_classes)
+                        self._w_indices[:, m_idx] = base_off + linear_vals
+                    else: # Level 4 (Value * n_classes + Class_Offset)
+                        # _w_indices points to the start of the class block for this value
+                        self._w_indices[:, m_idx] = base_off + (linear_vals * n_classes)
                 else:
                     self._w_indices[:, m_idx] = base_off
 
@@ -505,7 +534,8 @@ class _HybridOptimizer(_BaseAnDE):
             true_class_log_probs = log_proba[y_ohe.astype(bool)]
             nll = -np.sum(true_class_log_probs)
             
-            reg = self.l2_reg * np.sum(w_flat**2)
+            # L2 Regularization around 1.0 as per Zaidi et al.
+            reg = self.l2_reg * np.sum((w_flat - 1.0)**2)
             return nll + reg
 
         initial_weights = np.ones(self.n_weights_)
