@@ -41,7 +41,7 @@ Issues = "https://github.com/ptorrijos99/scikit-bayes/issues"
 version_file = "skbayes/_version.py"
 
 # --- PIXI CONFIGURATION ---
-[tool.pixi.workspace]
+[tool.pixi.project]
 channels = ["conda-forge"]
 platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
 

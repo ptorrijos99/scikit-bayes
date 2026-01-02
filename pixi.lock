@@ -7345,8 +7345,8 @@ packages:
   timestamp: 1714090270741
 - pypi: ./
   name: scikit-bayes
-  version: 0.0.3.dev10+g6e3008b44.d20251130
-  sha256: 755dc0c46de6519bde7a4e7e15018065b21d0e9df4ccb15cf36a1afedb137dc5
+  version: 0.0.3.dev20+g38c46655f.d20260102
+  sha256: 7c99a8d674fdd57b41e3568d495e3b4841816ac4e3e929da9edbf2c826ba8d6d
   requires_dist:
   - scikit-learn>=1.4.2
   requires_python: '>=3.9'
