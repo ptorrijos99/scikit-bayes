@@ -24,8 +24,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import accuracy_score
 
-from skbayes.ande import AnDE
-from skbayes.mixed_nb import MixedNB
+from skbn.ande import AnDE
+from skbn.mixed_nb import MixedNB
 
 # Suppress discretization warnings for this demo
 warnings.filterwarnings("ignore", category=UserWarning)

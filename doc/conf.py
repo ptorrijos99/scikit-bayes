@@ -106,10 +106,10 @@ intersphinx_mapping = {
 plot_gallery = True
 
 sphinx_gallery_conf = {
-    "doc_module": "skbayes",
+    "doc_module": "skbn",
     "backreferences_dir": os.path.join("generated"),
     "examples_dirs": "../examples",
     "gallery_dirs": "auto_examples",
-    "reference_url": {"skbayes": None},
+    "reference_url": {"skbn": None},
     "run_stale_examples": False,
 }

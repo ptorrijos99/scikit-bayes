@@ -1,7 +1,7 @@
 [run]
 branch = true
-source = "skbayes"
-include = "*/skbayes/*"
+source = "skbn"
+include = "*/skbn/*"
 
 [build-system]
 requires = ["setuptools>=64", "setuptools_scm[toml]>=8"]
@@ -38,7 +38,7 @@ Homepage = "https://github.com/ptorrijos99/scikit-bayes"
 Issues = "https://github.com/ptorrijos99/scikit-bayes/issues"
 
 [tool.setuptools_scm]
-version_file = "skbayes/_version.py"
+version_file = "skbn/_version.py"
 
 # --- PIXI CONFIGURATION ---
 [tool.pixi.workspace]
@@ -59,16 +59,17 @@ pre-commit = "==3.7.1"
 ruff = "==0.4.2"
 
 [tool.pixi.feature.lint.tasks]
-black = { cmd = "black --check --diff skbayes && black --check --diff examples" }
-ruff = { cmd = "ruff check --output-format=full skbayes && ruff check --output-format=full examples" }
+black = { cmd = "black --check --diff skbn && black --check --diff examples" }
+ruff = { cmd = "ruff check --output-format=full skbn && ruff check --output-format=full examples" }
 lint = { depends-on = ["black", "ruff"]}
 
 [tool.pixi.feature.test.dependencies]
 pytest = "*"
 pytest-cov = "*"
+setuptools-scm = ">=8"
 
 [tool.pixi.feature.test.tasks]
-test = { cmd = "pytest -vsl --cov=skbayes --cov-report=xml skbayes" }
+test = { cmd = "pytest -vsl --cov=skbn --cov-report=xml skbn" }
 
 [tool.pixi.feature.doc.dependencies]
 matplotlib = "*"
@@ -104,7 +105,7 @@ exclude = '''
   | \.vscode
 )/
 '''
-force-exclude = "skbayes/_version.py"
+force-exclude = "skbn/_version.py"
 
 [tool.ruff]
 # max line length for black
@@ -117,7 +118,7 @@ exclude=[
     "doc/_build",
     "doc/auto_examples",
     "build",
-    "skbayes/_version.py",
+    "skbn/_version.py",
 ]
 
 [tool.ruff.lint]
@@ -144,5 +145,5 @@ ignore=[
 [tool.pytest.ini_options]
 addopts = "--doctest-modules --color=yes"
 doctest_optionflags = "NORMALIZE_WHITESPACE"
-testpaths = ["skbayes"]
+testpaths = ["skbn"]
 norecursedirs = ["doc", "examples", "build", "dist"]

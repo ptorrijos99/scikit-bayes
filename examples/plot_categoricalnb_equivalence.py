@@ -3,7 +3,7 @@
 MixedNB Equivalence with CategoricalNB
 =====================================================
 
-This example demonstrates that :class:`skbayes.mixed_nb.MixedNB`
+This example demonstrates that :class:`skbn.mixed_nb.MixedNB`
 produces identical results to :class:`sklearn.naive_bayes.CategoricalNB`
 when all features are discrete (categorical).
 
@@ -20,7 +20,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 from sklearn.naive_bayes import CategoricalNB
 
-from skbayes.mixed_nb import MixedNB
+from skbn.mixed_nb import MixedNB
 
 # 1. Generate a 2D Categorical dataset (3 categories for f0, 4 for f1)
 np.random.seed(42)
@@ -54,7 +54,7 @@ print(f"CategoricalNB vs MixedNB Equivalence Check: {equivalence_message}")
 fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
 
 models = [cnb, mnb]
-titles = ["1. scikit-learn CategoricalNB", "2. skbayes MixedNB (auto-detected)"]
+titles = ["1. scikit-learn CategoricalNB", "2. skbn MixedNB (auto-detected)"]
 
 # Define grid for visualization (Centers for prediction, Edges for plotting)
 # Feature 0: Categories 0, 1, 2

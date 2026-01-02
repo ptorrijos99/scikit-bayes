@@ -1,4 +1,4 @@
-"""Tests for skbayes.mixed_nb module."""
+"""Tests for skbn.mixed_nb module."""
 
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
@@ -7,7 +7,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 from sklearn.utils.estimator_checks import check_estimator
 
-from skbayes.mixed_nb import MixedNB
+from skbn.mixed_nb import MixedNB
 
 
 # The check_estimator() function is a rigorous test suite that ensures

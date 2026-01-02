@@ -30,7 +30,7 @@ from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.model_selection import train_test_split
 
-from skbayes.ande import ALR, AnDE
+from skbn.ande import ALR, AnDE
 
 # Setup
 seeds = [1, 2, 3, 42, 123]

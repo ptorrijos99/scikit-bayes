@@ -18,7 +18,7 @@ import numpy as np
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.model_selection import train_test_split
 
-from skbayes.ande import ALR, AnDE
+from skbn.ande import ALR, AnDE
 
 # --- 1. Generate Dataset with Heavy Noise ---
 np.random.seed(42)

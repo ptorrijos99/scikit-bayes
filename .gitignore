@@ -74,6 +74,6 @@ target/
 .LSOverride
 
 # auto-generated files
-skbayes/_version.py
+skbn/_version.py
 
 instructions.py

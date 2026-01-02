@@ -88,7 +88,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
     Examples
     --------
     >>> import numpy as np
-    >>> from skbayes.mixed_nb import MixedNB
+    >>> from skbn.mixed_nb import MixedNB
     >>> # Data: [Gaussian, Bernoulli, Categorical (3 cats)]
     >>> X = np.array([
     ...     [0.5, 0, 0],

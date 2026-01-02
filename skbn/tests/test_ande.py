@@ -1,4 +1,4 @@
-"""Tests for skbayes.ande module."""
+"""Tests for skbn.ande module."""
 
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
@@ -6,8 +6,8 @@
 import numpy as np
 from numpy.testing import assert_allclose
 
-from skbayes.ande import AnDE
-from skbayes.mixed_nb import MixedNB
+from skbn.ande import AnDE
+from skbn.mixed_nb import MixedNB
 
 # --- Synthetic Datasets ---
 

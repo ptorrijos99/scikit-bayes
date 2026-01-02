@@ -26,8 +26,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import accuracy_score
 
-from skbayes.ande import AnDE
-from skbayes.mixed_nb import MixedNB
+from skbn.ande import AnDE
+from skbn.mixed_nb import MixedNB
 
 # --- 1. Generate 3D XOR Dataset ---
 np.random.seed(42)

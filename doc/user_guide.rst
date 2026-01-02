@@ -53,7 +53,7 @@ scikit-bayes fills these gaps with **fully scikit-learn compatible** estimators.
 MixedNB: Mixed Data Naive Bayes
 ===============================
 
-:class:`skbayes.MixedNB` handles datasets with heterogeneous feature types
+:class:`skbn.MixedNB` handles datasets with heterogeneous feature types
 by internally combining scikit-learn's specialized Naive Bayes estimators.
 
 The Problem
@@ -86,7 +86,7 @@ You can also specify types manually:
 
 .. code-block:: python
 
-    from skbayes import MixedNB
+    from skbn import MixedNB
     
     # Force features 2 and 3 to be categorical
     clf = MixedNB(categorical_features=[2, 3])
@@ -100,7 +100,7 @@ Usage Example
 .. code-block:: python
 
     import numpy as np
-    from skbayes import MixedNB
+    from skbn import MixedNB
 
     # Features: [Gaussian, Bernoulli, Categorical]
     X = np.array([
@@ -187,7 +187,7 @@ AnDE averages over all possible parent combinations.
 AnDE (Arithmetic Mean)
 ----------------------
 
-:class:`skbayes.AnDE` is the standard generative model described by Webb et al. [1]_.
+:class:`skbn.AnDE` is the standard generative model described by Webb et al. [1]_.
 
 .. math::
 
@@ -208,7 +208,7 @@ AnDE (Arithmetic Mean)
 
 .. code-block:: python
 
-    from skbayes import AnDE
+    from skbn import AnDE
 
     # AODE (n=1)
     clf = AnDE(n_dependence=1, n_bins=5)
@@ -220,7 +220,7 @@ AnDE (Arithmetic Mean)
 AnJE (Geometric Mean)
 ---------------------
 
-:class:`skbayes.AnJE` aggregates using the geometric mean (product of probabilities):
+:class:`skbn.AnJE` aggregates using the geometric mean (product of probabilities):
 
 .. math::
 
@@ -234,7 +234,7 @@ the convex ALR optimization.
 ALR: Accelerated Logistic Regression
 ------------------------------------
 
-:class:`skbayes.ALR` is a **hybrid generative-discriminative** classifier [2]_.
+:class:`skbn.ALR` is a **hybrid generative-discriminative** classifier [2]_.
 
 It starts with the AnJE generative model and learns discriminative weights
 to optimize classification performance:
@@ -278,7 +278,7 @@ Where M = number of models, V = parent value combinations, C = classes.
 
 .. code-block:: python
 
-    from skbayes import ALR
+    from skbn import ALR
 
     # Level 1: Simple, low variance
     clf = ALR(n_dependence=1, weight_level=1, l2_reg=1e-3)
@@ -291,12 +291,12 @@ Where M = number of models, V = parent value combinations, C = classes.
 WeightedAnDE
 ------------
 
-:class:`skbayes.WeightedAnDE` applies discriminative weighting to the standard
+:class:`skbn.WeightedAnDE` applies discriminative weighting to the standard
 AnDE (arithmetic mean) model. Unlike ALR, the optimization is **non-convex**.
 
 .. code-block:: python
 
-    from skbayes import WeightedAnDE
+    from skbn import WeightedAnDE
     
     clf = WeightedAnDE(n_dependence=1, weight_level=1)
     clf.fit(X, y)

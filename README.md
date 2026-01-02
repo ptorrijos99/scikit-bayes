@@ -22,7 +22,7 @@ The primary goal of this package is to provide robust, `scikit-learn`-compatible
 
 ```python
 import numpy as np
-from skbayes import MixedNB, AnDE
+from skbn import MixedNB, AnDE
 
 # MixedNB: Handle mixed data types automatically
 X = np.array([[1.5, 0, 2], [-0.5, 1, 0], [2.1, 1, 1], [-1.2, 0, 2]])

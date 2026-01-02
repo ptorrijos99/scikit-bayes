@@ -3,7 +3,7 @@
 MixedNB Equivalence with BernoulliNB
 =====================================================
 
-This example demonstrates that :class:`skbayes.mixed_nb.MixedNB`
+This example demonstrates that :class:`skbn.mixed_nb.MixedNB`
 produces identical results to :class:`sklearn.naive_bayes.BernoulliNB`
 when all features are binary (Bernoulli).
 
@@ -20,7 +20,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 from sklearn.naive_bayes import BernoulliNB
 
-from skbayes.mixed_nb import MixedNB
+from skbn.mixed_nb import MixedNB
 
 # 1. Generate a 2D Bernoulli dataset (0s and 1s)
 np.random.seed(42)
@@ -52,7 +52,7 @@ print(f"BernoulliNB vs MixedNB Equivalence Check: {equivalence_message}")
 fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
 
 models = [bnb, mnb]
-titles = ["1. scikit-learn BernoulliNB", "2. skbayes MixedNB (auto-detected)"]
+titles = ["1. scikit-learn BernoulliNB", "2. skbn MixedNB (auto-detected)"]
 
 # Define grid (Centers for prediction, Edges for plotting)
 # Binary features: 0, 1
