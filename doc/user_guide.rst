@@ -345,6 +345,10 @@ References
 .. [1] Webb, G. I., Boughton, J., & Wang, Z. (2005). Not so naive Bayes: 
        Aggregating one-dependence estimators. Machine Learning, 58(1), 5-24.
 
-.. [2] Zaidi, N. A., Webb, G. I., Carman, M. J., & Petitjean, F. (2017). 
+.. [2] Flores, M. J., Gámez, J. A., Martínez, A. M., & Puerta, J. M. (2009).
+       GAODE and HAODE: Two proposals based on AODE to deal with continuous 
+       variables. ICML '09, 313-320.
+
+.. [3] Zaidi, N. A., Webb, G. I., Carman, M. J., & Petitjean, F. (2017). 
        Efficient parameter learning of Bayesian network classifiers. 
        Machine Learning, 106(9-10), 1289-1329.

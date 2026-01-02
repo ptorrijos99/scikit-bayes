@@ -111,4 +111,5 @@ sphinx_gallery_conf = {
     "examples_dirs": "../examples",
     "gallery_dirs": "auto_examples",
     "reference_url": {"skbayes": None},
+    "run_stale_examples": False,
 }
