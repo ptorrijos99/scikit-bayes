@@ -26,7 +26,7 @@ This example compares three strategies for handling a dataset
 with mixed continuous (Gaussian) and discrete (Categorical) features.
 
 **The Scenario (Generative Data):**
-    
+
 We generate data from two natural clusters (Classes 0 and 1):
 
 *   **Continuous Feature:** Two overlapping Gaussian distributions.
