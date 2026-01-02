@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**16:43.293** total execution time for 10 files **from auto_examples**:
+**16:32.494** total execution time for 10 files **from auto_examples**:
 
 .. container::
 
@@ -33,32 +33,32 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_auto_examples_plot_compare_ande_variants.py` (``plot_compare_ande_variants.py``)
-     - 16:37.986
+     - 16:27.357
      - 0.0
    * - :ref:`sphx_glr_auto_examples_plot_compare_ande_interpretability.py` (``plot_compare_ande_interpretability.py``)
-     - 00:02.595
+     - 00:02.813
      - 0.0
    * - :ref:`sphx_glr_auto_examples_plot_a2de_xor_slice.py` (``plot_a2de_xor_slice.py``)
-     - 00:00.678
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_plot_a2de_xor_3d.py` (``plot_a2de_xor_3d.py``)
-     - 00:00.442
+     - 00:00.546
      - 0.0
    * - :ref:`sphx_glr_auto_examples_plot_gaussiannb_equivalence.py` (``plot_gaussiannb_equivalence.py``)
-     - 00:00.344
+     - 00:00.347
      - 0.0
    * - :ref:`sphx_glr_auto_examples_plot_mixednb_vs_pipeline.py` (``plot_mixednb_vs_pipeline.py``)
-     - 00:00.308
+     - 00:00.310
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_plot_a2de_xor_3d.py` (``plot_a2de_xor_3d.py``)
+     - 00:00.305
      - 0.0
    * - :ref:`sphx_glr_auto_examples_plot_aode_xor.py` (``plot_aode_xor.py``)
-     - 00:00.282
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_plot_categoricalnb_equivalence.py` (``plot_categoricalnb_equivalence.py``)
-     - 00:00.234
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_plot_bernoullinb_equivalence.py` (``plot_bernoullinb_equivalence.py``)
-     - 00:00.228
+     - 00:00.288
      - 0.0
    * - :ref:`sphx_glr_auto_examples_plot_aode_mixed_demo.py` (``plot_aode_mixed_demo.py``)
      - 00:00.196
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_plot_categoricalnb_equivalence.py` (``plot_categoricalnb_equivalence.py``)
+     - 00:00.174
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_plot_bernoullinb_equivalence.py` (``plot_bernoullinb_equivalence.py``)
+     - 00:00.158
      - 0.0
