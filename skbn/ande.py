@@ -33,7 +33,12 @@ from scipy.special import logsumexp
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.preprocessing import KBinsDiscretizer, LabelBinarizer, LabelEncoder
 from sklearn.utils.multiclass import unique_labels
-from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
+from sklearn.utils.validation import (
+    check_array,
+    check_is_fitted,
+    check_X_y,
+    validate_data,
+)
 
 from .mixed_nb import MixedNB
 
@@ -173,9 +178,9 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         self : object
             Returns the instance itself.
         """
-        X, y = check_X_y(X, y)
+        X, y = validate_data(self, X, y)
         self.classes_ = unique_labels(y)
-        self.n_features_in_ = X.shape[1]
+        # n_features_in_ is set by validate_data
 
         # --- 1. Discretize Parents ---
         self._discretizers_list = {}
@@ -237,8 +242,8 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         X_parents_disc : ndarray
             The discretized version of X used for parent lookup (useful for Hybrid weights).
         """
-        check_is_fitted(self)
-        X = check_array(X)
+        check_is_fitted(self, attributes=["classes_", "ensemble_"])
+        X = validate_data(self, X, reset=False)
         n_samples = X.shape[0]
         n_classes = len(self.classes_)
         n_models = len(self.ensemble_)
@@ -250,8 +255,10 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
                 X_parents_disc[:, col_idx] = est.transform(X[:, [col_idx]]).flatten()
         X_parents_disc = X_parents_disc.astype(int)
 
-        # Output tensor initialized to log(0) = -inf
-        jll_tensor = np.full((n_samples, n_classes, n_models), -np.inf)
+        # Output tensor initialized to a very small log-probability (approx 0 prob)
+        # We avoid -inf so that Geometric mean (AnJE) doesn't collapse to 0 if one model misses.
+        # -700 is close to the limit of exp() in float64 (~1e-304)
+        jll_tensor = np.full((n_samples, n_classes, n_models), -700.0)
 
         # Sequential loop (Safer and easier to debug than Parallel for inference)
         for m_idx, model_info in enumerate(self.ensemble_):
@@ -328,6 +335,7 @@ class AnDE(_BaseAnDE):
     """
 
     def predict_log_proba(self, X):
+        check_is_fitted(self, attributes=["classes_", "ensemble_"])
         jll_models, _ = self._get_jll_per_model(X)
 
         # Arithmetic Mean in Log Space: log(mean(exp(jll)))
@@ -336,12 +344,24 @@ class AnDE(_BaseAnDE):
 
         # Normalize to posterior P(y|x)
         log_prob_x = logsumexp(total_jll, axis=1)
-        return total_jll - log_prob_x[:, np.newaxis]
+        with np.errstate(invalid="ignore"):
+            log_prob = total_jll - log_prob_x[:, np.newaxis]
+        
+        # Handle cases where all probs are 0 (log prob is -inf - -inf = nan)
+        # We assign uniform probability or prior if everything is impossible
+        mask_nan = np.isnan(log_prob)
+        if np.any(mask_nan):
+            # Fallback to uniform
+            n_classes = len(self.classes_)
+            log_prob[mask_nan] = -np.log(n_classes)
+            
+        return log_prob
 
     def predict_proba(self, X):
         return np.exp(self.predict_log_proba(X))
 
     def predict(self, X):
+        check_is_fitted(self, attributes=["classes_", "ensemble_"])
         return self.classes_[np.argmax(self.predict_log_proba(X), axis=1)]
 
 
@@ -374,6 +394,7 @@ class AnJE(_BaseAnDE):
     """
 
     def predict_log_proba(self, X):
+        check_is_fitted(self, attributes=["classes_", "ensemble_"])
         jll_models, _ = self._get_jll_per_model(X)
 
         # Geometric Mean in Log Space = Sum of logs
@@ -381,12 +402,22 @@ class AnJE(_BaseAnDE):
 
         # Normalize
         log_prob_x = logsumexp(total_jll, axis=1)
-        return total_jll - log_prob_x[:, np.newaxis]
+        with np.errstate(invalid="ignore"):
+            log_prob = total_jll - log_prob_x[:, np.newaxis]
+            
+        mask_nan = np.isnan(log_prob)
+        if np.any(mask_nan):
+            # Fallback to uniform
+            n_classes = len(self.classes_)
+            log_prob[mask_nan] = -np.log(n_classes)
+            
+        return log_prob
 
     def predict_proba(self, X):
         return np.exp(self.predict_log_proba(X))
 
     def predict(self, X):
+        check_is_fitted(self, attributes=["classes_", "ensemble_"])
         return self.classes_[np.argmax(self.predict_log_proba(X), axis=1)]
 
 
@@ -536,7 +567,7 @@ class _HybridOptimizer(_BaseAnDE):
         super().fit(X, y)
 
         # 2. Setup Weighting Structure
-        X_check = check_array(X)
+        X_check = validate_data(self, X, reset=False)
         # Parallel inference for JLL tensor
         jll_tensor, X_parents_disc = self._get_jll_per_model(X_check)
         jll_tensor = np.clip(jll_tensor, -1e10, 700)
@@ -600,7 +631,15 @@ class _HybridOptimizer(_BaseAnDE):
         final_jll = np.clip(final_jll, -1e10, 700)
 
         log_prob_x = logsumexp(final_jll, axis=1)
-        return final_jll - log_prob_x[:, np.newaxis]
+        with np.errstate(invalid="ignore"):
+            log_prob = final_jll - log_prob_x[:, np.newaxis]
+            
+        mask_nan = np.isnan(log_prob)
+        if np.any(mask_nan):
+            n_classes = len(self.classes_)
+            log_prob[mask_nan] = -np.log(n_classes)
+            
+        return log_prob
 
     def _calculate_final_jll(self, jll_tensor, W_tensor):
         raise NotImplementedError

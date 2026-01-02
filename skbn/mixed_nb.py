@@ -249,7 +249,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
 
     def _joint_log_likelihood(self, X):
         """Calculate the unnormalized posterior log probability of X."""
-        check_is_fitted(self)
+        check_is_fitted(self, attributes=["classes_", "estimators_"])
         X = validate_data(self, X, reset=False)
 
         jll = np.zeros((X.shape[0], len(self.classes_)))
@@ -293,7 +293,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
             jll += X_bern @ (log_prob_pos - log_prob_neg).T
             jll += np.sum(log_prob_neg, axis=1)
 
-        return jll + self.class_log_prior_
+        return np.nan_to_num(jll + self.class_log_prior_, nan=-1e10, neginf=-1e10)
 
     def predict_log_proba(self, X):
         """
@@ -343,5 +343,6 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         C : ndarray of shape (n_samples,)
             Predicted target values for X.
         """
-        jll = self._joint_log_likelihood(X)
-        return self.classes_[np.argmax(jll, axis=1)]
+        check_is_fitted(self, attributes=["classes_", "estimators_"])
+        X = validate_data(self, X, reset=False)
+        return self.classes_[np.argmax(self.predict_log_proba(X), axis=1)]
