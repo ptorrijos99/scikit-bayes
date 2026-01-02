@@ -1,23 +1,27 @@
-.. project-template documentation master file, created by
-   sphinx-quickstart on Mon Jan 18 14:44:12 2016.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. scikit-bayes documentation master file
 
 :notoc:
 
-#############################################
-Project template for `scikit-learn` extension
-#############################################
+################################
+scikit-bayes
+################################
 
 **Date**: |today| **Version**: |version|
 
 **Useful links**:
-`Source Repository <https://github.com/scikit-learn-contrib/project-template>`__ |
-`Issues & Ideas <https://github.com/scikit-learn-contrib/project-templatek/issues>`__ |
+`Source Repository <https://github.com/ptorrijos99/scikit-bayes>`__ |
+`Issues & Ideas <https://github.com/ptorrijos99/scikit-bayes/issues>`__ |
 
-This is the documentation for the `project-template` to help at extending
-`scikit-learn`. It provides some information on how to build your own custom
-`scikit-learn` compatible estimators as well as a template to package them.
+**scikit-bayes** is a Python package that extends `scikit-learn` with a suite of 
+Bayesian Network Classifiers. The primary goal is to provide robust, 
+`scikit-learn`-compatible implementations of advanced Bayesian classifiers that
+are not available in the core library.
+
+**Key Features:**
+
+* **MixedNB**: Naive Bayes for mixed data types (Gaussian, Categorical, Bernoulli)
+* **AnDE Family**: Averaged n-Dependence Estimators that relax the independence assumption
+* **Hybrid Models**: ALR and WeightedAnDE for discriminative learning
 
 
 .. grid:: 1 2 2 2
@@ -30,7 +34,7 @@ This is the documentation for the `project-template` to help at extending
         :class-card: intro-card
         :shadow: md
 
-        Information regarding this template and how to modify it for your own project.
+        Information about installation and basic usage of scikit-bayes.
 
         +++
 
@@ -47,8 +51,7 @@ This is the documentation for the `project-template` to help at extending
         :class-card: intro-card
         :shadow: md
 
-        An example of narrative documentation. Here, we will explain how to create your
-        own `scikit-learn` estimator.
+        Learn how to create your own scikit-learn compatible estimators.
 
         +++
 
@@ -65,8 +68,7 @@ This is the documentation for the `project-template` to help at extending
         :class-card: intro-card
         :shadow: md
 
-        An example of API documentation. This is an example how to use `sphinx` to
-        automatically generate reference API page.
+        Complete reference documentation for all estimators and utilities.
 
         +++
 
@@ -83,8 +85,7 @@ This is the documentation for the `project-template` to help at extending
         :class-card: intro-card
         :shadow: md
 
-        A set of examples. It complements the User Guide and it is the right place to
-        show how to use your compatible estimator.
+        Gallery of examples demonstrating AnDE, MixedNB, and more.
 
         +++
 

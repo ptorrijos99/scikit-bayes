@@ -4,36 +4,37 @@
 API Reference
 #############
 
-This is an example on how to document the API of your own project.
+This is the API documentation for the scikit-bayes package.
 
-.. currentmodule:: skltemplate
+.. currentmodule:: skbayes
 
-Estimator
-=========
+Bayesian Classifiers
+====================
 
-.. autosummary::
-   :toctree: generated/
-   :template: class.rst
-
-   TemplateEstimator
-
-Transformer
-===========
+Mixed Naive Bayes
+-----------------
 
 .. autosummary::
    :toctree: generated/
    :template: class.rst
 
-   TemplateTransformer
+   MixedNB
 
-Predictor
-=========
+.. _ande_api:
+
+AnDE Family
+-----------
+
+Averaged n-Dependence Estimators and related classifiers.
 
 .. autosummary::
    :toctree: generated/
    :template: class.rst
 
-    TemplateClassifier
+   AnDE
+   AnJE
+   ALR
+   WeightedAnDE
 
 
 Utilities

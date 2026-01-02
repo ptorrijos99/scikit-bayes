@@ -1,2 +1,2 @@
-# Authors: scikit-learn-contrib developers
+# Authors: scikit-bayes developers
 # License: BSD 3 clause

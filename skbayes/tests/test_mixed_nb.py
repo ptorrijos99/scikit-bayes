@@ -1,6 +1,6 @@
 """Tests for skbayes.mixed_nb module."""
 
-# Authors: scikit-learn-contrib developers
+# Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
 import pytest
