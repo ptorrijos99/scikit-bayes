@@ -84,6 +84,9 @@ sphinx-prompt = "*"
 build-doc = { cmd = "make html", cwd = "doc" }
 clean-doc = { cmd = "rm -rf _build", cwd = "doc" }
 
+[tool.pixi.feature.doc.pypi-dependencies]
+scikit-bayes = { path=".", editable=true }
+
 [tool.pixi.environments]
 doc = ["doc"]
 lint = ["lint"]
