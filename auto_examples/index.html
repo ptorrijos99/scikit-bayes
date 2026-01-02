@@ -52,7 +52,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'auto_examples/index';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="MixedNB Equivalence with GaussianNB" href="01_plot_gaussiannb_equivalence.html" />
+    <link rel="next" title="MixedNB Equivalence with GaussianNB" href="plot_gaussiannb_equivalence.html" />
     <link rel="prev" title="skbn.utils.discovery.all_functions" href="../generated/skbn.utils.discovery.all_functions.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -379,43 +379,149 @@ scripts or Jupyter notebooks.</p>
 <section id="mixednb-examples">
 <h2>MixedNB Examples<a class="headerlink" href="#mixednb-examples" title="Link to this heading">#</a></h2>
 <p>Examples demonstrating the Mixed Naive Bayes classifier for heterogeneous data.</p>
+<section id="mixednb-equivalence-with-gaussiannb">
+<h3>MixedNB Equivalence with GaussianNB<a class="headerlink" href="#mixednb-equivalence-with-gaussiannb" title="Link to this heading">#</a></h3>
+<p>This example demonstrates that <a class="reference internal" href="../generated/skbn.MixedNB.html#skbn.MixedNB" title="skbn.mixed_nb.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.mixed_nb.MixedNB</span></code></a>
+produces identical results to <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.naive_bayes.GaussianNB.html#sklearn.naive_bayes.GaussianNB" title="(in scikit-learn v1.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">sklearn.naive_bayes.GaussianNB</span></code></a>
+when all features are continuous (Gaussian).</p>
+<p>The plot shows the decision boundaries for both classifiers. As expected,
+the boundaries are identical, and the predicted probabilities for the
+dataset are all-close.
+“””</p>
+</section>
+<section id="mixednb-equivalence-with-categoricalnb">
+<h3>MixedNB Equivalence with CategoricalNB<a class="headerlink" href="#mixednb-equivalence-with-categoricalnb" title="Link to this heading">#</a></h3>
+<p>This example demonstrates that <a class="reference internal" href="../generated/skbn.MixedNB.html#skbn.MixedNB" title="skbn.mixed_nb.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.mixed_nb.MixedNB</span></code></a>
+produces identical results to <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.naive_bayes.CategoricalNB.html#sklearn.naive_bayes.CategoricalNB" title="(in scikit-learn v1.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">sklearn.naive_bayes.CategoricalNB</span></code></a>
+when all features are discrete (categorical).</p>
+<p>The plot shows the decision boundaries for both classifiers. As expected,
+the boundaries are identical, and the predicted probabilities for the
+dataset are all-close.
+“””</p>
+</section>
+<section id="mixednb-equivalence-with-bernoullinb">
+<h3>MixedNB Equivalence with BernoulliNB<a class="headerlink" href="#mixednb-equivalence-with-bernoullinb" title="Link to this heading">#</a></h3>
+<p>This example demonstrates that <a class="reference internal" href="../generated/skbn.MixedNB.html#skbn.MixedNB" title="skbn.mixed_nb.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.mixed_nb.MixedNB</span></code></a>
+produces identical results to <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.naive_bayes.BernoulliNB.html#sklearn.naive_bayes.BernoulliNB" title="(in scikit-learn v1.8)"><code class="xref py py-class docutils literal notranslate"><span class="pre">sklearn.naive_bayes.BernoulliNB</span></code></a>
+when all features are binary (Bernoulli).</p>
+<p>The plot shows the decision boundaries for both classifiers. As expected,
+the boundaries are identical, and the predicted probabilities for the
+dataset are all-close.
+“””</p>
+</section>
+<section id="handling-mixed-data-types-with-mixednb">
+<h3>Handling Mixed Data Types with MixedNB<a class="headerlink" href="#handling-mixed-data-types-with-mixednb" title="Link to this heading">#</a></h3>
+<p>This example compares three strategies for handling a dataset
+with mixed continuous (Gaussian) and discrete (Categorical) features.</p>
+<p><strong>The Scenario (Generative Data):</strong>
+We generate data from two natural clusters (Classes 0 and 1):
+- <strong>Continuous Feature:</strong> Two overlapping Gaussian distributions.</p>
+<blockquote>
+<div><p>Precision is key here; discretization destroys the smooth boundary.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p><strong>Categorical Feature:</strong> Different category probabilities per class.
+Class 0 prefers Cat ‘0’, Class 1 prefers Cat ‘2’.</p></li>
+</ul>
+<p><strong>The Competitors:</strong>
+1.  <strong>MixedNB (Native):</strong> Models Gaussian as Gaussian, Categorical as Multinomial.</p>
+<blockquote>
+<div><p>Matches the data generation process perfectly (Bayes Optimal).</p>
+</div></blockquote>
+<ol class="arabic simple" start="2">
+<li><p><strong>Pipeline (OHE + GNB):</strong> Treats categories as binary Gaussians (flawed assumption).</p></li>
+<li><p><strong>Pipeline (Discretizer + CatNB):</strong> Throws away continuous information by binning.</p></li>
+</ol>
+<p><strong>Result:</strong>
+MixedNB produces the smoothest, most accurate probability landscape (lowest Log Loss).
+“””</p>
+</section>
 </section>
 <section id="ande-examples">
 <h2>AnDE Examples<a class="headerlink" href="#ande-examples" title="Link to this heading">#</a></h2>
 <p>Averaged n-Dependence Estimators solving problems Naive Bayes cannot.</p>
+<section id="solving-the-xor-problem-ande-vs-naive-bayes">
+<h3>Solving the XOR Problem: AnDE vs Naive Bayes<a class="headerlink" href="#solving-the-xor-problem-ande-vs-naive-bayes" title="Link to this heading">#</a></h3>
+<p>This example demonstrates the limitations of the independence assumption
+in Naive Bayes and how <strong>Averaged n-Dependence Estimators (AnDE)</strong>
+overcome them.</p>
+<p>We use a synthetic <strong>XOR dataset</strong> (continuous Gaussian features).
+In an XOR problem:
+-   Class 0 is in quadrants 1 (+, +) and 3 (-, -).
+-   Class 1 is in quadrants 2 (-, +) and 4 (+, -).</p>
+<p><strong>The Challenge:</strong>
+Looking at any single feature individually, the distributions of Class 0
+and Class 1 overlap perfectly (both are centered at 0). Therefore,
+<strong>MixedNB (Naive Bayes)</strong> cannot distinguish the classes and learns a
+useless decision boundary (accuracy ~50%).</p>
+<p><strong>The Solution:</strong>
+<strong>AnDE (n=1)</strong> relaxes the independence assumption. By conditioning on one
+feature (the “super-parent”), it learns that the relationship between the
+other feature and the class changes depending on the parent’s value.
+As shown in the plot, AnDE successfully captures the XOR structure.
+“””</p>
+</section>
+<section id="d-voxel-cloud-visualization-xor-structure">
+<h3>3D Voxel-Cloud Visualization: XOR Structure<a class="headerlink" href="#d-voxel-cloud-visualization-xor-structure" title="Link to this heading">#</a></h3>
+<p>To visualize the 3D decision boundaries clearly, we plot a dense cloud of points
+(voxels) colored by the predicted class probability.</p>
+<p>This reveals the internal geometry of the classifier:
+- A0DE: Shows a uniform blob (fails to separate).
+- A1DE: Shows cylindrical or planar separations (partial solution).
+- A2DE: Shows a distinct 3D Checkerboard pattern (perfect solution).
+“””</p>
+</section>
+<section id="analytic-view-2d-slice-of-the-3d-xor-problem">
+<h3>Analytic View: 2D Slice of the 3D XOR Problem<a class="headerlink" href="#analytic-view-2d-slice-of-the-3d-xor-problem" title="Link to this heading">#</a></h3>
+<p>While 3D visualizations show the global structure, taking a <strong>2D slice</strong>
+(fixing one feature) allows for a precise analysis of the decision boundary.</p>
+<p>Here we fix $z = 1.0$.
+In the 3D XOR problem $(x \oplus y \oplus z)$, if $z$ is positive (True),
+the logic simplifies to a standard 2D XOR between $x$ and $y$:
+$(x \oplus y \oplus 1) rightarrow neg(x \oplus y)$ (XNOR behavior).</p>
+</section>
+<section id="the-power-of-mixed-data-context-dependent-logic">
+<h3>The Power of Mixed Data: Context-Dependent Logic<a class="headerlink" href="#the-power-of-mixed-data-context-dependent-logic" title="Link to this heading">#</a></h3>
+<p>This example demonstrates why <strong>AnDE</strong> shines with mixed data types
+(Continuous + Categorical) compared to Naive Bayes.</p>
+<p>We simulate a system with a <strong>Continuous Feature (X)</strong> and a
+<strong>Categorical “Mode” (C)</strong>. The definition of “Anomaly” (Class 1)
+changes completely depending on the mode.</p>
+<p><strong>Result:</strong></p>
+</section>
 </section>
 <section id="benchmarks-and-comparisons">
 <h2>Benchmarks and Comparisons<a class="headerlink" href="#benchmarks-and-comparisons" title="Link to this heading">#</a></h2>
 <p>Performance comparisons of different model variants.</p>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.GaussianNB when all features are continuous (Gaussian)."><img alt="" src="../_images/sphx_glr_01_plot_gaussiannb_equivalence_thumb.png" />
-<p><a class="reference internal" href="01_plot_gaussiannb_equivalence.html"><span class="doc">MixedNB Equivalence with GaussianNB</span></a></p>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.GaussianNB when all features are continuous (Gaussian)."><img alt="" src="../_images/sphx_glr_plot_gaussiannb_equivalence_thumb.png" />
+<p><a class="reference internal" href="plot_gaussiannb_equivalence.html"><span class="doc">MixedNB Equivalence with GaussianNB</span></a></p>
   <div class="sphx-glr-thumbnail-title">MixedNB Equivalence with GaussianNB</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates the limitations of the independence assumption in Naive Bayes and how Averaged n-Dependence Estimators (AnDE) overcome them."><img alt="" src="../_images/sphx_glr_06_plot_aode_xor_thumb.png" />
-<p><a class="reference internal" href="06_plot_aode_xor.html"><span class="doc">Solving the XOR Problem: AnDE vs Naive Bayes</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates the limitations of the independence assumption in Naive Bayes and how Averaged n-Dependence Estimators (AnDE) overcome them."><img alt="" src="../_images/sphx_glr_plot_aode_xor_thumb.png" />
+<p><a class="reference internal" href="plot_aode_xor.html"><span class="doc">Solving the XOR Problem: AnDE vs Naive Bayes</span></a></p>
   <div class="sphx-glr-thumbnail-title">Solving the XOR Problem: AnDE vs Naive Bayes</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="While 3D visualizations show the global structure, taking a 2D slice (fixing one feature) allows for a precise analysis of the decision boundary."><img alt="" src="../_images/sphx_glr_07_plot_a2de_xor_slice_thumb.png" />
-<p><a class="reference internal" href="07_plot_a2de_xor_slice.html"><span class="doc">Analytic View: 2D Slice of the 3D XOR Problem</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="While 3D visualizations show the global structure, taking a 2D slice (fixing one feature) allows for a precise analysis of the decision boundary."><img alt="" src="../_images/sphx_glr_plot_a2de_xor_slice_thumb.png" />
+<p><a class="reference internal" href="plot_a2de_xor_slice.html"><span class="doc">Analytic View: 2D Slice of the 3D XOR Problem</span></a></p>
   <div class="sphx-glr-thumbnail-title">Analytic View: 2D Slice of the 3D XOR Problem</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.BernoulliNB when all features are binary (Bernoulli)."><img alt="" src="../_images/sphx_glr_02_plot_bernoullinb_equivalence_thumb.png" />
-<p><a class="reference internal" href="02_plot_bernoullinb_equivalence.html"><span class="doc">MixedNB Equivalence with BernoulliNB</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.BernoulliNB when all features are binary (Bernoulli)."><img alt="" src="../_images/sphx_glr_plot_bernoullinb_equivalence_thumb.png" />
+<p><a class="reference internal" href="plot_bernoullinb_equivalence.html"><span class="doc">MixedNB Equivalence with BernoulliNB</span></a></p>
   <div class="sphx-glr-thumbnail-title">MixedNB Equivalence with BernoulliNB</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.CategoricalNB when all features are discrete (categorical)."><img alt="" src="../_images/sphx_glr_03_plot_categoricalnb_equivalence_thumb.png" />
-<p><a class="reference internal" href="03_plot_categoricalnb_equivalence.html"><span class="doc">MixedNB Equivalence with CategoricalNB</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.CategoricalNB when all features are discrete (categorical)."><img alt="" src="../_images/sphx_glr_plot_categoricalnb_equivalence_thumb.png" />
+<p><a class="reference internal" href="plot_categoricalnb_equivalence.html"><span class="doc">MixedNB Equivalence with CategoricalNB</span></a></p>
   <div class="sphx-glr-thumbnail-title">MixedNB Equivalence with CategoricalNB</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="To visualize the 3D decision boundaries clearly, we plot a dense cloud of points (voxels) colored by the predicted class probability."><img alt="" src="../_images/sphx_glr_08_plot_a2de_xor_3d_thumb.png" />
-<p><a class="reference internal" href="08_plot_a2de_xor_3d.html"><span class="doc">3D Voxel-Cloud Visualization: XOR Structure</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="To visualize the 3D decision boundaries clearly, we plot a dense cloud of points (voxels) colored by the predicted class probability."><img alt="" src="../_images/sphx_glr_plot_a2de_xor_3d_thumb.png" />
+<p><a class="reference internal" href="plot_a2de_xor_3d.html"><span class="doc">3D Voxel-Cloud Visualization: XOR Structure</span></a></p>
   <div class="sphx-glr-thumbnail-title">3D Voxel-Cloud Visualization: XOR Structure</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates why AnDE shines with mixed data types (Continuous + Categorical) compared to Naive Bayes."><img alt="" src="../_images/sphx_glr_05_plot_aode_mixed_demo_thumb.png" />
-<p><a class="reference internal" href="05_plot_aode_mixed_demo.html"><span class="doc">The Power of Mixed Data: Context-Dependent Logic</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates why AnDE shines with mixed data types (Continuous + Categorical) compared to Naive Bayes."><img alt="" src="../_images/sphx_glr_plot_aode_mixed_demo_thumb.png" />
+<p><a class="reference internal" href="plot_aode_mixed_demo.html"><span class="doc">The Power of Mixed Data: Context-Dependent Logic</span></a></p>
   <div class="sphx-glr-thumbnail-title">The Power of Mixed Data: Context-Dependent Logic</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates the &quot;Embedded Feature Selection&quot; capability of Hybrid AnDE models (ALR)."><img alt="" src="../_images/sphx_glr_10_plot_compare_ande_interpretability_thumb.png" />
-<p><a class="reference internal" href="10_plot_compare_ande_interpretability.html"><span class="doc">Interpreting ALR: Automatic Feature Selection via Weights</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates the &quot;Embedded Feature Selection&quot; capability of Hybrid AnDE models (ALR)."><img alt="" src="../_images/sphx_glr_plot_compare_ande_interpretability_thumb.png" />
+<p><a class="reference internal" href="plot_compare_ande_interpretability.html"><span class="doc">Interpreting ALR: Automatic Feature Selection via Weights</span></a></p>
   <div class="sphx-glr-thumbnail-title">Interpreting ALR: Automatic Feature Selection via Weights</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This example compares three strategies for handling a dataset with mixed continuous (Gaussian) and discrete (Categorical) features."><img alt="" src="../_images/sphx_glr_04_plot_mixednb_vs_pipeline_thumb.png" />
-<p><a class="reference internal" href="04_plot_mixednb_vs_pipeline.html"><span class="doc">Handling Mixed Data Types with MixedNB</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="This example compares three strategies for handling a dataset with mixed continuous (Gaussian) and discrete (Categorical) features."><img alt="" src="../_images/sphx_glr_plot_mixednb_vs_pipeline_thumb.png" />
+<p><a class="reference internal" href="plot_mixednb_vs_pipeline.html"><span class="doc">Handling Mixed Data Types with MixedNB</span></a></p>
   <div class="sphx-glr-thumbnail-title">Handling Mixed Data Types with MixedNB</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This experiment compares the full hierarchy of parameter granularity in ALR."><img alt="" src="../_images/sphx_glr_09_plot_compare_ande_variants_thumb.png" />
-<p><a class="reference internal" href="09_plot_compare_ande_variants.html"><span class="doc">Data Efficiency &amp; Complexity: Generative vs. Hybrid Levels (L1-L4)</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="This experiment compares the full hierarchy of parameter granularity in ALR."><img alt="" src="../_images/sphx_glr_plot_compare_ande_variants_thumb.png" />
+<p><a class="reference internal" href="plot_compare_ande_variants.html"><span class="doc">Data Efficiency &amp; Complexity: Generative vs. Hybrid Levels (L1-L4)</span></a></p>
   <div class="sphx-glr-thumbnail-title">Data Efficiency & Complexity: Generative vs. Hybrid Levels (L1-L4)</div>
 </div></div><div class="toctree-wrapper compound">
 </div>
@@ -451,7 +557,7 @@ scripts or Jupyter notebooks.</p>
       </div>
     </a>
     <a class="right-next"
-       href="01_plot_gaussiannb_equivalence.html"
+       href="plot_gaussiannb_equivalence.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
@@ -478,8 +584,20 @@ scripts or Jupyter notebooks.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mixednb-examples">MixedNB Examples</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ande-examples">AnDE Examples</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mixednb-examples">MixedNB Examples</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mixednb-equivalence-with-gaussiannb">MixedNB Equivalence with GaussianNB</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mixednb-equivalence-with-categoricalnb">MixedNB Equivalence with CategoricalNB</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mixednb-equivalence-with-bernoullinb">MixedNB Equivalence with BernoulliNB</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#handling-mixed-data-types-with-mixednb">Handling Mixed Data Types with MixedNB</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ande-examples">AnDE Examples</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#solving-the-xor-problem-ande-vs-naive-bayes">Solving the XOR Problem: AnDE vs Naive Bayes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#d-voxel-cloud-visualization-xor-structure">3D Voxel-Cloud Visualization: XOR Structure</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#analytic-view-2d-slice-of-the-3d-xor-problem">Analytic View: 2D Slice of the 3D XOR Problem</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-power-of-mixed-data-context-dependent-logic">The Power of Mixed Data: Context-Dependent Logic</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#benchmarks-and-comparisons">Benchmarks and Comparisons</a></li>
 </ul>
   </nav></div>
