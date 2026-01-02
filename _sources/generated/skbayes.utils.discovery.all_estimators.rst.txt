@@ -1,0 +1,6 @@
+﻿skbayes.utils.discovery.all\_estimators
+=======================================
+
+.. currentmodule:: skbayes.utils.discovery
+
+.. autofunction:: all_estimators

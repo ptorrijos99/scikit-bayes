@@ -1,0 +1,903 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>User guide : contents &#8212; scikit-bayes 0.1.dev30+gef3123feb documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/css/project-template.css?v=352684a6" />
+    <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/css/project-template.css?v=352684a6" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=28eb6dba"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user_guide';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Reference" href="api.html" />
+    <link rel="prev" title="Getting Started" href="quick_start.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.1.dev30+gef3123feb" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 0.1.dev30+gef3123feb documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 0.1.dev30+gef3123feb documentation - Home"/>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="quick_start.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="#">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="api.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="auto_examples/index.html">
+    Example Gallery
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/ptorrijos99/scikit-bayes" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="quick_start.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="#">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="api.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="auto_examples/index.html">
+    Example Gallery
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/ptorrijos99/scikit-bayes" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">User guide : contents</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="user-guide">
+<span id="id1"></span><h1>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading">#</a></h1>
+<p>This guide provides comprehensive documentation for scikit-bayes estimators,
+including theoretical background and practical usage examples.</p>
+<nav class="contents local" id="table-of-contents">
+<p class="topic-title">Table of Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#introduction" id="id7">Introduction</a></p>
+<ul>
+<li><p><a class="reference internal" href="#what-are-bayesian-network-classifiers" id="id8">What are Bayesian Network Classifiers?</a></p></li>
+<li><p><a class="reference internal" href="#why-scikit-bayes" id="id9">Why scikit-bayes?</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#mixednb-mixed-data-naive-bayes" id="id10">MixedNB: Mixed Data Naive Bayes</a></p>
+<ul>
+<li><p><a class="reference internal" href="#the-problem" id="id11">The Problem</a></p></li>
+<li><p><a class="reference internal" href="#feature-type-detection" id="id12">Feature Type Detection</a></p></li>
+<li><p><a class="reference internal" href="#usage-example" id="id13">Usage Example</a></p></li>
+<li><p><a class="reference internal" href="#parameters" id="id14">Parameters</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#ande-family-relaxing-independence" id="id15">AnDE Family: Relaxing Independence</a></p>
+<ul>
+<li><p><a class="reference internal" href="#the-independence-problem" id="id16">The Independence Problem</a></p></li>
+<li><p><a class="reference internal" href="#the-super-parent-strategy" id="id17">The Super-Parent Strategy</a></p></li>
+<li><p><a class="reference internal" href="#ande-arithmetic-mean" id="id18">AnDE (Arithmetic Mean)</a></p></li>
+<li><p><a class="reference internal" href="#anje-geometric-mean" id="id19">AnJE (Geometric Mean)</a></p></li>
+<li><p><a class="reference internal" href="#alr-accelerated-logistic-regression" id="id20">ALR: Accelerated Logistic Regression</a></p></li>
+<li><p><a class="reference internal" href="#weightedande" id="id21">WeightedAnDE</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#parameter-tuning-guide" id="id22">Parameter Tuning Guide</a></p>
+<ul>
+<li><p><a class="reference internal" href="#choosing-n-dependence" id="id23">Choosing n_dependence</a></p></li>
+<li><p><a class="reference internal" href="#discretization-strategy" id="id24">Discretization Strategy</a></p></li>
+<li><p><a class="reference internal" href="#regularization-in-hybrid-models" id="id25">Regularization in Hybrid Models</a></p></li>
+<li><p><a class="reference internal" href="#computational-considerations" id="id26">Computational Considerations</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#references" id="id27">References</a></p></li>
+</ul>
+</nav>
+<section id="introduction">
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">Introduction</a><a class="headerlink" href="#introduction" title="Link to this heading">#</a></h2>
+<section id="what-are-bayesian-network-classifiers">
+<h3><a class="toc-backref" href="#id8" role="doc-backlink">What are Bayesian Network Classifiers?</a><a class="headerlink" href="#what-are-bayesian-network-classifiers" title="Link to this heading">#</a></h3>
+<p>Bayesian Network Classifiers (BNCs) are probabilistic classifiers based on
+Bayes’ theorem. The simplest and most famous is <strong>Naive Bayes</strong>, which assumes
+all features are conditionally independent given the class:</p>
+<div class="math notranslate nohighlight">
+\[P(y|\mathbf{x}) \propto P(y) \prod_{i=1}^{n} P(x_i|y)\]</div>
+<p>While this assumption rarely holds in practice, Naive Bayes is surprisingly
+effective and computationally efficient. However, when feature dependencies
+are strong (e.g., the XOR problem), it fails.</p>
+</section>
+<section id="why-scikit-bayes">
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">Why scikit-bayes?</a><a class="headerlink" href="#why-scikit-bayes" title="Link to this heading">#</a></h3>
+<p>scikit-learn provides excellent Naive Bayes implementations, but has limitations:</p>
+<ol class="arabic simple">
+<li><p><strong>No native mixed data support</strong>: You cannot directly combine Gaussian,
+Categorical, and Bernoulli features in one model.</p></li>
+<li><p><strong>No dependency modeling</strong>: No implementations of AODE, A2DE, or other
+n-dependence estimators that relax the independence assumption.</p></li>
+<li><p><strong>No hybrid models</strong>: No discriminatively-trained Bayesian classifiers
+like ALR (Accelerated Logistic Regression).</p></li>
+</ol>
+<p>scikit-bayes fills these gaps with <strong>fully scikit-learn compatible</strong> estimators.</p>
+</section>
+</section>
+<section id="mixednb-mixed-data-naive-bayes">
+<span id="mixed-naive-bayes"></span><h2><a class="toc-backref" href="#id10" role="doc-backlink">MixedNB: Mixed Data Naive Bayes</a><a class="headerlink" href="#mixednb-mixed-data-naive-bayes" title="Link to this heading">#</a></h2>
+<p><a class="reference internal" href="generated/skbayes.MixedNB.html#skbayes.MixedNB" title="skbayes.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbayes.MixedNB</span></code></a> handles datasets with heterogeneous feature types
+by internally combining scikit-learn’s specialized Naive Bayes estimators.</p>
+<section id="the-problem">
+<h3><a class="toc-backref" href="#id11" role="doc-backlink">The Problem</a><a class="headerlink" href="#the-problem" title="Link to this heading">#</a></h3>
+<p>Consider a dataset with:</p>
+<ul class="simple">
+<li><p><strong>Feature 0</strong>: Age (continuous) → Gaussian</p></li>
+<li><p><strong>Feature 1</strong>: Gender (binary) → Bernoulli</p></li>
+<li><p><strong>Feature 2</strong>: Education Level (0, 1, 2, 3) → Categorical</p></li>
+</ul>
+<p>With sklearn, you’d need to:</p>
+<ol class="arabic simple">
+<li><p>Split features by type</p></li>
+<li><p>Fit separate NB classifiers</p></li>
+<li><p>Combine probabilities manually</p></li>
+</ol>
+<p>MixedNB does this automatically.</p>
+</section>
+<section id="feature-type-detection">
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">Feature Type Detection</a><a class="headerlink" href="#feature-type-detection" title="Link to this heading">#</a></h3>
+<p>MixedNB auto-detects feature types during <code class="docutils literal notranslate"><span class="pre">fit()</span></code>:</p>
+<ul class="simple">
+<li><p><strong>Gaussian</strong>: Float features with non-integer values</p></li>
+<li><p><strong>Bernoulli</strong>: Features with exactly 2 unique values</p></li>
+<li><p><strong>Categorical</strong>: Integer features with &gt;2 unique values</p></li>
+</ul>
+<p>You can also specify types manually:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">skbayes</span><span class="w"> </span><span class="kn">import</span> <span class="n">MixedNB</span>
+
+<span class="c1"># Force features 2 and 3 to be categorical</span>
+<span class="n">clf</span> <span class="o">=</span> <span class="n">MixedNB</span><span class="p">(</span><span class="n">categorical_features</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+
+<span class="c1"># Force feature 1 to be Bernoulli</span>
+<span class="n">clf</span> <span class="o">=</span> <span class="n">MixedNB</span><span class="p">(</span><span class="n">bernoulli_features</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+<section id="usage-example">
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">Usage Example</a><a class="headerlink" href="#usage-example" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">skbayes</span><span class="w"> </span><span class="kn">import</span> <span class="n">MixedNB</span>
+
+<span class="c1"># Features: [Gaussian, Bernoulli, Categorical]</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+    <span class="p">[</span><span class="mf">1.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="p">[</span><span class="mf">2.3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+    <span class="p">[</span><span class="mf">0.8</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+    <span class="p">[</span><span class="mf">1.1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="p">[</span><span class="mf">3.2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+    <span class="p">[</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+<span class="p">])</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+
+<span class="n">clf</span> <span class="o">=</span> <span class="n">MixedNB</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">clf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="c1"># Inspect detected types</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">clf</span><span class="o">.</span><span class="n">feature_types_</span><span class="p">)</span>
+<span class="c1"># {&#39;gaussian&#39;: [0], &#39;bernoulli&#39;: [1], &#39;categorical&#39;: [2]}</span>
+
+<span class="c1"># Predict</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">clf</span><span class="o">.</span><span class="n">predict</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]))</span>  <span class="c1"># [1]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">clf</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]))</span>  <span class="c1"># [[0.xx, 0.xx]]</span>
+</pre></div>
+</div>
+</section>
+<section id="parameters">
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">Parameters</a><a class="headerlink" href="#parameters" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">alpha</span></code>: Smoothing parameter (Laplace smoothing) for Categorical/Bernoulli. Default: 1.0</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">var_smoothing</span></code>: Variance smoothing for Gaussian features. Default: 1e-9</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">categorical_features</span></code>: List of indices to treat as categorical</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bernoulli_features</span></code>: List of indices to treat as Bernoulli</p></li>
+</ul>
+</section>
+</section>
+<section id="ande-family-relaxing-independence">
+<h2><a class="toc-backref" href="#id15" role="doc-backlink">AnDE Family: Relaxing Independence</a><a class="headerlink" href="#ande-family-relaxing-independence" title="Link to this heading">#</a></h2>
+<p>The <strong>Averaged n-Dependence Estimators (AnDE)</strong> family relaxes the independence
+assumption by conditioning on “super-parent” features.</p>
+<section id="the-independence-problem">
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">The Independence Problem</a><a class="headerlink" href="#the-independence-problem" title="Link to this heading">#</a></h3>
+<p>Consider the XOR problem:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>X1</p></th>
+<th class="head"><p>X2</p></th>
+<th class="head"><p>Y</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>-1</p></td>
+<td><p>-1</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p>-1</p></td>
+<td><p>+1</p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-even"><td><p>+1</p></td>
+<td><p>-1</p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p>+1</p></td>
+<td><p>+1</p></td>
+<td><p>0</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Looking at X1 alone: P(X1|Y=0) = P(X1|Y=1) (symmetric distributions).
+Looking at X2 alone: P(X2|Y=0) = P(X2|Y=1) (symmetric distributions).</p>
+<p><strong>Naive Bayes cannot learn this.</strong> It achieves ~50% accuracy (random guessing).</p>
+<p>AnDE solves this by modeling <strong>P(X2 | Y, X1)</strong> instead of just P(X2 | Y).</p>
+</section>
+<section id="the-super-parent-strategy">
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">The Super-Parent Strategy</a><a class="headerlink" href="#the-super-parent-strategy" title="Link to this heading">#</a></h3>
+<p>An SPnDE (Super-Parent n-Dependence Estimator) conditions all child features
+on the class <strong>and</strong> n parent features:</p>
+<div class="math notranslate nohighlight">
+\[P(y, \mathbf{x}) = P(Y^*) \prod_{i \in children} P(x_i | Y^*)\]</div>
+<p>Where <span class="math notranslate nohighlight">\(Y^* = (y, x_{p1}, x_{p2}, ..., x_{pn})\)</span> is the “augmented super-class”.</p>
+<p>AnDE averages over all possible parent combinations.</p>
+</section>
+<section id="ande-arithmetic-mean">
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">AnDE (Arithmetic Mean)</a><a class="headerlink" href="#ande-arithmetic-mean" title="Link to this heading">#</a></h3>
+<p><a class="reference internal" href="generated/skbayes.AnDE.html#skbayes.AnDE" title="skbayes.AnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbayes.AnDE</span></code></a> is the standard generative model described by Webb et al. <a class="footnote-reference brackets" href="#id4" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a>.</p>
+<div class="math notranslate nohighlight">
+\[P(y|\mathbf{x}) \propto \sum_{m} P_m(y, \mathbf{x})\]</div>
+<p><strong>Key Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">n_dependence</span></code>: Order of dependence</p>
+<ul>
+<li><p>n=0: Equivalent to Naive Bayes (MixedNB)</p></li>
+<li><p>n=1: AODE (Averaged One-Dependence Estimators)</p></li>
+<li><p>n=2: A2DE (common choice for higher accuracy)</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_bins</span></code>: Discretization bins for continuous super-parents</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">strategy</span></code>: Discretization strategy (‘uniform’, ‘quantile’, ‘kmeans’)</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">skbayes</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnDE</span>
+
+<span class="c1"># AODE (n=1)</span>
+<span class="n">clf</span> <span class="o">=</span> <span class="n">AnDE</span><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">clf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="c1"># A2DE (n=2) - higher accuracy, more computation</span>
+<span class="n">clf</span> <span class="o">=</span> <span class="n">AnDE</span><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="anje-geometric-mean">
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">AnJE (Geometric Mean)</a><a class="headerlink" href="#anje-geometric-mean" title="Link to this heading">#</a></h3>
+<p><a class="reference internal" href="generated/skbayes.AnJE.html#skbayes.AnJE" title="skbayes.AnJE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbayes.AnJE</span></code></a> aggregates using the geometric mean (product of probabilities):</p>
+<div class="math notranslate nohighlight">
+\[P(y|\mathbf{x}) \propto \prod_{m} P_m(y, \mathbf{x})\]</div>
+<p>This is equivalent to summing log-probabilities and serves as the basis for
+the convex ALR optimization.</p>
+<p><strong>Usage is identical to AnDE.</strong></p>
+</section>
+<section id="alr-accelerated-logistic-regression">
+<h3><a class="toc-backref" href="#id20" role="doc-backlink">ALR: Accelerated Logistic Regression</a><a class="headerlink" href="#alr-accelerated-logistic-regression" title="Link to this heading">#</a></h3>
+<p><a class="reference internal" href="generated/skbayes.ALR.html#skbayes.ALR" title="skbayes.ALR"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbayes.ALR</span></code></a> is a <strong>hybrid generative-discriminative</strong> classifier <a class="footnote-reference brackets" href="#id5" id="id3" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a>.</p>
+<p>It starts with the AnJE generative model and learns discriminative weights
+to optimize classification performance:</p>
+<div class="math notranslate nohighlight">
+\[P(y|\mathbf{x}) \propto \exp\left(\sum_{m} w_m \cdot \log P_m(y, \mathbf{x})\right)\]</div>
+<p><strong>Weight Granularity Levels:</strong></p>
+<p>ALR supports 4 levels of parameter granularity:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 10.0%" />
+<col style="width: 30.0%" />
+<col style="width: 30.0%" />
+<col style="width: 30.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Level</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p># Parameters</p></th>
+<th class="head"><p>Best For</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>Per Model</p></td>
+<td><p>M</p></td>
+<td><p>Small datasets</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>Per Parent Value</p></td>
+<td><p>M × V</p></td>
+<td><p>Large datasets</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>Per Class</p></td>
+<td><p>M × C</p></td>
+<td><p>Multi-class</p></td>
+</tr>
+<tr class="row-odd"><td><p>4</p></td>
+<td><p>Per Value × Class</p></td>
+<td><p>M × V × C</p></td>
+<td><p>Very large datasets</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Where M = number of models, V = parent value combinations, C = classes.</p>
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">skbayes</span><span class="w"> </span><span class="kn">import</span> <span class="n">ALR</span>
+
+<span class="c1"># Level 1: Simple, low variance</span>
+<span class="n">clf</span> <span class="o">=</span> <span class="n">ALR</span><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weight_level</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">l2_reg</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+
+<span class="c1"># Level 3: Per-class weights (good for multi-class)</span>
+<span class="n">clf</span> <span class="o">=</span> <span class="n">ALR</span><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weight_level</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">l2_reg</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">)</span>
+
+<span class="n">clf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="weightedande">
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">WeightedAnDE</a><a class="headerlink" href="#weightedande" title="Link to this heading">#</a></h3>
+<p><a class="reference internal" href="generated/skbayes.WeightedAnDE.html#skbayes.WeightedAnDE" title="skbayes.WeightedAnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbayes.WeightedAnDE</span></code></a> applies discriminative weighting to the standard
+AnDE (arithmetic mean) model. Unlike ALR, the optimization is <strong>non-convex</strong>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">skbayes</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeightedAnDE</span>
+
+<span class="n">clf</span> <span class="o">=</span> <span class="n">WeightedAnDE</span><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weight_level</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">clf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="parameter-tuning-guide">
+<h2><a class="toc-backref" href="#id22" role="doc-backlink">Parameter Tuning Guide</a><a class="headerlink" href="#parameter-tuning-guide" title="Link to this heading">#</a></h2>
+<section id="choosing-n-dependence">
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">Choosing n_dependence</a><a class="headerlink" href="#choosing-n-dependence" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>n=1 (AODE)</strong>: Good default. Captures pairwise interactions.</p></li>
+<li><p><strong>n=2 (A2DE)</strong>: Better accuracy, but O(n²) models. Use for &lt;50 features.</p></li>
+<li><p><strong>n≥3</strong>: Rarely needed. Computational cost grows combinatorially.</p></li>
+</ul>
+</section>
+<section id="discretization-strategy">
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Discretization Strategy</a><a class="headerlink" href="#discretization-strategy" title="Link to this heading">#</a></h3>
+<p>For continuous super-parents:</p>
+<ul class="simple">
+<li><p><strong>‘quantile’</strong> (default): Equal-frequency bins. Robust to outliers.</p></li>
+<li><p><strong>‘uniform’</strong>: Equal-width bins. Good for uniform distributions.</p></li>
+<li><p><strong>‘kmeans’</strong>: Data-driven bins. Best for multi-modal distributions.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">n_bins</span></code> typically 3-10. More bins = more precision but fewer samples per bin.</p>
+</section>
+<section id="regularization-in-hybrid-models">
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">Regularization in Hybrid Models</a><a class="headerlink" href="#regularization-in-hybrid-models" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">l2_reg</span></code> controls regularization strength:</p>
+<ul class="simple">
+<li><p><strong>Small datasets</strong>: Use higher values (1e-2 to 1e-1) to prevent overfitting</p></li>
+<li><p><strong>Large datasets</strong>: Use lower values (1e-4 to 1e-3) for more flexibility</p></li>
+</ul>
+</section>
+<section id="computational-considerations">
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">Computational Considerations</a><a class="headerlink" href="#computational-considerations" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">n_jobs=-1</span></code> to parallelize SPODE fitting</p></li>
+<li><p>Higher <code class="docutils literal notranslate"><span class="pre">weight_level</span></code> increases optimization time exponentially</p></li>
+<li><p>A2DE with n_features=50 creates ~1,225 sub-models</p></li>
+</ul>
+</section>
+</section>
+<section id="references">
+<h2><a class="toc-backref" href="#id27" role="doc-backlink">References</a><a class="headerlink" href="#references" title="Link to this heading">#</a></h2>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id4" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">1</a><span class="fn-bracket">]</span></span>
+<p>Webb, G. I., Boughton, J., &amp; Wang, Z. (2005). Not so naive Bayes:
+Aggregating one-dependence estimators. Machine Learning, 58(1), 5-24.</p>
+</aside>
+<aside class="footnote brackets" id="id5" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">2</a><span class="fn-bracket">]</span></span>
+<p>Flores, M. J., Gámez, J. A., Martínez, A. M., &amp; Puerta, J. M. (2009).
+GAODE and HAODE: Two proposals based on AODE to deal with continuous
+variables. ICML ‘09, 313-320.</p>
+</aside>
+<aside class="footnote brackets" id="id6" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></span>
+<p>Zaidi, N. A., Webb, G. I., Carman, M. J., &amp; Petitjean, F. (2017).
+Efficient parameter learning of Bayesian network classifiers.
+Machine Learning, 106(9-10), 1289-1329.</p>
+</aside>
+</aside>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="quick_start.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Getting Started</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="api.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">API Reference</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#introduction">Introduction</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-are-bayesian-network-classifiers">What are Bayesian Network Classifiers?</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#why-scikit-bayes">Why scikit-bayes?</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mixednb-mixed-data-naive-bayes">MixedNB: Mixed Data Naive Bayes</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-problem">The Problem</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#feature-type-detection">Feature Type Detection</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-example">Usage Example</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#parameters">Parameters</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ande-family-relaxing-independence">AnDE Family: Relaxing Independence</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-independence-problem">The Independence Problem</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-super-parent-strategy">The Super-Parent Strategy</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ande-arithmetic-mean">AnDE (Arithmetic Mean)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#anje-geometric-mean">AnJE (Geometric Mean)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#alr-accelerated-logistic-regression">ALR: Accelerated Logistic Regression</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#weightedande">WeightedAnDE</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parameter-tuning-guide">Parameter Tuning Guide</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-n-dependence">Choosing n_dependence</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#discretization-strategy">Discretization Strategy</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#regularization-in-hybrid-models">Regularization in Hybrid Models</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#computational-considerations">Computational Considerations</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#references">References</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  
+  <div class="tocsection editthispage">
+    <a href="https://github.com/ptorrijos99/scikit-bayes/edit/main/doc/user_guide.rst">
+      <i class="fa-solid fa-pencil"></i>
+      
+      
+        
+          Edit on GitHub
+        
+      
+    </a>
+  </div>
+</div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/user_guide.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, Pablo Torrijos.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
