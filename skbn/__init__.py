@@ -5,7 +5,7 @@ try:
     from ._version import __version__
 except ImportError:
     try:
-        from importlib.metadata import version, PackageNotFoundError
+        from importlib.metadata import PackageNotFoundError, version
 
         __version__ = version("scikit-bayes")
     except (ImportError, PackageNotFoundError):
