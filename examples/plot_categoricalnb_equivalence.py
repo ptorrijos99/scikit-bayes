@@ -15,11 +15,11 @@ dataset are all-close.
 # Author: The scikit-bayes Developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from numpy.testing import assert_allclose
-
 from sklearn.naive_bayes import CategoricalNB
+
 from skbayes.mixed_nb import MixedNB
 
 # 1. Generate a 2D Categorical dataset (3 categories for f0, 4 for f1)
@@ -76,8 +76,17 @@ for ax, model, title in zip(axes, models, titles):
 
     # Plot Heatmap - VIRIDIS
     # Using pcolormesh with edges defines the "blocks" perfectly
-    ax.pcolormesh(x_edges, y_edges, Z, cmap='viridis', vmin=0, vmax=1, 
-                  shading='flat', alpha=0.8, edgecolors='none')
+    ax.pcolormesh(
+        x_edges,
+        y_edges,
+        Z,
+        cmap="viridis",
+        vmin=0,
+        vmax=1,
+        shading="flat",
+        alpha=0.8,
+        edgecolors="none",
+    )
 
     # Overlay real data points with consistent style
     # Jitter points slightly to show density
@@ -85,23 +94,39 @@ for ax, model, title in zip(axes, models, titles):
     y_jit = X[:, 1] + np.random.uniform(-0.2, 0.2, size=n_samples)
 
     # Class 0 -> Indigo Circle
-    ax.scatter(x_jit[y==0], y_jit[y==0], 
-               c='indigo', marker='o', s=40, alpha=0.8, 
-               edgecolors='w', linewidth=0.8, label='Class 0')
-    
+    ax.scatter(
+        x_jit[y == 0],
+        y_jit[y == 0],
+        c="indigo",
+        marker="o",
+        s=40,
+        alpha=0.8,
+        edgecolors="w",
+        linewidth=0.8,
+        label="Class 0",
+    )
+
     # Class 1 -> Gold Triangle
-    ax.scatter(x_jit[y==1], y_jit[y==1], 
-               c='gold', marker='^', s=40, alpha=0.9, 
-               edgecolors='k', linewidth=0.5, label='Class 1')
+    ax.scatter(
+        x_jit[y == 1],
+        y_jit[y == 1],
+        c="gold",
+        marker="^",
+        s=40,
+        alpha=0.9,
+        edgecolors="k",
+        linewidth=0.5,
+        label="Class 1",
+    )
 
     ax.set_title(title, fontsize=12)
     ax.set_xlabel("Feature 0 (Categorical)")
     ax.set_xticks(x_centers)
     ax.set_yticks(y_centers)
-    ax.grid(True, alpha=0.2, linestyle='--')
+    ax.grid(True, alpha=0.2, linestyle="--")
 
 axes[0].set_ylabel("Feature 1 (Categorical)")
-axes[0].legend(loc='lower right')
+axes[0].legend(loc="lower right")
 
 fig.suptitle("Equivalence of MixedNB and CategoricalNB on Discrete Data", fontsize=16)
 plt.tight_layout()

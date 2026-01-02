@@ -68,9 +68,7 @@ def all_estimators(type_filter=None):
     # Ignore deprecation warnings triggered at import time and from walking
     # packages
     with ignore_warnings(category=FutureWarning):
-        for _, module_name, _ in pkgutil.walk_packages(
-            path=[root], prefix="skbayes."
-        ):
+        for _, module_name, _ in pkgutil.walk_packages(path=[root], prefix="skbayes."):
             module_parts = module_name.split(".")
             if any(part in _MODULE_TO_IGNORE for part in module_parts):
                 continue
@@ -144,9 +142,7 @@ def all_displays():
     # Ignore deprecation warnings triggered at import time and from walking
     # packages
     with ignore_warnings(category=FutureWarning):
-        for _, module_name, _ in pkgutil.walk_packages(
-            path=[root], prefix="skbayes."
-        ):
+        for _, module_name, _ in pkgutil.walk_packages(path=[root], prefix="skbayes."):
             module_parts = module_name.split(".")
             if any(part in _MODULE_TO_IGNORE for part in module_parts):
                 continue
@@ -195,9 +191,7 @@ def all_functions():
     # Ignore deprecation warnings triggered at import time and from walking
     # packages
     with ignore_warnings(category=FutureWarning):
-        for _, module_name, _ in pkgutil.walk_packages(
-            path=[root], prefix="skbayes."
-        ):
+        for _, module_name, _ in pkgutil.walk_packages(path=[root], prefix="skbayes."):
             module_parts = module_name.split(".")
             if any(part in _MODULE_TO_IGNORE for part in module_parts):
                 continue

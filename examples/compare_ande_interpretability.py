@@ -13,15 +13,16 @@ By ignoring noise, ALR achieves significantly lower Log Loss and higher Accuracy
 # Author: The scikit-bayes Developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
+import numpy as np
 from sklearn.metrics import accuracy_score, log_loss
-from skbayes.ande import AnDE, ALR
+from sklearn.model_selection import train_test_split
+
+from skbayes.ande import ALR, AnDE
 
 # --- 1. Generate Dataset with Heavy Noise ---
 np.random.seed(42)
-n_samples = 20000 # Large sample size to allow convergence of weights
+n_samples = 20000  # Large sample size to allow convergence of weights
 n_features = 10
 
 # A. Informative Features (Mixed Type)
@@ -39,7 +40,9 @@ X_noise = np.random.randn(n_samples, 8)
 X = np.hstack([X_cat, X_cont, X_noise])
 
 # Split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
 
 # --- 2. Fit and Evaluate ---
 print("Training models...")
@@ -76,50 +79,65 @@ else:
 
 fig, axes = plt.subplots(1, 2, figsize=(16, 7), sharey=True)
 
+
 # Helper for info box (MOVED TO RIGHT)
 def add_score_box(ax, acc, ll):
-    textstr = '\n'.join((
-        r'$\bf{Performance (Test):}$',
-        f'Accuracy: {acc:.3f}',
-        f'Log Loss: {ll:.3f}'))
-    props = dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor='gray')
-    ax.text(0.95, 0.95, textstr, transform=ax.transAxes, fontsize=12,
-            verticalalignment='top', horizontalalignment='right', bbox=props)
+    textstr = "\n".join(
+        (r"$\bf{Performance (Test):}$", f"Accuracy: {acc:.3f}", f"Log Loss: {ll:.3f}")
+    )
+    props = dict(boxstyle="round", facecolor="white", alpha=0.9, edgecolor="gray")
+    ax.text(
+        0.95,
+        0.95,
+        textstr,
+        transform=ax.transAxes,
+        fontsize=12,
+        verticalalignment="top",
+        horizontalalignment="right",
+        bbox=props,
+    )
+
 
 # Plot AnDE (Generative)
-axes[0].bar(indices, ande_weights, color='lightgray', edgecolor='gray')
+axes[0].bar(indices, ande_weights, color="lightgray", edgecolor="gray")
 axes[0].set_title("AnDE (Generative)\nStrategy: Uniform Attention", fontsize=14)
 axes[0].set_xlabel("Feature (as Super-Parent)", fontsize=12)
 axes[0].set_ylabel("Weight Magnitude", fontsize=12)
 axes[0].set_xticks(indices)
-axes[0].set_xticklabels(features, rotation=45, ha='right')
+axes[0].set_xticklabels(features, rotation=45, ha="right")
 
 # Highlight Signal Features with GOLD (to show ground truth importance)
-axes[0].patches[0].set_facecolor('gold')
-axes[0].patches[0].set_edgecolor('orange')
-axes[0].patches[1].set_facecolor('gold')
-axes[0].patches[1].set_edgecolor('orange')
+axes[0].patches[0].set_facecolor("gold")
+axes[0].patches[0].set_edgecolor("orange")
+axes[0].patches[1].set_facecolor("gold")
+axes[0].patches[1].set_edgecolor("orange")
 
 add_score_box(axes[0], acc_ande, ll_ande)
 
 # Plot ALR (Hybrid)
 # Use INDIGO for learned weights
-bars = axes[1].bar(indices, alr_weights, color='indigo', edgecolor='black', alpha=0.8)
+bars = axes[1].bar(indices, alr_weights, color="indigo", edgecolor="black", alpha=0.8)
 axes[1].set_title("ALR (Hybrid)\nStrategy: Learned Attention", fontsize=14)
 axes[1].set_xlabel("Feature (as Super-Parent)", fontsize=12)
 axes[1].set_xticks(indices)
-axes[1].set_xticklabels(features, rotation=45, ha='right')
+axes[1].set_xticklabels(features, rotation=45, ha="right")
 
 add_score_box(axes[1], acc_alr, ll_alr)
 
 # Annotate values on ALR
 for bar in bars:
     height = bar.get_height()
-    if height > 0.1: 
-        axes[1].annotate(f'{height:.2f}',
-                         xy=(bar.get_x() + bar.get_width() / 2, height),
-                         xytext=(0, 3), textcoords="offset points",
-                         ha='center', va='bottom', fontweight='bold', color='indigo')
+    if height > 0.1:
+        axes[1].annotate(
+            f"{height:.2f}",
+            xy=(bar.get_x() + bar.get_width() / 2, height),
+            xytext=(0, 3),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontweight="bold",
+            color="indigo",
+        )
 
 fig.suptitle("Impact of Noise on Model Weights and Performance", fontsize=18)
 plt.tight_layout()

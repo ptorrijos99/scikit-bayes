@@ -3,12 +3,11 @@
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import pytest
 import numpy as np
 from numpy.testing import assert_allclose
 
-from skbayes.mixed_nb import MixedNB
 from skbayes.ande import AnDE
+from skbayes.mixed_nb import MixedNB
 
 # --- Synthetic Datasets ---
 
@@ -16,29 +15,19 @@ from skbayes.ande import AnDE
 # Feature 0: Gaussian (float)
 # Feature 1: Bernoulli (0, 1)
 # Feature 2: Categorical (0, 1, 2)
-X_MIXED = np.array([
-    [0.5, 0, 0],
-    [-1.2, 1, 1],
-    [0.6, 1, 2],
-    [-0.1, 0, 0],
-    [2.5, 1, 1],
-    [-3.0, 0, 2]
-])
+X_MIXED = np.array(
+    [[0.5, 0, 0], [-1.2, 1, 1], [0.6, 1, 2], [-0.1, 0, 0], [2.5, 1, 1], [-3.0, 0, 2]]
+)
 y_MIXED = np.array([0, 1, 1, 0, 1, 0])
 
 # 2. Pure Categorical (XOR-like structure to test dependencies)
 # X1, X2 in {0, 1}. y = X1 XOR X2
-X_CAT = np.array([
-    [0, 0], [0, 1], [1, 0], [1, 1],
-    [0, 0], [0, 1], [1, 0], [1, 1]
-])
+X_CAT = np.array([[0, 0], [0, 1], [1, 0], [1, 1], [0, 0], [0, 1], [1, 0], [1, 1]])
 y_CAT = np.array([0, 1, 1, 0, 0, 1, 1, 0])
 
 # 3. Pure Gaussian (XOR-like)
 # Covered by examples/plot_ande_xor.py, but good to have a smoke test here
-X_GAUSS = np.array([
-    [-1.0, -1.0], [-1.0, 1.0], [1.0, -1.0], [1.0, 1.0]
-])
+X_GAUSS = np.array([[-1.0, -1.0], [-1.0, 1.0], [1.0, -1.0], [1.0, 1.0]])
 y_GAUSS = np.array([0, 1, 1, 0])
 
 
@@ -69,11 +58,11 @@ def test_ande_n1_mixed_data_flow():
     """
     ande = AnDE(n_dependence=1, n_bins=3)
     ande.fit(X_MIXED, y_MIXED)
-    
+
     # Check that predictions return valid class labels
     preds = ande.predict(X_MIXED)
     assert set(preds).issubset(set(y_MIXED))
-    
+
     # Check structure
     # With 3 features and n=1, we expect 3 models in the ensemble
     assert len(ande.ensemble_) == 3
@@ -85,15 +74,15 @@ def test_ande_pure_categorical():
     Since data is integers, the internal discretizer should leave it alone
     or map it consistently.
     """
-    # A1DE (n=1) should be able to solve 2D XOR perfectly 
+    # A1DE (n=1) should be able to solve 2D XOR perfectly
     # (Condition on X1 -> X2 determines Y)
     ande = AnDE(n_dependence=1)
     ande.fit(X_CAT, y_CAT)
-    
+
     # Predict on the unique combinations
     X_test = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
     expected_y = np.array([0, 1, 1, 0])
-    
+
     preds = ande.predict(X_test)
     assert_allclose(preds, expected_y, err_msg="A1DE failed to solve Categorical XOR")
 
@@ -105,11 +94,15 @@ def test_ande_pure_gaussian():
     """
     # Use n_bins=2. If we split at 0, we separate negative/positive.
     # Gaussian XOR is solvable if we discretize properly.
-    ande = AnDE(n_dependence=1, n_bins=2, strategy='quantile')
+    ande = AnDE(n_dependence=1, n_bins=2, strategy="quantile")
     ande.fit(X_GAUSS, y_GAUSS)
-    
+
     preds = ande.predict(X_GAUSS)
-    assert_allclose(preds, y_GAUSS, err_msg="A1DE failed to solve Gaussian XOR with proper discretization")
+    assert_allclose(
+        preds,
+        y_GAUSS,
+        err_msg="A1DE failed to solve Gaussian XOR with proper discretization",
+    )
 
 
 def test_ande_n2_logic():
@@ -121,10 +114,10 @@ def test_ande_n2_logic():
     # Parents: (0,1), (0,2), (1,2)
     ande = AnDE(n_dependence=2)
     ande.fit(X_MIXED, y_MIXED)
-    
+
     assert len(ande.ensemble_) == 3
-    
+
     # Verify parents indices
     expected_parents = [(0, 1), (0, 2), (1, 2)]
-    actual_parents = [tuple(m['parent_indices']) for m in ande.ensemble_]
+    actual_parents = [tuple(m["parent_indices"]) for m in ande.ensemble_]
     assert set(expected_parents) == set(actual_parents)

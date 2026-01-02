@@ -15,10 +15,8 @@ dataset are all-close.
 # Author: The scikit-bayes Developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import numpy as np
 import matplotlib.pyplot as plt
 from numpy.testing import assert_allclose
-
 from sklearn.datasets import make_classification
 from sklearn.inspection import DecisionBoundaryDisplay
 from sklearn.naive_bayes import GaussianNB
@@ -32,7 +30,7 @@ X, y = make_classification(
     n_informative=2,
     n_redundant=0,
     n_clusters_per_class=1,
-    random_state=42
+    random_state=42,
 )
 
 # 2. Fit both classifiers
@@ -63,25 +61,47 @@ titles = ["1. scikit-learn GaussianNB", "2. skbayes MixedNB (auto-detected)"]
 for ax, model, title in zip(axes, models, titles):
     # Plot Decision Boundary - VIRIDIS
     DecisionBoundaryDisplay.from_estimator(
-        model, X, ax=ax, response_method="predict_proba",
-        plot_method="pcolormesh", shading="auto", alpha=0.8, cmap='viridis'
+        model,
+        X,
+        ax=ax,
+        response_method="predict_proba",
+        plot_method="pcolormesh",
+        shading="auto",
+        alpha=0.8,
+        cmap="viridis",
     )
-    
+
     # Overlay real data points with consistent style
     # Class 0 -> Indigo
-    ax.scatter(X[y==0, 0], X[y==0, 1], 
-               c='indigo', marker='o', s=40, alpha=0.8, 
-               edgecolors='w', linewidth=0.8, label='Class 0')
-    
+    ax.scatter(
+        X[y == 0, 0],
+        X[y == 0, 1],
+        c="indigo",
+        marker="o",
+        s=40,
+        alpha=0.8,
+        edgecolors="w",
+        linewidth=0.8,
+        label="Class 0",
+    )
+
     # Class 1 -> Gold
-    ax.scatter(X[y==1, 0], X[y==1, 1], 
-               c='gold', marker='^', s=40, alpha=0.9, 
-               edgecolors='k', linewidth=0.5, label='Class 1')
-    
+    ax.scatter(
+        X[y == 1, 0],
+        X[y == 1, 1],
+        c="gold",
+        marker="^",
+        s=40,
+        alpha=0.9,
+        edgecolors="k",
+        linewidth=0.5,
+        label="Class 1",
+    )
+
     ax.set_title(title, fontsize=12)
 
 # Add Legend to the first plot
-axes[0].legend(loc='lower right')
+axes[0].legend(loc="lower right")
 
 fig.suptitle("Equivalence of MixedNB and GaussianNB on Continuous Data", fontsize=16)
 plt.tight_layout()

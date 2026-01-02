@@ -41,7 +41,7 @@ Issues = "https://github.com/ptorrijos99/scikit-bayes/issues"
 version_file = "skbayes/_version.py"
 
 # --- PIXI CONFIGURATION ---
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
 
@@ -127,6 +127,8 @@ ignore=[
     "E731",
     # do not use variables named 'l', 'O', or 'I'
     "E741",
+    # line too long (docstrings can exceed limit)
+    "E501",
 ]
 
 [tool.ruff.lint.per-file-ignores]

@@ -26,16 +26,16 @@ MixedNB produces the smoothest, most accurate probability landscape (lowest Log 
 # Author: The scikit-bayes Developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import numpy as np
-import matplotlib.pyplot as plt
 import warnings
 
-from sklearn.naive_bayes import GaussianNB, CategoricalNB
-from sklearn.preprocessing import OneHotEncoder, KBinsDiscretizer
+import matplotlib.pyplot as plt
+import numpy as np
 from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import make_pipeline
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import CategoricalNB, GaussianNB
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import KBinsDiscretizer, OneHotEncoder
 
 from skbayes.mixed_nb import MixedNB
 
@@ -67,7 +67,9 @@ y = np.concatenate([np.zeros(n0), np.ones(n1)]).astype(int)
 X = np.column_stack([X_cont, X_cat])
 
 # Split for valid metric calculation
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
 
 # --- 2. Define Models ---
 
@@ -78,20 +80,26 @@ mnb.fit(X_train, y_train)
 # Model 2: OHE + GaussianNB
 pipe_ohe = make_pipeline(
     ColumnTransformer(
-        [("onehot", OneHotEncoder(handle_unknown='ignore', sparse_output=False), [1])],
-        remainder="passthrough"
+        [("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False), [1])],
+        remainder="passthrough",
     ),
-    GaussianNB()
+    GaussianNB(),
 )
 pipe_ohe.fit(X_train, y_train)
 
 # Model 3: Discretizer + CategoricalNB
 pipe_kbins = make_pipeline(
     ColumnTransformer(
-        [("discretizer", KBinsDiscretizer(n_bins=5, encode='ordinal', strategy='quantile'), [0])],
-        remainder="passthrough"
+        [
+            (
+                "discretizer",
+                KBinsDiscretizer(n_bins=5, encode="ordinal", strategy="quantile"),
+                [0],
+            )
+        ],
+        remainder="passthrough",
     ),
-    CategoricalNB()
+    CategoricalNB(),
 )
 pipe_kbins.fit(X_train, y_train)
 
@@ -99,7 +107,7 @@ models = [mnb, pipe_ohe, pipe_kbins]
 titles = [
     "1. MixedNB (Native)\nCorrect Assumptions",
     "2. Pipeline (OHE + GNB)\nFlawed: Cats are Gaussians",
-    "3. Pipeline (Binned + CatNB)\nFlawed: Loss of Precision"
+    "3. Pipeline (Binned + CatNB)\nFlawed: Loss of Precision",
 ]
 
 # --- 3. Visualization ---
@@ -108,7 +116,7 @@ fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
 # Grid for plotting
 h = 0.05
 x_min, x_max = X[:, 0].min() - 0.5, X[:, 0].max() + 0.5
-y_min, y_max = -0.5, 2.5 # Categories 0, 1, 2
+y_min, y_max = -0.5, 2.5  # Categories 0, 1, 2
 xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, 1))
 
 # Flatten for prediction
@@ -118,33 +126,57 @@ for ax, model, title in zip(axes, models, titles):
     # Predict
     Z = model.predict_proba(grid_X)[:, 1]
     Z = Z.reshape(xx.shape)
-    
+
     # Metrics on Test Set
     acc = accuracy_score(y_test, model.predict(X_test))
     ll = log_loss(y_test, model.predict_proba(X_test))
-    
+
     # Plot Heatmap - VIRIDIS
     # 0.0 = Purple (Class 0 zone), 1.0 = Yellow (Class 1 zone)
-    ax.imshow(Z, extent=(x_min, x_max, y_min, y_max), origin='lower', 
-              cmap='viridis', vmin=0, vmax=1, aspect='auto', alpha=0.8)
-    
+    ax.imshow(
+        Z,
+        extent=(x_min, x_max, y_min, y_max),
+        origin="lower",
+        cmap="viridis",
+        vmin=0,
+        vmax=1,
+        aspect="auto",
+        alpha=0.8,
+    )
+
     # Overlay real data points (with jitter on Y)
     X_plot = X_test.copy()
     y_jit = X_plot[:, 1] + np.random.uniform(-0.2, 0.2, size=len(X_plot))
-    
+
     # Visual Coherence with Viridis:
     # Class 0 -> Indigo (Matches background purple)
     # Class 1 -> Gold (Matches background yellow)
     # Edgecolors='w' ensures visibility even on matching backgrounds
-    
-    ax.scatter(X_plot[y_test==0, 0], y_jit[y_test==0], 
-               c='indigo', marker='o', s=30, alpha=0.9, 
-               edgecolors='w', linewidth=0.8, label='Class 0')
-    
-    ax.scatter(X_plot[y_test==1, 0], y_jit[y_test==1], 
-               c='gold', marker='^', s=30, alpha=0.9, 
-               edgecolors='k', linewidth=0.5, label='Class 1') # Black edge for yellow points for better contrast
-    
+
+    ax.scatter(
+        X_plot[y_test == 0, 0],
+        y_jit[y_test == 0],
+        c="indigo",
+        marker="o",
+        s=30,
+        alpha=0.9,
+        edgecolors="w",
+        linewidth=0.8,
+        label="Class 0",
+    )
+
+    ax.scatter(
+        X_plot[y_test == 1, 0],
+        y_jit[y_test == 1],
+        c="gold",
+        marker="^",
+        s=30,
+        alpha=0.9,
+        edgecolors="k",
+        linewidth=0.5,
+        label="Class 1",
+    )  # Black edge for yellow points for better contrast
+
     # Title & Metrics
     ax.set_title(f"{title}\nAcc: {acc:.3f} | Log Loss: {ll:.3f}", fontsize=12)
     ax.set_xlabel("Continuous Feature")
@@ -153,9 +185,12 @@ for ax, model, title in zip(axes, models, titles):
 axes[0].set_ylabel("Categorical Feature")
 # Clean legend
 handles, labels = axes[0].get_legend_handles_labels()
-fig.legend(handles, labels, loc='lower center', ncol=2, bbox_to_anchor=(0.5, 0.02))
+fig.legend(handles, labels, loc="lower center", ncol=2, bbox_to_anchor=(0.5, 0.02))
 
-fig.suptitle("MixedNB vs. Scikit-Learn Workarounds: Quality of Probability Landscape", fontsize=16)
+fig.suptitle(
+    "MixedNB vs. Scikit-Learn Workarounds: Quality of Probability Landscape",
+    fontsize=16,
+)
 plt.tight_layout()
 plt.subplots_adjust(top=0.80, bottom=0.15)
 plt.show()

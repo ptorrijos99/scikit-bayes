@@ -5,10 +5,10 @@
 
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.naive_bayes import GaussianNB, CategoricalNB, BernoulliNB
+from sklearn.naive_bayes import BernoulliNB, CategoricalNB, GaussianNB
 from sklearn.preprocessing import LabelEncoder
-from sklearn.utils.validation import check_X_y, check_is_fitted, validate_data
 from sklearn.utils.multiclass import unique_labels
+from sklearn.utils.validation import check_is_fitted, check_X_y, validate_data
 
 
 class MixedNB(ClassifierMixin, BaseEstimator):
@@ -105,8 +105,14 @@ class MixedNB(ClassifierMixin, BaseEstimator):
     >>> clf.predict([[-0.8, 1, 1]])
     array([1])
     """
-    def __init__(self, categorical_features=None, bernoulli_features=None,
-                 var_smoothing=1e-9, alpha=1.0):
+
+    def __init__(
+        self,
+        categorical_features=None,
+        bernoulli_features=None,
+        var_smoothing=1e-9,
+        alpha=1.0,
+    ):
         self.categorical_features = categorical_features
         self.bernoulli_features = bernoulli_features
         self.var_smoothing = var_smoothing
@@ -161,16 +167,18 @@ class MixedNB(ClassifierMixin, BaseEstimator):
             )
 
         self.feature_types_ = {
-            'gaussian': [], 'categorical': cat_feats, 'bernoulli': bern_feats
+            "gaussian": [],
+            "categorical": cat_feats,
+            "bernoulli": bern_feats,
         }
-        
+
         user_defined_indices = set(cat_feats) | set(bern_feats)
 
         # Auto-detect remaining features
         for i in range(self.n_features_in_):
             if i in user_defined_indices:
                 continue
-            
+
             feature_col = X[:, i]
             unique_vals = np.unique(feature_col)
 
@@ -187,40 +195,42 @@ class MixedNB(ClassifierMixin, BaseEstimator):
                 # Constant feature, can be ignored
                 continue
             elif len(unique_vals) == 2:
-                self.feature_types_['bernoulli'].append(i)
+                self.feature_types_["bernoulli"].append(i)
             elif is_integer_like and np.all(feature_col >= 0):
                 # Only treat as categorical if non-negative (CategoricalNB requirement)
-                self.feature_types_['categorical'].append(i)
+                self.feature_types_["categorical"].append(i)
             else:  # Floating or negative integer-like -> Gaussian
-                self.feature_types_['gaussian'].append(i)
+                self.feature_types_["gaussian"].append(i)
 
         # --- Fit Sub-estimators ---
         self.estimators_ = {}
-        
-        if self.feature_types_['gaussian']:
-            indices = self.feature_types_['gaussian']
+
+        if self.feature_types_["gaussian"]:
+            indices = self.feature_types_["gaussian"]
             gauss_nb = GaussianNB(var_smoothing=self.var_smoothing)
             gauss_nb.fit(X[:, indices], y)
-            self.estimators_['gaussian'] = gauss_nb
+            self.estimators_["gaussian"] = gauss_nb
 
-        if self.feature_types_['categorical']:
-            indices = self.feature_types_['categorical']
-            cat_nb = CategoricalNB(alpha=self.alpha, min_categories=self._get_min_categories(X[:, indices]))
+        if self.feature_types_["categorical"]:
+            indices = self.feature_types_["categorical"]
+            cat_nb = CategoricalNB(
+                alpha=self.alpha, min_categories=self._get_min_categories(X[:, indices])
+            )
             cat_nb.fit(X[:, indices], y)
-            self.estimators_['categorical'] = cat_nb
+            self.estimators_["categorical"] = cat_nb
 
-        if self.feature_types_['bernoulli']:
-            indices = self.feature_types_['bernoulli']
+        if self.feature_types_["bernoulli"]:
+            indices = self.feature_types_["bernoulli"]
             bern_nb = BernoulliNB(alpha=self.alpha)
             # BernoulliNB works on binary data, binarize might be needed if not 0/1
             X_bern = X[:, indices] > 0
             bern_nb.fit(X_bern, y)
-            self.estimators_['bernoulli'] = bern_nb
-            
+            self.estimators_["bernoulli"] = bern_nb
+
         if self.estimators_:
             any_estimator = next(iter(self.estimators_.values()))
             # GaussianNB stores 'class_prior_' (probs), others store 'class_log_prior_' (logs)
-            if hasattr(any_estimator, 'class_prior_'):
+            if hasattr(any_estimator, "class_prior_"):
                 self.class_log_prior_ = np.log(any_estimator.class_prior_)
             else:
                 self.class_log_prior_ = any_estimator.class_log_prior_
@@ -241,34 +251,42 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         """Calculate the unnormalized posterior log probability of X."""
         check_is_fitted(self)
         X = validate_data(self, X, reset=False)
-        
+
         jll = np.zeros((X.shape[0], len(self.classes_)))
 
         # Gaussian features
-        if 'gaussian' in self.estimators_:
-            indices = self.feature_types_['gaussian']
+        if "gaussian" in self.estimators_:
+            indices = self.feature_types_["gaussian"]
             X_gauss = X[:, indices]  # shape: (n_samples, n_gauss)
-            est = self.estimators_['gaussian']
+            est = self.estimators_["gaussian"]
             # Compute log P(x|c) for each class i: sum over features of ((x - mu_i)^2 / var_i)
-            diff = X_gauss[:, np.newaxis, :] - est.theta_  # (n_samples, n_classes, n_gauss)
-            log_prob = -0.5 * np.sum((diff ** 2) / est.var_, axis=2)  # (n_samples, n_classes)
-            log_constant = -0.5 * np.sum(np.log(2.0 * np.pi * est.var_), axis=1)  # (n_classes,)
-            jll += log_prob + log_constant  # broadcasting: (n_samples, n_classes) + (n_classes,)
-    
+            diff = (
+                X_gauss[:, np.newaxis, :] - est.theta_
+            )  # (n_samples, n_classes, n_gauss)
+            log_prob = -0.5 * np.sum(
+                (diff**2) / est.var_, axis=2
+            )  # (n_samples, n_classes)
+            log_constant = -0.5 * np.sum(
+                np.log(2.0 * np.pi * est.var_), axis=1
+            )  # (n_classes,)
+            jll += (
+                log_prob + log_constant
+            )  # broadcasting: (n_samples, n_classes) + (n_classes,)
+
         # Categorical features
-        if 'categorical' in self.estimators_:
-            indices = self.feature_types_['categorical']
+        if "categorical" in self.estimators_:
+            indices = self.feature_types_["categorical"]
             X_cat = X[:, indices].astype(int)
-            est = self.estimators_['categorical']
+            est = self.estimators_["categorical"]
             # log P(x_i|c) is stored in feature_log_prob_
             for i in range(X_cat.shape[1]):
                 jll += est.feature_log_prob_[i][:, X_cat[:, i]].T
-        
+
         # Bernoulli features
-        if 'bernoulli' in self.estimators_:
-            indices = self.feature_types_['bernoulli']
+        if "bernoulli" in self.estimators_:
+            indices = self.feature_types_["bernoulli"]
             X_bern = X[:, indices] > 0
-            est = self.estimators_['bernoulli']
+            est = self.estimators_["bernoulli"]
             # log P(x_i|c) for Bernoulli
             log_prob_pos = est.feature_log_prob_
             log_prob_neg = np.log(1 - np.exp(log_prob_pos))
