@@ -16,6 +16,9 @@ def test_all_estimators(name, Estimator):
     # (infinite mismatches on random dense data schemes).
     # MixedNB passes fully.
     if name in ["AnDE", "AnJE", "ALR", "WeightedAnDE"]:
-        pytest.skip(f"{name} skipped: numerical stability issues with random data in check_estimator")
-        
+        pytest.skip(
+            f"{name} skipped: numerical stability issues with random data in"
+            " check_estimator"
+        )
+
     check_estimator(Estimator())

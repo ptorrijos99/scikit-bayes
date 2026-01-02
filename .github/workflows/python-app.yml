@@ -24,10 +24,10 @@ jobs:
         cache: true
 
     - name: Run Lint
-      run: pixi run lint
+      run: pixi run -e lint lint
 
     - name: Run Tests
-      run: pixi run test
+      run: pixi run -e test test
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5

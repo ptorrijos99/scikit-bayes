@@ -34,9 +34,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.preprocessing import KBinsDiscretizer, LabelBinarizer, LabelEncoder
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import (
-    check_array,
     check_is_fitted,
-    check_X_y,
     validate_data,
 )
 
@@ -346,7 +344,7 @@ class AnDE(_BaseAnDE):
         log_prob_x = logsumexp(total_jll, axis=1)
         with np.errstate(invalid="ignore"):
             log_prob = total_jll - log_prob_x[:, np.newaxis]
-        
+
         # Handle cases where all probs are 0 (log prob is -inf - -inf = nan)
         # We assign uniform probability or prior if everything is impossible
         mask_nan = np.isnan(log_prob)
@@ -354,7 +352,7 @@ class AnDE(_BaseAnDE):
             # Fallback to uniform
             n_classes = len(self.classes_)
             log_prob[mask_nan] = -np.log(n_classes)
-            
+
         return log_prob
 
     def predict_proba(self, X):
@@ -404,13 +402,13 @@ class AnJE(_BaseAnDE):
         log_prob_x = logsumexp(total_jll, axis=1)
         with np.errstate(invalid="ignore"):
             log_prob = total_jll - log_prob_x[:, np.newaxis]
-            
+
         mask_nan = np.isnan(log_prob)
         if np.any(mask_nan):
             # Fallback to uniform
             n_classes = len(self.classes_)
             log_prob[mask_nan] = -np.log(n_classes)
-            
+
         return log_prob
 
     def predict_proba(self, X):
@@ -633,12 +631,12 @@ class _HybridOptimizer(_BaseAnDE):
         log_prob_x = logsumexp(final_jll, axis=1)
         with np.errstate(invalid="ignore"):
             log_prob = final_jll - log_prob_x[:, np.newaxis]
-            
+
         mask_nan = np.isnan(log_prob)
         if np.any(mask_nan):
             n_classes = len(self.classes_)
             log_prob[mask_nan] = -np.log(n_classes)
-            
+
         return log_prob
 
     def _calculate_final_jll(self, jll_tensor, W_tensor):
