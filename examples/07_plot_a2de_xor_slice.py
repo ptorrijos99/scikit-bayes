@@ -12,11 +12,12 @@ the logic simplifies to a standard 2D XOR between $x$ and $y$:
 $(x \\oplus y \\oplus 1) \rightarrow \neg(x \\oplus y)$ (XNOR behavior).
 
 **What to look for:**
-1.  **A0DE (NB):** Blurry background, no structure.
+
+1.  **A0DE (NB):** Blurry background, no structure. Accuracy ~0.5 (Random).
 2.  **A1DE (AODE):** Might show vertical or horizontal stripes, but fails
-    to capture the checkerboard.
-3.  **A2DE (n=2):** Should show a distinct "Checkerboard" pattern with
-    sharp boundaries.
+    to capture the checkerboard. Accuracy ~0.5 (Random).
+3.  **A2DE (n=2):** Shows a distinct "Checkerboard" pattern with
+    sharp boundaries. Accuracy ~0.965 (Solved).
 """
 
 # Author: The scikit-bayes Developers

@@ -7,8 +7,8 @@ To visualize the 3D decision boundaries clearly, we plot a dense cloud of points
 (voxels) colored by the predicted class probability.
 
 This reveals the internal geometry of the classifier:
-- A0DE: Shows a uniform blob (fails to separate).
-- A1DE: Shows cylindrical or planar separations (partial solution).
+- A0DE: Shows a uniform blob (fails to separate). Accuracy ~0.5.
+- A1DE: Also fails to find structure (linear/planar cuts insufficient for 3D parity). Accuracy ~0.5.
 - A2DE: Shows a distinct 3D Checkerboard pattern (perfect solution).
 """
 

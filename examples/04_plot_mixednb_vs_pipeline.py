@@ -7,20 +7,26 @@ This example compares three strategies for handling a dataset
 with mixed continuous (Gaussian) and discrete (Categorical) features.
 
 **The Scenario (Generative Data):**
+    
 We generate data from two natural clusters (Classes 0 and 1):
-- **Continuous Feature:** Two overlapping Gaussian distributions.
-  Precision is key here; discretization destroys the smooth boundary.
-- **Categorical Feature:** Different category probabilities per class.
-  Class 0 prefers Cat '0', Class 1 prefers Cat '2'.
+
+*   **Continuous Feature:** Two overlapping Gaussian distributions.
+    Precision is key here.
+*   **Categorical Feature:** Different category probabilities per class.
+    Class 0 prefers Cat '0', Class 1 prefers Cat '2'.
 
 **The Competitors:**
+
 1.  **MixedNB (Native):** Models Gaussian as Gaussian, Categorical as Multinomial.
-    Matches the data generation process perfectly (Bayes Optimal).
-2.  **Pipeline (OHE + GNB):** Treats categories as binary Gaussians (flawed assumption).
-3.  **Pipeline (Discretizer + CatNB):** Throws away continuous information by binning.
+    Matches the data generation process. (Acc: ~0.920).
+2.  **Pipeline (OHE + GNB):** Treats categories as binary Gaussians.
+    (Acc: ~0.893).
+3.  **Pipeline (Discretizer + CatNB):** Bins continuous data.
+    (Acc: ~0.913).
 
 **Result:**
-MixedNB produces the smoothest, most accurate probability landscape (lowest Log Loss).
+
+MixedNB produces the smoothest probability landscape and optimal log-loss, though standard pipelines perform reasonably well on this simple problem.
 """
 
 # Author: The scikit-bayes Developers

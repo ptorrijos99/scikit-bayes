@@ -12,10 +12,11 @@ This experiment compares the full hierarchy of parameter granularity in ALR.
 4.  **ALR Level 3 (Class):** 1 weight per SPODE per Class. (Balanced).
 5.  **ALR Level 4 (Val+Cls):** 1 weight per SPODE per Parent Value per Class. (Max Variance).
 
-**Hypothesis:**
--   **Small N:** L1/L3 should win. L2/L4 might overfit or be unstable.
--   **Large N:** L2/L4 should eventually overtake if the true distribution is complex.
--   **Time:** L2/L4 will be significantly slower due to larger optimization space.
+**Observations:**
+-   **Small N (~200):** AnDE (Generative) leads due to better calibration. Hybrids may overfit.
+-   **Medium N (~500):** ALR (Hybrid) catches up.
+-   **Large N (>5000):** Higher granularity wins. Order: L1 < L2 < L3 < L4.
+-   **Time:** L4 is significantly slower due to larger optimization space.
 """
 
 # Author: The scikit-bayes Developers
