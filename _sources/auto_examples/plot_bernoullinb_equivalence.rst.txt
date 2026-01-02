@@ -22,7 +22,7 @@
 MixedNB Equivalence with BernoulliNB
 =====================================================
 
-This example demonstrates that :class:`skbayes.mixed_nb.MixedNB`
+This example demonstrates that :class:`skbn.mixed_nb.MixedNB`
 produces identical results to :class:`sklearn.naive_bayes.BernoulliNB`
 when all features are binary (Bernoulli).
 
@@ -35,7 +35,7 @@ dataset are all-close.
 
 
 .. image-sg:: /auto_examples/images/sphx_glr_plot_bernoullinb_equivalence_001.png
-   :alt: Equivalence of MixedNB and BernoulliNB on Binary Data, 1. scikit-learn BernoulliNB, 2. skbayes MixedNB (auto-detected)
+   :alt: Equivalence of MixedNB and BernoulliNB on Binary Data, 1. scikit-learn BernoulliNB, 2. skbn MixedNB (auto-detected)
    :srcset: /auto_examples/images/sphx_glr_plot_bernoullinb_equivalence_001.png
    :class: sphx-glr-single-img
 
@@ -64,7 +64,7 @@ dataset are all-close.
     from numpy.testing import assert_allclose
     from sklearn.naive_bayes import BernoulliNB
 
-    from skbayes.mixed_nb import MixedNB
+    from skbn.mixed_nb import MixedNB
 
     # 1. Generate a 2D Bernoulli dataset (0s and 1s)
     np.random.seed(42)
@@ -96,7 +96,7 @@ dataset are all-close.
     fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
 
     models = [bnb, mnb]
-    titles = ["1. scikit-learn BernoulliNB", "2. skbayes MixedNB (auto-detected)"]
+    titles = ["1. scikit-learn BernoulliNB", "2. skbn MixedNB (auto-detected)"]
 
     # Define grid (Centers for prediction, Edges for plotting)
     # Binary features: 0, 1
@@ -175,7 +175,7 @@ dataset are all-close.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 0.179 seconds)
+   **Total running time of the script:** (0 minutes 0.167 seconds)
 
 
 .. _sphx_glr_download_auto_examples_plot_bernoullinb_equivalence.py:

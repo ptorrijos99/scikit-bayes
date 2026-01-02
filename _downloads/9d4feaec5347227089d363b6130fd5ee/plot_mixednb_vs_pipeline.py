@@ -37,7 +37,7 @@ from sklearn.naive_bayes import CategoricalNB, GaussianNB
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import KBinsDiscretizer, OneHotEncoder
 
-from skbayes.mixed_nb import MixedNB
+from skbn.mixed_nb import MixedNB
 
 # Suppress warnings
 warnings.filterwarnings("ignore")

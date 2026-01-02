@@ -1,0 +1,50 @@
+﻿MixedNB
+==========================
+
+.. currentmodule:: skbn
+
+.. autoclass:: MixedNB
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      
+      
+        ~MixedNB.fit
+      
+      
+        ~MixedNB.get_metadata_routing
+      
+      
+        ~MixedNB.get_params
+      
+      
+        ~MixedNB.predict
+      
+      
+        ~MixedNB.predict_log_proba
+      
+      
+        ~MixedNB.predict_proba
+      
+      
+        ~MixedNB.score
+      
+      
+        ~MixedNB.set_params
+      
+      
+        ~MixedNB.set_score_request
+      
+   
+   
+
+.. include:: skbn.MixedNB.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

@@ -38,7 +38,7 @@ Gaussian (continuous), Categorical, and Bernoulli (binary) features:
 .. code-block:: python
 
     import numpy as np
-    from skbayes import MixedNB
+    from skbn import MixedNB
 
     # Data: [Gaussian, Bernoulli, Categorical]
     X = np.array([

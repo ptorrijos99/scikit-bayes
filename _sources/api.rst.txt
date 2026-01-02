@@ -6,7 +6,7 @@ API Reference
 
 This is the API documentation for the scikit-bayes package.
 
-.. currentmodule:: skbayes
+.. currentmodule:: skbn
 
 Bayesian Classifiers
 ====================

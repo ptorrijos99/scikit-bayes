@@ -1,0 +1,6 @@
+﻿skbn.utils.discovery.all\_estimators
+====================================
+
+.. currentmodule:: skbn.utils.discovery
+
+.. autofunction:: all_estimators

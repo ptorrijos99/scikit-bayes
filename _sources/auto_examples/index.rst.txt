@@ -77,7 +77,7 @@ Performance comparisons of different model variants.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbayes.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.GaussianNB when all features are continuous (Gaussian).">
+    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.GaussianNB when all features are continuous (Gaussian).">
 
 .. only:: html
 
@@ -128,7 +128,7 @@ Performance comparisons of different model variants.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbayes.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.BernoulliNB when all features are binary (Bernoulli).">
+    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.BernoulliNB when all features are binary (Bernoulli).">
 
 .. only:: html
 
@@ -145,7 +145,7 @@ Performance comparisons of different model variants.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbayes.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.CategoricalNB when all features are discrete (categorical).">
+    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.CategoricalNB when all features are discrete (categorical).">
 
 .. only:: html
 
@@ -200,10 +200,10 @@ Performance comparisons of different model variants.
 
 .. only:: html
 
-  .. image:: /auto_examples/images/thumb/sphx_glr_compare_ande_interpretability_thumb.png
+  .. image:: /auto_examples/images/thumb/sphx_glr_plot_compare_ande_interpretability_thumb.png
     :alt:
 
-  :doc:`/auto_examples/compare_ande_interpretability`
+  :doc:`/auto_examples/plot_compare_ande_interpretability`
 
 .. raw:: html
 
@@ -234,10 +234,10 @@ Performance comparisons of different model variants.
 
 .. only:: html
 
-  .. image:: /auto_examples/images/thumb/sphx_glr_compare_ande_variants_thumb.png
+  .. image:: /auto_examples/images/thumb/sphx_glr_plot_compare_ande_variants_thumb.png
     :alt:
 
-  :doc:`/auto_examples/compare_ande_variants`
+  :doc:`/auto_examples/plot_compare_ande_variants`
 
 .. raw:: html
 
@@ -262,9 +262,9 @@ Performance comparisons of different model variants.
    /auto_examples/plot_categoricalnb_equivalence
    /auto_examples/plot_a2de_xor_3d
    /auto_examples/plot_aode_mixed_demo
-   /auto_examples/compare_ande_interpretability
+   /auto_examples/plot_compare_ande_interpretability
    /auto_examples/plot_mixednb_vs_pipeline
-   /auto_examples/compare_ande_variants
+   /auto_examples/plot_compare_ande_variants
 
 
 .. only:: html

@@ -1,0 +1,50 @@
+﻿WeightedAnDE
+===============================
+
+.. currentmodule:: skbn
+
+.. autoclass:: WeightedAnDE
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      
+      
+        ~WeightedAnDE.fit
+      
+      
+        ~WeightedAnDE.get_metadata_routing
+      
+      
+        ~WeightedAnDE.get_params
+      
+      
+        ~WeightedAnDE.predict
+      
+      
+        ~WeightedAnDE.predict_log_proba
+      
+      
+        ~WeightedAnDE.predict_proba
+      
+      
+        ~WeightedAnDE.score
+      
+      
+        ~WeightedAnDE.set_params
+      
+      
+        ~WeightedAnDE.set_score_request
+      
+   
+   
+
+.. include:: skbn.WeightedAnDE.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

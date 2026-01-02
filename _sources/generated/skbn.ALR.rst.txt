@@ -1,0 +1,50 @@
+﻿ALR
+======================
+
+.. currentmodule:: skbn
+
+.. autoclass:: ALR
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      
+      
+        ~ALR.fit
+      
+      
+        ~ALR.get_metadata_routing
+      
+      
+        ~ALR.get_params
+      
+      
+        ~ALR.predict
+      
+      
+        ~ALR.predict_log_proba
+      
+      
+        ~ALR.predict_proba
+      
+      
+        ~ALR.score
+      
+      
+        ~ALR.set_params
+      
+      
+        ~ALR.set_score_request
+      
+   
+   
+
+.. include:: skbn.ALR.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

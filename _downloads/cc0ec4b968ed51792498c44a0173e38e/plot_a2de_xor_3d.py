@@ -20,8 +20,8 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 from sklearn.metrics import accuracy_score
 
-from skbayes.ande import AnDE
-from skbayes.mixed_nb import MixedNB
+from skbn.ande import AnDE
+from skbn.mixed_nb import MixedNB
 
 # --- 1. Generate 3D XOR Dataset ---
 np.random.seed(42)

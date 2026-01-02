@@ -1,6 +1,0 @@
-﻿skbayes.utils.discovery.all\_displays
-=====================================
-
-.. currentmodule:: skbayes.utils.discovery
-
-.. autofunction:: all_displays

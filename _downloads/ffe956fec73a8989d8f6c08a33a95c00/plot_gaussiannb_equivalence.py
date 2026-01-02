@@ -3,7 +3,7 @@
 MixedNB Equivalence with GaussianNB
 =====================================================
 
-This example demonstrates that :class:`skbayes.mixed_nb.MixedNB`
+This example demonstrates that :class:`skbn.mixed_nb.MixedNB`
 produces identical results to :class:`sklearn.naive_bayes.GaussianNB`
 when all features are continuous (Gaussian).
 
@@ -21,7 +21,7 @@ from sklearn.datasets import make_classification
 from sklearn.inspection import DecisionBoundaryDisplay
 from sklearn.naive_bayes import GaussianNB
 
-from skbayes.mixed_nb import MixedNB
+from skbn.mixed_nb import MixedNB
 
 # 1. Generate a 2D Gaussian dataset
 X, y = make_classification(
@@ -56,7 +56,7 @@ print(f"GaussianNB vs MixedNB Equivalence Check: {equivalence_message}")
 fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
 
 models = [gnb, mnb]
-titles = ["1. scikit-learn GaussianNB", "2. skbayes MixedNB (auto-detected)"]
+titles = ["1. scikit-learn GaussianNB", "2. skbn MixedNB (auto-detected)"]
 
 for ax, model, title in zip(axes, models, titles):
     # Plot Decision Boundary - VIRIDIS
