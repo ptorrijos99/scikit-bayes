@@ -7,7 +7,7 @@ import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.naive_bayes import GaussianNB, CategoricalNB, BernoulliNB
 from sklearn.preprocessing import LabelEncoder
-from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
+from sklearn.utils.validation import check_X_y, check_is_fitted, validate_data
 from sklearn.utils.multiclass import unique_labels
 
 
@@ -188,9 +188,10 @@ class MixedNB(ClassifierMixin, BaseEstimator):
                 continue
             elif len(unique_vals) == 2:
                 self.feature_types_['bernoulli'].append(i)
-            elif is_integer_like:
+            elif is_integer_like and np.all(feature_col >= 0):
+                # Only treat as categorical if non-negative (CategoricalNB requirement)
                 self.feature_types_['categorical'].append(i)
-            else: # np.issubdtype(feature_col.dtype, np.floating)
+            else:  # Floating or negative integer-like -> Gaussian
                 self.feature_types_['gaussian'].append(i)
 
         # --- Fit Sub-estimators ---
@@ -239,7 +240,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
     def _joint_log_likelihood(self, X):
         """Calculate the unnormalized posterior log probability of X."""
         check_is_fitted(self)
-        X = check_array(X)
+        X = validate_data(self, X, reset=False)
         
         jll = np.zeros((X.shape[0], len(self.classes_)))
 
