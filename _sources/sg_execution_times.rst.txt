@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**16:32.494** total execution time for 10 files **from all galleries**:
+**00:00.000** total execution time for 10 files **from all galleries**:
 
 .. container::
 
@@ -32,33 +32,33 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_auto_examples_plot_compare_ande_variants.py` (``../examples/plot_compare_ande_variants.py``)
-     - 16:27.357
+   * - :ref:`sphx_glr_auto_examples_01_plot_gaussiannb_equivalence.py` (``../examples/01_plot_gaussiannb_equivalence.py``)
+     - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_auto_examples_plot_compare_ande_interpretability.py` (``../examples/plot_compare_ande_interpretability.py``)
-     - 00:02.813
+   * - :ref:`sphx_glr_auto_examples_02_plot_bernoullinb_equivalence.py` (``../examples/02_plot_bernoullinb_equivalence.py``)
+     - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_auto_examples_plot_a2de_xor_slice.py` (``../examples/plot_a2de_xor_slice.py``)
-     - 00:00.546
+   * - :ref:`sphx_glr_auto_examples_03_plot_categoricalnb_equivalence.py` (``../examples/03_plot_categoricalnb_equivalence.py``)
+     - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_auto_examples_plot_gaussiannb_equivalence.py` (``../examples/plot_gaussiannb_equivalence.py``)
-     - 00:00.347
+   * - :ref:`sphx_glr_auto_examples_04_plot_mixednb_vs_pipeline.py` (``../examples/04_plot_mixednb_vs_pipeline.py``)
+     - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_auto_examples_plot_mixednb_vs_pipeline.py` (``../examples/plot_mixednb_vs_pipeline.py``)
-     - 00:00.310
+   * - :ref:`sphx_glr_auto_examples_05_plot_aode_mixed_demo.py` (``../examples/05_plot_aode_mixed_demo.py``)
+     - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_auto_examples_plot_a2de_xor_3d.py` (``../examples/plot_a2de_xor_3d.py``)
-     - 00:00.305
+   * - :ref:`sphx_glr_auto_examples_06_plot_aode_xor.py` (``../examples/06_plot_aode_xor.py``)
+     - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_auto_examples_plot_aode_xor.py` (``../examples/plot_aode_xor.py``)
-     - 00:00.288
+   * - :ref:`sphx_glr_auto_examples_07_plot_a2de_xor_slice.py` (``../examples/07_plot_a2de_xor_slice.py``)
+     - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_auto_examples_plot_aode_mixed_demo.py` (``../examples/plot_aode_mixed_demo.py``)
-     - 00:00.196
+   * - :ref:`sphx_glr_auto_examples_08_plot_a2de_xor_3d.py` (``../examples/08_plot_a2de_xor_3d.py``)
+     - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_auto_examples_plot_categoricalnb_equivalence.py` (``../examples/plot_categoricalnb_equivalence.py``)
-     - 00:00.174
+   * - :ref:`sphx_glr_auto_examples_09_plot_compare_ande_variants.py` (``../examples/09_plot_compare_ande_variants.py``)
+     - 00:00.000
      - 0.0
-   * - :ref:`sphx_glr_auto_examples_plot_bernoullinb_equivalence.py` (``../examples/plot_bernoullinb_equivalence.py``)
-     - 00:00.158
+   * - :ref:`sphx_glr_auto_examples_10_plot_compare_ande_interpretability.py` (``../examples/10_plot_compare_ande_interpretability.py``)
+     - 00:00.000
      - 0.0
