@@ -81,10 +81,10 @@ Performance comparisons of different model variants.
 
 .. only:: html
 
-  .. image:: /auto_examples/images/thumb/sphx_glr_plot_gaussiannb_equivalence_thumb.png
+  .. image:: /auto_examples/images/thumb/sphx_glr_01_plot_gaussiannb_equivalence_thumb.png
     :alt:
 
-  :doc:`/auto_examples/plot_gaussiannb_equivalence`
+  :doc:`/auto_examples/01_plot_gaussiannb_equivalence`
 
 .. raw:: html
 
@@ -98,10 +98,10 @@ Performance comparisons of different model variants.
 
 .. only:: html
 
-  .. image:: /auto_examples/images/thumb/sphx_glr_plot_aode_xor_thumb.png
+  .. image:: /auto_examples/images/thumb/sphx_glr_06_plot_aode_xor_thumb.png
     :alt:
 
-  :doc:`/auto_examples/plot_aode_xor`
+  :doc:`/auto_examples/06_plot_aode_xor`
 
 .. raw:: html
 
@@ -115,10 +115,10 @@ Performance comparisons of different model variants.
 
 .. only:: html
 
-  .. image:: /auto_examples/images/thumb/sphx_glr_plot_a2de_xor_slice_thumb.png
+  .. image:: /auto_examples/images/thumb/sphx_glr_07_plot_a2de_xor_slice_thumb.png
     :alt:
 
-  :doc:`/auto_examples/plot_a2de_xor_slice`
+  :doc:`/auto_examples/07_plot_a2de_xor_slice`
 
 .. raw:: html
 
@@ -132,10 +132,10 @@ Performance comparisons of different model variants.
 
 .. only:: html
 
-  .. image:: /auto_examples/images/thumb/sphx_glr_plot_bernoullinb_equivalence_thumb.png
+  .. image:: /auto_examples/images/thumb/sphx_glr_02_plot_bernoullinb_equivalence_thumb.png
     :alt:
 
-  :doc:`/auto_examples/plot_bernoullinb_equivalence`
+  :doc:`/auto_examples/02_plot_bernoullinb_equivalence`
 
 .. raw:: html
 
@@ -149,10 +149,10 @@ Performance comparisons of different model variants.
 
 .. only:: html
 
-  .. image:: /auto_examples/images/thumb/sphx_glr_plot_categoricalnb_equivalence_thumb.png
+  .. image:: /auto_examples/images/thumb/sphx_glr_03_plot_categoricalnb_equivalence_thumb.png
     :alt:
 
-  :doc:`/auto_examples/plot_categoricalnb_equivalence`
+  :doc:`/auto_examples/03_plot_categoricalnb_equivalence`
 
 .. raw:: html
 
@@ -166,10 +166,10 @@ Performance comparisons of different model variants.
 
 .. only:: html
 
-  .. image:: /auto_examples/images/thumb/sphx_glr_plot_a2de_xor_3d_thumb.png
+  .. image:: /auto_examples/images/thumb/sphx_glr_08_plot_a2de_xor_3d_thumb.png
     :alt:
 
-  :doc:`/auto_examples/plot_a2de_xor_3d`
+  :doc:`/auto_examples/08_plot_a2de_xor_3d`
 
 .. raw:: html
 
@@ -183,10 +183,10 @@ Performance comparisons of different model variants.
 
 .. only:: html
 
-  .. image:: /auto_examples/images/thumb/sphx_glr_plot_aode_mixed_demo_thumb.png
+  .. image:: /auto_examples/images/thumb/sphx_glr_05_plot_aode_mixed_demo_thumb.png
     :alt:
 
-  :doc:`/auto_examples/plot_aode_mixed_demo`
+  :doc:`/auto_examples/05_plot_aode_mixed_demo`
 
 .. raw:: html
 
@@ -200,10 +200,10 @@ Performance comparisons of different model variants.
 
 .. only:: html
 
-  .. image:: /auto_examples/images/thumb/sphx_glr_plot_compare_ande_interpretability_thumb.png
+  .. image:: /auto_examples/images/thumb/sphx_glr_10_plot_compare_ande_interpretability_thumb.png
     :alt:
 
-  :doc:`/auto_examples/plot_compare_ande_interpretability`
+  :doc:`/auto_examples/10_plot_compare_ande_interpretability`
 
 .. raw:: html
 
@@ -217,10 +217,10 @@ Performance comparisons of different model variants.
 
 .. only:: html
 
-  .. image:: /auto_examples/images/thumb/sphx_glr_plot_mixednb_vs_pipeline_thumb.png
+  .. image:: /auto_examples/images/thumb/sphx_glr_04_plot_mixednb_vs_pipeline_thumb.png
     :alt:
 
-  :doc:`/auto_examples/plot_mixednb_vs_pipeline`
+  :doc:`/auto_examples/04_plot_mixednb_vs_pipeline`
 
 .. raw:: html
 
@@ -234,10 +234,10 @@ Performance comparisons of different model variants.
 
 .. only:: html
 
-  .. image:: /auto_examples/images/thumb/sphx_glr_plot_compare_ande_variants_thumb.png
+  .. image:: /auto_examples/images/thumb/sphx_glr_09_plot_compare_ande_variants_thumb.png
     :alt:
 
-  :doc:`/auto_examples/plot_compare_ande_variants`
+  :doc:`/auto_examples/09_plot_compare_ande_variants`
 
 .. raw:: html
 
@@ -255,16 +255,16 @@ Performance comparisons of different model variants.
 .. toctree::
    :hidden:
 
-   /auto_examples/plot_gaussiannb_equivalence
-   /auto_examples/plot_aode_xor
-   /auto_examples/plot_a2de_xor_slice
-   /auto_examples/plot_bernoullinb_equivalence
-   /auto_examples/plot_categoricalnb_equivalence
-   /auto_examples/plot_a2de_xor_3d
-   /auto_examples/plot_aode_mixed_demo
-   /auto_examples/plot_compare_ande_interpretability
-   /auto_examples/plot_mixednb_vs_pipeline
-   /auto_examples/plot_compare_ande_variants
+   /auto_examples/01_plot_gaussiannb_equivalence
+   /auto_examples/06_plot_aode_xor
+   /auto_examples/07_plot_a2de_xor_slice
+   /auto_examples/02_plot_bernoullinb_equivalence
+   /auto_examples/03_plot_categoricalnb_equivalence
+   /auto_examples/08_plot_a2de_xor_3d
+   /auto_examples/05_plot_aode_mixed_demo
+   /auto_examples/10_plot_compare_ande_interpretability
+   /auto_examples/04_plot_mixednb_vs_pipeline
+   /auto_examples/09_plot_compare_ande_variants
 
 
 .. only:: html
