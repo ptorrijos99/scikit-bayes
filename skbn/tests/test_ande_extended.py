@@ -10,7 +10,6 @@ from sklearn.datasets import make_classification
 
 from skbn.ande import ALR, AnDE, AnJE, WeightedAnDE
 
-
 # =============================================================================
 # Synthetic Datasets
 # =============================================================================
