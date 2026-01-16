@@ -1,6 +1,7 @@
 """
 General tests for all estimators in skbn.
 """
+
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 

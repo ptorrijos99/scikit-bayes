@@ -87,8 +87,12 @@ def all_estimators(type_filter=None):
         for c in all_classes
         if (issubclass(c[1], BaseEstimator) and c[0] != "BaseEstimator")
     ]
-    # get rid of abstract base classes
-    estimators = [c for c in estimators if not is_abstract(c[1])]
+    # Get rid of abstract base classes and estimators not defined in skbn
+    estimators = [
+        c
+        for c in estimators
+        if not is_abstract(c[1]) and c[1].__module__.startswith("skbn")
+    ]
 
     if type_filter is not None:
         if not isinstance(type_filter, list):

@@ -185,8 +185,14 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         self._parent_data = np.zeros(X.shape, dtype=int)
 
         kwargs_discretizer = {"subsample": 200_000}
+
         if self.strategy == "quantile":
-            kwargs_discretizer["quantile_method"] = "linear"
+            # quantile_method was added in sklearn 1.7
+            import sklearn
+
+            sklearn_version = tuple(map(int, sklearn.__version__.split(".")[:2]))
+            if sklearn_version >= (1, 7):
+                kwargs_discretizer["quantile_method"] = "linear"
 
         for i in range(self.n_features_in_):
             col = X[:, i]
