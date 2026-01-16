@@ -34,6 +34,10 @@ classifiers = [
 Homepage = "https://github.com/ptorrijos99/scikit-bayes"
 Issues = "https://github.com/ptorrijos99/scikit-bayes/issues"
 
+[tool.setuptools.packages.find]
+include = ["skbn*"]
+namespaces = false
+
 [tool.setuptools_scm]
 version_file = "skbn/_version.py"
 
