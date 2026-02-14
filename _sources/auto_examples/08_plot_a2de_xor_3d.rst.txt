@@ -32,6 +32,28 @@ This reveals the internal geometry of the classifier:
 
 .. GENERATED FROM PYTHON SOURCE LINES 14-147
 
+
+
+.. image-sg:: /auto_examples/images/sphx_glr_08_plot_a2de_xor_3d_001.png
+   :alt: 3D Volumetric Decision Boundaries: Solving the XOR Problem, A0DE (Naive Bayes) Accuracy: 0.542, A1DE (AODE) Accuracy: 0.527, A2DE (n=2) Accuracy: 0.965
+   :srcset: /auto_examples/images/sphx_glr_08_plot_a2de_xor_3d_001.png
+   :class: sphx-glr-single-img
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    Training models...
+    Generating volumetric grid...
+
+
+
+
+
+
+|
+
 .. code-block:: Python
 
 
@@ -167,6 +189,11 @@ This reveals the internal geometry of the classifier:
 
     plt.suptitle("3D Volumetric Decision Boundaries: Solving the XOR Problem", fontsize=16)
     plt.show()
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (0 minutes 0.327 seconds)
 
 
 .. _sphx_glr_download_auto_examples_08_plot_a2de_xor_3d.py:

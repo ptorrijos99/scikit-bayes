@@ -30,6 +30,27 @@ By ignoring noise, ALR achieves significantly lower Log Loss and higher Accuracy
 
 .. GENERATED FROM PYTHON SOURCE LINES 12-146
 
+
+
+.. image-sg:: /auto_examples/images/sphx_glr_10_plot_compare_ande_interpretability_001.png
+   :alt: Impact of Noise on Model Weights and Performance, AnDE (Generative) Strategy: Uniform Attention, ALR (Hybrid) Strategy: Learned Attention
+   :srcset: /auto_examples/images/sphx_glr_10_plot_compare_ande_interpretability_001.png
+   :class: sphx-glr-single-img
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    Training models...
+
+
+
+
+
+
+|
+
 .. code-block:: Python
 
 
@@ -166,6 +187,11 @@ By ignoring noise, ALR achieves significantly lower Log Loss and higher Accuracy
     plt.tight_layout()
     plt.subplots_adjust(top=0.85)
     plt.show()
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (0 minutes 2.817 seconds)
 
 
 .. _sphx_glr_download_auto_examples_10_plot_compare_ande_interpretability.py:

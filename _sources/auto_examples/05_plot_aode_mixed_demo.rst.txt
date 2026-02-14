@@ -35,6 +35,27 @@ changes completely depending on the mode.
 
 .. GENERATED FROM PYTHON SOURCE LINES 17-168
 
+
+
+.. image-sg:: /auto_examples/images/sphx_glr_05_plot_aode_mixed_demo_001.png
+   :alt: Mixed Data Capabilities: Adapting Continuous Boundaries per Category, Naive Bayes (MixedNB) Accuracy: 0.747, AnDE (n=1, Context-Aware) Accuracy: 0.942
+   :srcset: /auto_examples/images/sphx_glr_05_plot_aode_mixed_demo_001.png
+   :class: sphx-glr-single-img
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    Training models...
+
+
+
+
+
+
+|
+
 .. code-block:: Python
 
 
@@ -188,6 +209,11 @@ changes completely depending on the mode.
         "Mixed Data Capabilities: Adapting Continuous Boundaries per Category", fontsize=16
     )
     plt.show()
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (0 minutes 0.210 seconds)
 
 
 .. _sphx_glr_download_auto_examples_05_plot_aode_mixed_demo.py:

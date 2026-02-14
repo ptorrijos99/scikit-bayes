@@ -49,6 +49,17 @@ MixedNB produces the smoothest probability landscape and optimal log-loss, thoug
 
 .. GENERATED FROM PYTHON SOURCE LINES 31-203
 
+
+
+.. image-sg:: /auto_examples/images/sphx_glr_04_plot_mixednb_vs_pipeline_001.png
+   :alt: MixedNB vs. Scikit-Learn Workarounds: Quality of Probability Landscape, 1. MixedNB (Native) Correct Assumptions Acc: 0.920 | Log Loss: 0.215, 2. Pipeline (OHE + GNB) Flawed: Cats are Gaussians Acc: 0.893 | Log Loss: 0.316, 3. Pipeline (Binned + CatNB) Flawed: Loss of Precision Acc: 0.913 | Log Loss: 0.223
+   :srcset: /auto_examples/images/sphx_glr_04_plot_mixednb_vs_pipeline_001.png
+   :class: sphx-glr-single-img
+
+
+
+
+
 .. code-block:: Python
 
 
@@ -223,6 +234,11 @@ MixedNB produces the smoothest probability landscape and optimal log-loss, thoug
     plt.tight_layout()
     plt.subplots_adjust(top=0.80, bottom=0.15)
     plt.show()
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (0 minutes 0.333 seconds)
 
 
 .. _sphx_glr_download_auto_examples_04_plot_mixednb_vs_pipeline.py:

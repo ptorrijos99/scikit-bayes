@@ -39,6 +39,57 @@ This experiment compares the full hierarchy of parameter granularity in ALR.
 
 .. GENERATED FROM PYTHON SOURCE LINES 21-189
 
+
+
+.. image-sg:: /auto_examples/images/sphx_glr_09_plot_compare_ande_variants_001.png
+   :alt: Granularity Trade-off: Full Hierarchy (L1-L4) vs Generative (n=1), Probability Calibration (Log Loss), Classification Accuracy, Computational Cost
+   :srcset: /auto_examples/images/sphx_glr_09_plot_compare_ande_variants_001.png
+   :class: sphx-glr-single-img
+
+
+.. rst-class:: sphx-glr-script-out
+
+ .. code-block:: none
+
+    Running benchmark with all 4 granularity levels...
+    Seed 1, N=100 done.
+    Seed 1, N=500 done.
+    Seed 1, N=1000 done.
+    Seed 1, N=5000 done.
+    Seed 1, N=10000 done.
+    Seed 1, N=20000 done.
+    Seed 2, N=100 done.
+    Seed 2, N=500 done.
+    Seed 2, N=1000 done.
+    Seed 2, N=5000 done.
+    Seed 2, N=10000 done.
+    Seed 2, N=20000 done.
+    Seed 3, N=100 done.
+    Seed 3, N=500 done.
+    Seed 3, N=1000 done.
+    Seed 3, N=5000 done.
+    Seed 3, N=10000 done.
+    Seed 3, N=20000 done.
+    Seed 42, N=100 done.
+    Seed 42, N=500 done.
+    Seed 42, N=1000 done.
+    Seed 42, N=5000 done.
+    Seed 42, N=10000 done.
+    Seed 42, N=20000 done.
+    Seed 123, N=100 done.
+    Seed 123, N=500 done.
+    Seed 123, N=1000 done.
+    Seed 123, N=5000 done.
+    Seed 123, N=10000 done.
+    Seed 123, N=20000 done.
+
+
+
+
+
+
+|
+
 .. code-block:: Python
 
 
@@ -209,6 +260,11 @@ This experiment compares the full hierarchy of parameter granularity in ALR.
     )
 
     plt.show()
+
+
+.. rst-class:: sphx-glr-timing
+
+   **Total running time of the script:** (16 minutes 57.767 seconds)
 
 
 .. _sphx_glr_download_auto_examples_09_plot_compare_ande_variants.py:
