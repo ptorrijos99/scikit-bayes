@@ -76,4 +76,8 @@ target/
 # auto-generated files
 skbn/_version.py
 
+# Experiments
+experiments/
+.hydra/
+
 instructions.py
