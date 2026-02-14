@@ -112,4 +112,5 @@ sphinx_gallery_conf = {
     "gallery_dirs": "auto_examples",
     "reference_url": {"skbn": None},
     "run_stale_examples": False,
+    "filename_pattern": "plot_",
 }
