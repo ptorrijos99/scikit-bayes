@@ -110,11 +110,13 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         self,
         categorical_features=None,
         bernoulli_features=None,
+        gaussian_features=None,
         var_smoothing=1e-9,
         alpha=1.0,
     ):
         self.categorical_features = categorical_features
         self.bernoulli_features = bernoulli_features
+        self.gaussian_features = gaussian_features
         self.var_smoothing = var_smoothing
         self.alpha = alpha
 
@@ -160,19 +162,22 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         bern_feats = self._validate_feature_indices(
             self.bernoulli_features, self.n_features_in_, "bernoulli_features"
         )
+        gauss_feats = self._validate_feature_indices(
+            self.gaussian_features, self.n_features_in_, "gaussian_features"
+        )
 
-        if set(cat_feats) & set(bern_feats):
-            raise ValueError(
-                "The sets of categorical and Bernoulli features must be disjoint."
-            )
+        # Check disjointness
+        all_indices = cat_feats + bern_feats + gauss_feats
+        if len(set(all_indices)) != len(all_indices):
+             raise ValueError("Feature sets (categorical, bernoulli, gaussian) must be disjoint.")
 
         self.feature_types_ = {
-            "gaussian": [],
+            "gaussian": gauss_feats,
             "categorical": cat_feats,
             "bernoulli": bern_feats,
         }
 
-        user_defined_indices = set(cat_feats) | set(bern_feats)
+        user_defined_indices = set(cat_feats) | set(bern_feats) | set(gauss_feats)
 
         # Auto-detect remaining features
         for i in range(self.n_features_in_):
