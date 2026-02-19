@@ -169,7 +169,9 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         # Check disjointness
         all_indices = cat_feats + bern_feats + gauss_feats
         if len(set(all_indices)) != len(all_indices):
-             raise ValueError("Feature sets (categorical, bernoulli, gaussian) must be disjoint.")
+            raise ValueError(
+                "Feature sets (categorical, bernoulli, gaussian) must be disjoint."
+            )
 
         self.feature_types_ = {
             "gaussian": gauss_feats,

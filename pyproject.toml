@@ -68,6 +68,7 @@ lint = { depends-on = ["black", "ruff"]}
 pytest = "*"
 pytest-cov = "*"
 setuptools-scm = ">=8"
+pandas = "*"
 
 [tool.pixi.feature.test.tasks]
 test = { cmd = "pytest -vsl --cov=skbn --cov-report=xml skbn" }
@@ -147,6 +148,10 @@ ignore=[
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules --color=yes"
+filterwarnings = [
+    "ignore:KMeans is known to have a memory leak on Windows with MKL.*:UserWarning",
+    "ignore:Found Intel OpenMP.*and LLVM OpenMP.*loaded at the same time.*:RuntimeWarning",
+]
 doctest_optionflags = "NORMALIZE_WHITESPACE"
 testpaths = ["skbn"]
 norecursedirs = ["doc", "examples", "build", "dist"]

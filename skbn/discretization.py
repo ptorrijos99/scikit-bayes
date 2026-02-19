@@ -154,9 +154,7 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
 
             self.thresholds_.append(thresholds)
             self.imputers_.append(imputer)
-            self.fallback_discretizers_.append(
-                self._fit_fallback(xi_clean, thresholds)
-            )
+            self.fallback_discretizers_.append(self._fit_fallback(xi_clean, thresholds))
 
         return self
 
@@ -230,9 +228,7 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
             If any parameter value is outside the accepted range or set.
         """
         if self.n_bins < 2:
-            raise ValueError(
-                f"n_bins must be >= 2, got {self.n_bins!r}."
-            )
+            raise ValueError(f"n_bins must be >= 2, got {self.n_bins!r}.")
         if self.fallback not in self._VALID_FALLBACKS:
             raise ValueError(
                 f"fallback must be one of {self._VALID_FALLBACKS!r}, "

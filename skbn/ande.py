@@ -44,7 +44,17 @@ from .mixed_nb import MixedNB
 # Defined at module level to ensure picklability with joblib
 
 
-def _fit_spode(parent_indices, X, y, parent_data, n_features, alpha, categorical_features=None, bernoulli_features=None, gaussian_features=None):
+def _fit_spode(
+    parent_indices,
+    X,
+    y,
+    parent_data,
+    n_features,
+    alpha,
+    categorical_features=None,
+    bernoulli_features=None,
+    gaussian_features=None,
+):
     """Fits a single SPODE (Sub-model) in parallel."""
     # A. Construct Y*
     if len(parent_indices) > 0:
@@ -84,7 +94,7 @@ def _fit_spode(parent_indices, X, y, parent_data, n_features, alpha, categorical
         for g_idx in bernoulli_features:
             if g_idx in global_to_sub:
                 sub_bern_indices.append(global_to_sub[g_idx])
-                
+
     if gaussian_features is not None:
         for g_idx in gaussian_features:
             if g_idx in global_to_sub:
@@ -95,7 +105,7 @@ def _fit_spode(parent_indices, X, y, parent_data, n_features, alpha, categorical
         alpha=alpha,
         categorical_features=sub_cat_indices if sub_cat_indices else None,
         bernoulli_features=sub_bern_indices if sub_bern_indices else None,
-        gaussian_features=sub_gauss_indices if sub_gauss_indices else None
+        gaussian_features=sub_gauss_indices if sub_gauss_indices else None,
     )
     sub_model.fit(X_train_sub, y_augmented_enc)
 
@@ -179,15 +189,15 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
     """
 
     def __init__(
-        self, 
-        n_dependence=1, 
-        n_bins=5, 
-        strategy="quantile", 
-        alpha=1.0, 
+        self,
+        n_dependence=1,
+        n_bins=5,
+        strategy="quantile",
+        alpha=1.0,
         n_jobs=None,
         categorical_features=None,
         bernoulli_features=None,
-        gaussian_features=None
+        gaussian_features=None,
     ):
         self.n_dependence = n_dependence
         self.n_bins = n_bins
@@ -265,8 +275,15 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         # Use joblib to fit SPODEs in parallel
         self.ensemble_ = Parallel(n_jobs=self.n_jobs)(
             delayed(_fit_spode)(
-                p_idx, X, y, self._parent_data, self.n_features_in_, self.alpha,
-                self.categorical_features, self.bernoulli_features, self.gaussian_features
+                p_idx,
+                X,
+                y,
+                self._parent_data,
+                self.n_features_in_,
+                self.alpha,
+                self.categorical_features,
+                self.bernoulli_features,
+                self.gaussian_features,
             )
             for p_idx in parent_combinations
         )
@@ -494,7 +511,16 @@ class _HybridOptimizer(_BaseAnDE):
         bernoulli_features=None,
         gaussian_features=None,
     ):
-        super().__init__(n_dependence, n_bins, strategy, alpha, n_jobs, categorical_features, bernoulli_features, gaussian_features)
+        super().__init__(
+            n_dependence,
+            n_bins,
+            strategy,
+            alpha,
+            n_jobs,
+            categorical_features,
+            bernoulli_features,
+            gaussian_features,
+        )
         self.l2_reg = l2_reg
         self.max_iter = max_iter
         self.weight_level = weight_level

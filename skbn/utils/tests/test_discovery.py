@@ -26,7 +26,9 @@ def test_all_estimators():
     skbayes_classifiers = [
         (name, cls) for name, cls in classifiers if cls.__module__.startswith("skbn")
     ]
-    assert len(skbayes_classifiers) == 5 # DecisionTreeDiscretizer is a transformer, not a classifier
+    assert (
+        len(skbayes_classifiers) == 5
+    )  # DecisionTreeDiscretizer is a transformer, not a classifier
 
 
 def test_all_displays():
