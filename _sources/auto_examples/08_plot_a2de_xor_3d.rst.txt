@@ -193,7 +193,7 @@ This reveals the internal geometry of the classifier:
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 0.272 seconds)
+   **Total running time of the script:** (0 minutes 0.221 seconds)
 
 
 .. _sphx_glr_download_auto_examples_08_plot_a2de_xor_3d.py:
