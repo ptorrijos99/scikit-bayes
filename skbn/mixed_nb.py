@@ -220,31 +220,22 @@ class MixedNB(ClassifierMixin, BaseEstimator):
 
         if self.feature_types_["categorical"]:
             indices = self.feature_types_["categorical"]
-            cat_nb = CategoricalNB(
-                alpha=self.alpha, min_categories=self._get_min_categories(X[:, indices])
-            )
+            min_cats = self._get_min_categories(X[:, indices])
+            cat_nb = CategoricalNB(alpha=self.alpha, min_categories=min_cats)
             cat_nb.fit(X[:, indices], y)
             self.estimators_["categorical"] = cat_nb
+            # Save cardinalities for clipping unseen values at test time
+            self._cat_cardinalities = np.array(min_cats, dtype=int)
 
         if self.feature_types_["bernoulli"]:
             indices = self.feature_types_["bernoulli"]
             bern_nb = BernoulliNB(alpha=self.alpha)
-            # BernoulliNB works on binary data, binarize might be needed if not 0/1
-            X_bern = X[:, indices] > 0
-            bern_nb.fit(X_bern, y)
+            bern_nb.fit(X[:, indices] > 0, y)
             self.estimators_["bernoulli"] = bern_nb
 
-        if self.estimators_:
-            any_estimator = next(iter(self.estimators_.values()))
-            # GaussianNB stores 'class_prior_' (probs), others store 'class_log_prior_' (logs)
-            if hasattr(any_estimator, "class_prior_"):
-                self.class_log_prior_ = np.log(any_estimator.class_prior_)
-            else:
-                self.class_log_prior_ = any_estimator.class_log_prior_
-        else:
-            le = LabelEncoder().fit(y)
-            class_counts = np.bincount(le.transform(y))
-            self.class_log_prior_ = np.log(class_counts / class_counts.sum())
+        le = LabelEncoder().fit(y)
+        class_counts = np.bincount(le.transform(y), minlength=len(self.classes_))
+        self.class_log_prior_ = np.log(class_counts / class_counts.sum())
 
         return self
 
@@ -280,23 +271,25 @@ class MixedNB(ClassifierMixin, BaseEstimator):
                 log_prob + log_constant
             )  # broadcasting: (n_samples, n_classes) + (n_classes,)
 
-        # Categorical features
+        # Categorical features (vectorized, with unseen-category clipping)
         if "categorical" in self.estimators_:
             indices = self.feature_types_["categorical"]
             X_cat = X[:, indices].astype(int)
             est = self.estimators_["categorical"]
-            # log P(x_i|c) is stored in feature_log_prob_
+            # Clip to valid range: unseen categories map to last valid one
+            X_cat = np.clip(X_cat, 0, self._cat_cardinalities - 1)
+
+            # Cumulative log-likelihood lookup
             for i in range(X_cat.shape[1]):
                 jll += est.feature_log_prob_[i][:, X_cat[:, i]].T
 
         # Bernoulli features
         if "bernoulli" in self.estimators_:
             indices = self.feature_types_["bernoulli"]
-            X_bern = X[:, indices] > 0
+            X_bern = (X[:, indices] > 0).astype(np.float64)
             est = self.estimators_["bernoulli"]
-            # log P(x_i|c) for Bernoulli
             log_prob_pos = est.feature_log_prob_
-            log_prob_neg = np.log(1 - np.exp(log_prob_pos))
+            log_prob_neg = np.log1p(-np.exp(log_prob_pos))  # numerically safer
             jll += X_bern @ (log_prob_pos - log_prob_neg).T
             jll += np.sum(log_prob_neg, axis=1)
 

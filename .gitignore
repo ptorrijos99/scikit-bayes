@@ -79,5 +79,6 @@ skbn/_version.py
 # Experiments
 experiments/
 .hydra/
+experiments/calibration/
 
 instructions.py

@@ -51,25 +51,35 @@ def _fit_spode(
     parent_data,
     n_features,
     alpha,
+    parent_cards,
     categorical_features=None,
     bernoulli_features=None,
     gaussian_features=None,
 ):
-    """Fits a single SPODE (Sub-model) in parallel."""
-    # A. Construct Y*
+    """Fits a single SPODE (Sub-model) in parallel.
+
+    Uses integer-based Y* encoding for speed and robustness.
+    Y* = class_idx * n_parent_combos + parent_linear_index
+    """
+    unique_y = np.unique(y)
+    y_int = np.searchsorted(unique_y, y)
+
+    # A. Compute integer Y*
     if len(parent_indices) > 0:
-        parents_vals = parent_data[:, parent_indices]
-        # Efficient string signature
-        y_augmented = [
-            f"{label}|" + "|".join(map(str, row)) for label, row in zip(y, parents_vals)
-        ]
+        p_vals = parent_data[:, parent_indices]
+        cards = parent_cards[list(parent_indices)]
+        strides = np.cumprod(np.concatenate(([1], cards[::-1][:-1])))[::-1]
+        n_combos = int(np.prod(cards))
+        parent_keys = (p_vals * strides).sum(axis=1).astype(int)
+        y_star = y_int * n_combos + parent_keys
     else:
-        y_augmented = y
+        cards = np.array([1])
+        strides = np.array([0])
+        n_combos = 1
+        parent_keys = np.zeros(len(y), dtype=int)
+        y_star = y_int
 
-    le = LabelEncoder()
-    y_augmented_enc = le.fit_transform(y_augmented)
-
-    # B. Identify features for child NB
+    # B. Identify child features
     child_indices = [i for i in range(n_features) if i not in parent_indices]
 
     if not child_indices:
@@ -77,12 +87,10 @@ def _fit_spode(
     else:
         X_train_sub = X[:, child_indices]
 
+    # Map global feature indices to local sub-indices
     sub_cat_indices = []
     sub_bern_indices = []
     sub_gauss_indices = []
-
-    # Map global to local
-    # child_indices contains the global indices effectively present in X_train_sub
     global_to_sub = {g_idx: s_idx for s_idx, g_idx in enumerate(child_indices)}
 
     if categorical_features is not None:
@@ -100,45 +108,37 @@ def _fit_spode(
             if g_idx in global_to_sub:
                 sub_gauss_indices.append(global_to_sub[g_idx])
 
-    # D. Fit MixedNB
+    # C. Fit MixedNB on (X_children, Y*)
     sub_model = MixedNB(
         alpha=alpha,
         categorical_features=sub_cat_indices if sub_cat_indices else None,
         bernoulli_features=sub_bern_indices if sub_bern_indices else None,
         gaussian_features=sub_gauss_indices if sub_gauss_indices else None,
     )
-    sub_model.fit(X_train_sub, y_augmented_enc)
+    sub_model.fit(X_train_sub, y_star)
 
-    # D. Metadata
-    decoded_classes = le.inverse_transform(sub_model.classes_)
-    map_k_to_y_idx = []
-    map_k_to_parent_sig = []
-
-    # Infer target type from y (assumed consistent)
-    target_type = type(y[0])
-    unique_y = unique_labels(y)
-
-    for cls_str in decoded_classes:
+    # D. Build integer-based mapping: y* → (class_idx, parent_key)
+    map_y = []
+    map_parent_key = []
+    for k_star in sub_model.classes_:
         if len(parent_indices) > 0:
-            parts = cls_str.split("|")
-            original_label = target_type(parts[0])
-            parent_sig = "|".join(parts[1:])
+            c_idx = int(k_star) // n_combos
+            p_key = int(k_star) % n_combos
         else:
-            original_label = cls_str
-            parent_sig = ""
-
-        # Find index in unique_y
-        y_idx = np.where(unique_y == original_label)[0][0]
-
-        map_k_to_y_idx.append(y_idx)
-        map_k_to_parent_sig.append(parent_sig)
+            c_idx = int(k_star)
+            p_key = 0
+        map_y.append(c_idx)
+        map_parent_key.append(p_key)
 
     return {
         "parent_indices": parent_indices,
         "child_indices": child_indices,
         "estimator": sub_model,
-        "map_y": np.array(map_k_to_y_idx),
-        "map_parents": np.array(map_k_to_parent_sig),
+        "map_y": np.array(map_y, dtype=int),
+        "map_parent_key": np.array(map_parent_key, dtype=int),
+        "n_parent_combos": n_combos,
+        "parent_cards": cards,
+        "parent_strides": strides,
     }
 
 
@@ -230,10 +230,11 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         # n_features_in_ is set by validate_data
 
         # --- 1. Discretize Parents ---
-        self._discretizers_list = {}
+        self._discretizers_list = {}  # KBinsDiscretizer or LabelEncoder per feature
         self._parent_data = np.zeros(X.shape, dtype=int)
 
-        kwargs_discretizer = {"subsample": 200_000}
+        # Use all data for discretizer to ensure maximum precision
+        kwargs_discretizer = {"subsample": None}
 
         if self.strategy == "quantile":
             # quantile_method was added in sklearn 1.7
@@ -262,8 +263,13 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
                 ).flatten()
                 self._discretizers_list[i] = est
             else:
+                # Save LabelEncoder so we can transform test data correctly
                 le = LabelEncoder()
                 self._parent_data[:, i] = le.fit_transform(col)
+                self._discretizers_list[i] = le
+
+        # Compute per-feature cardinalities from training data
+        self._parent_cards = np.max(self._parent_data, axis=0).astype(int) + 1
 
         # --- 2. Build Ensemble (Parallelized) ---
         parent_combinations = list(
@@ -281,6 +287,7 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
                 self._parent_data,
                 self.n_features_in_,
                 self.alpha,
+                self._parent_cards,
                 self.categorical_features,
                 self.bernoulli_features,
                 self.gaussian_features,
@@ -309,25 +316,47 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         n_classes = len(self.classes_)
         n_models = len(self.ensemble_)
 
-        # Discretize parents for test set
-        X_parents_disc = X.copy()
-        if hasattr(self, "_discretizers_list"):
-            for col_idx, est in self._discretizers_list.items():
-                X_parents_disc[:, col_idx] = est.transform(X[:, [col_idx]]).flatten()
-        X_parents_disc = X_parents_disc.astype(int)
+        # Discretize parents for test set (handles both KBinsDiscretizer and LabelEncoder)
+        X_parents_disc = np.zeros((n_samples, self.n_features_in_), dtype=int)
+        for col_idx in range(self.n_features_in_):
+            if col_idx in self._discretizers_list:
+                est = self._discretizers_list[col_idx]
+                if isinstance(est, LabelEncoder):
+                    # Handle unseen labels: clip to known range
+                    col = X[:, col_idx]
+                    known = set(est.classes_)
+                    # Map unknown values to the first known class
+                    safe_col = np.array(
+                        [v if v in known else est.classes_[0] for v in col]
+                    )
+                    X_parents_disc[:, col_idx] = est.transform(safe_col)
+                else:
+                    X_parents_disc[:, col_idx] = (
+                        est.transform(X[:, [col_idx]]).flatten().astype(int)
+                    )
+            else:
+                X_parents_disc[:, col_idx] = X[:, col_idx].astype(int)
+
+        # Clip to training cardinalities (safety for unseen test values)
+        for i in range(self.n_features_in_):
+            np.clip(
+                X_parents_disc[:, i],
+                0,
+                self._parent_cards[i] - 1,
+                out=X_parents_disc[:, i],
+            )
 
         # Output tensor initialized to a very small log-probability (approx 0 prob)
-        # We avoid -inf so that Geometric mean (AnJE) doesn't collapse to 0 if one model misses.
         # -700 is close to the limit of exp() in float64 (~1e-304)
         jll_tensor = np.full((n_samples, n_classes, n_models), -700.0)
 
-        # Sequential loop (Safer and easier to debug than Parallel for inference)
         for m_idx, model_info in enumerate(self.ensemble_):
             parent_indices = model_info["parent_indices"]
             estimator = model_info["estimator"]
             child_indices = model_info["child_indices"]
             map_y = model_info["map_y"]
-            map_p = model_info["map_parents"]
+            map_parent_key = model_info["map_parent_key"]
+            parent_strides = model_info["parent_strides"]
 
             # 1. Get raw log probabilities for Y*
             if not child_indices:
@@ -341,16 +370,15 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
                 jll_tensor[:, :, m_idx] = jll_augmented
                 continue
 
-            # 2. Filter based on parents
-            test_parents_vals = X_parents_disc[:, parent_indices]
-            test_signatures = np.array(
-                ["|".join(map(str, row)) for row in test_parents_vals]
-            )
+            # 2. Compute integer parent keys for test samples (vectorized, no strings)
+            test_p_vals = X_parents_disc[:, parent_indices]
+            test_parent_keys = (test_p_vals * parent_strides).sum(axis=1).astype(int)
 
-            for k in range(len(map_p)):
+            # 3. Match each Y* class back to (class_idx, parent_key)
+            for k in range(len(map_parent_key)):
                 target_class_idx = map_y[k]
-                required_sig = map_p[k]
-                valid_mask = test_signatures == required_sig
+                required_key = map_parent_key[k]
+                valid_mask = test_parent_keys == required_key
 
                 if np.any(valid_mask):
                     jll_tensor[valid_mask, target_class_idx, m_idx] = jll_augmented[
@@ -528,7 +556,7 @@ class _HybridOptimizer(_BaseAnDE):
     def _setup_weights(self, X_parents_disc):
         """
         Prepares weight offsets based on granularity level.
-        Handles n-dependence > 1 by linearizing parent value combinations.
+        Uses training-time cardinalities stored in the ensemble for consistency.
         """
         n_models = len(self.ensemble_)
         n_classes = len(self.classes_)
@@ -536,33 +564,15 @@ class _HybridOptimizer(_BaseAnDE):
         self._weight_offsets = [0]
         current_offset = 0
 
-        # Store strides/cardinalities to re-use during test time if needed
+        # Store strides/cardinalities for test-time index computation
         self._model_strides = []
 
-        # 1. Determine Size of Weight Vector per Model
         for m_idx in range(n_models):
             p_indices = self.ensemble_[m_idx]["parent_indices"]
-
-            # Cardinality for each parent feature (based on training data)
-            # We use max()+1 to determine the range size 0..K
-            # Shape: (n_parents,) e.g. [5, 5] for n=2 with 5 bins
-            if len(p_indices) > 0:
-                cards = np.max(X_parents_disc[:, p_indices], axis=0) + 1
-            else:
-                cards = np.array([1])  # Case n=0
-
-            # Calculate total combinations (Cartesian product size)
-            # n=1: size = cards[0]
-            # n=2: size = cards[0] * cards[1]
-            n_combinations = np.prod(cards)
-
-            # Save cardinalities/strides for linear indexing
-            # Standard C-order flattening: idx = v1*stride1 + v2*stride2 ... + vn*1
-            # Strides are cumprod of sizes in reverse
-            if len(p_indices) > 0:
-                strides = np.cumprod(np.concatenate(([1], cards[::-1][:-1])))[::-1]
-            else:
-                strides = np.array([0])
+            # Use training cardinalities from _fit_spode (not recalculated from data)
+            cards = self.ensemble_[m_idx]["parent_cards"]
+            strides = self.ensemble_[m_idx]["parent_strides"]
+            n_combinations = self.ensemble_[m_idx]["n_parent_combos"]
 
             self._model_strides.append((p_indices, cards, strides))
 
@@ -696,8 +706,32 @@ class _HybridOptimizer(_BaseAnDE):
         jll_models, X_parents_disc = self._get_jll_per_model(X)
         jll_models = np.clip(jll_models, -1e10, 700)
 
-        # Re-calc indices for Test data
-        self._setup_weights(X_parents_disc)
+        # Recompute _w_indices for test data using TRAINING cardinalities
+        # (NOT calling _setup_weights which would recalculate cardinalities from test data)
+        n_samples = X_parents_disc.shape[0]
+        n_models = len(self.ensemble_)
+        n_classes = len(self.classes_)
+        self._w_indices = np.zeros((n_samples, n_models), dtype=int)
+
+        for m_idx in range(n_models):
+            base_off = self._weight_offsets[m_idx]
+            if self.weight_level in [1, 3]:
+                self._w_indices[:, m_idx] = base_off
+            elif self.weight_level in [2, 4]:
+                p_indices, cards, strides = self._model_strides[m_idx]
+                if len(p_indices) > 0:
+                    vals = X_parents_disc[:, p_indices].copy()
+                    # Clip to training cardinalities (prevents out-of-bounds)
+                    vals = np.minimum(vals, cards - 1)
+                    vals = np.maximum(vals, 0)
+                    linear_vals = vals @ strides
+                    if self.weight_level == 2:
+                        self._w_indices[:, m_idx] = base_off + linear_vals
+                    else:
+                        self._w_indices[:, m_idx] = base_off + (linear_vals * n_classes)
+                else:
+                    self._w_indices[:, m_idx] = base_off
+
         W_tensor = self._get_weights_for_samples(self.learned_weights_, X.shape[0])
 
         final_jll = self._calculate_final_jll(jll_models, W_tensor)

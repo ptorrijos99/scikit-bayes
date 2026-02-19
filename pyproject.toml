@@ -151,6 +151,7 @@ addopts = "--doctest-modules --color=yes"
 filterwarnings = [
     "ignore:KMeans is known to have a memory leak on Windows with MKL.*:UserWarning",
     "ignore:Found Intel OpenMP.*and LLVM OpenMP.*loaded at the same time.*:RuntimeWarning",
+    "ignore:.*OMP_NUM_THREADS=1.*:UserWarning",
 ]
 doctest_optionflags = "NORMALIZE_WHITESPACE"
 testpaths = ["skbn"]
