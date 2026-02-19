@@ -238,7 +238,7 @@ MixedNB produces the smoothest probability landscape and optimal log-loss, thoug
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 0.314 seconds)
+   **Total running time of the script:** (0 minutes 0.273 seconds)
 
 
 .. _sphx_glr_download_auto_examples_04_plot_mixednb_vs_pipeline.py:
