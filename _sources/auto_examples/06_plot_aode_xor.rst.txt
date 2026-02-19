@@ -165,7 +165,7 @@ As shown in the plot, AnDE successfully captures the XOR structure.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 0.298 seconds)
+   **Total running time of the script:** (0 minutes 0.273 seconds)
 
 
 .. _sphx_glr_download_auto_examples_06_plot_aode_xor.py:
