@@ -11,21 +11,22 @@ def test_all_estimators():
     skbayes_estimators = [
         (name, cls) for name, cls in estimators if cls.__module__.startswith("skbn")
     ]
-    # Should be 5: MixedNB, AnDE, AnJE, ALR, WeightedAnDE
-    assert len(skbayes_estimators) == 5
+    # Should be 6: MixedNB, AnDE, AnJE, ALR, WeightedAnDE, DecisionTreeDiscretizer
+    assert len(skbayes_estimators) == 6
     estimator_names = [name for name, _ in skbayes_estimators]
     assert "MixedNB" in estimator_names
     assert "AnDE" in estimator_names
     assert "AnJE" in estimator_names
     assert "ALR" in estimator_names
     assert "WeightedAnDE" in estimator_names
+    assert "DecisionTreeDiscretizer" in estimator_names
 
     # Verify classifier filter returns skbn classifiers
     classifiers = all_estimators(type_filter="classifier")
     skbayes_classifiers = [
         (name, cls) for name, cls in classifiers if cls.__module__.startswith("skbn")
     ]
-    assert len(skbayes_classifiers) == 5
+    assert len(skbayes_classifiers) == 5 # DecisionTreeDiscretizer is a transformer, not a classifier
 
 
 def test_all_displays():
