@@ -279,7 +279,12 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
             parent_combinations = [()]
 
         # Use joblib to fit SPODEs in parallel
-        self.ensemble_ = Parallel(n_jobs=self.n_jobs)(
+        # Disabling memory mapping (max_nbytes=None, mmap_mode=None) prevents joblib from writing temporary files to disk.
+        self.ensemble_ = Parallel(
+            n_jobs=self.n_jobs,
+            max_nbytes=None,
+            mmap_mode=None,
+        )(
             delayed(_fit_spode)(
                 p_idx,
                 X,
@@ -322,13 +327,12 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
             if col_idx in self._discretizers_list:
                 est = self._discretizers_list[col_idx]
                 if isinstance(est, LabelEncoder):
-                    # Handle unseen labels: clip to known range
+                    # Fast fallback for unseen categorical values
                     col = X[:, col_idx]
-                    known = set(est.classes_)
-                    # Map unknown values to the first known class
-                    safe_col = np.array(
-                        [v if v in known else est.classes_[0] for v in col]
-                    )
+                    # Create a boolean mask of known classes
+                    known_mask = np.isin(col, est.classes_)
+                    # Replace unknown values with the first known class
+                    safe_col = np.where(known_mask, col, est.classes_[0])
                     X_parents_disc[:, col_idx] = est.transform(safe_col)
                 else:
                     X_parents_disc[:, col_idx] = (
@@ -538,6 +542,7 @@ class _HybridOptimizer(_BaseAnDE):
         categorical_features=None,
         bernoulli_features=None,
         gaussian_features=None,
+        modular=False,
     ):
         super().__init__(
             n_dependence,
@@ -552,6 +557,7 @@ class _HybridOptimizer(_BaseAnDE):
         self.l2_reg = l2_reg
         self.max_iter = max_iter
         self.weight_level = weight_level
+        self.modular = modular
 
     def _setup_weights(self, X_parents_disc):
         """
@@ -663,43 +669,77 @@ class _HybridOptimizer(_BaseAnDE):
             y_ohe = np.hstack((1 - y_ohe, y_ohe))
 
         # 3. Optimization
-        def objective(w_flat):
-            # Expand weights to (N, C, M)
-            W_tensor = self._get_weights_for_samples(w_flat, X.shape[0])
-
-            # Hook for ALR vs WeightedAnDE
-            final_jll = self._calculate_final_jll(jll_tensor, W_tensor)
-            final_jll = np.clip(final_jll, -1e10, 700)
-
-            # Loss
-            lse = logsumexp(final_jll, axis=1)
-            log_proba = final_jll - lse[:, np.newaxis]
-
-            true_class_log_probs = log_proba[y_ohe.astype(bool)]
-            nll = -np.sum(true_class_log_probs)
-
-            # L2 Regularization around 1.0 as per Zaidi et al.
-            reg = self.l2_reg * np.sum((w_flat - 1.0) ** 2)
-            return nll + reg
-
         initial_weights = np.ones(self.n_weights_)
+        n_models = len(self.ensemble_)
+        n_samples = X.shape[0]
+        n_classes = len(self.classes_)
+
         if isinstance(self, WeightedAnDE):
-            initial_weights /= len(self.ensemble_)
+            initial_weights /= n_models
 
-        bounds = [(0, None) for _ in range(self.n_weights_)]
+        if self.modular:
+            self.learned_weights_ = np.zeros(self.n_weights_)
+            # Modular Optimization: Optimize each SPODE independently (Strictly Convex)
+            for m_idx in range(n_models):
+                start = self._weight_offsets[m_idx]
+                end = self._weight_offsets[m_idx + 1]
+                w0_m = initial_weights[start:end]
+                jll_m = jll_tensor[:, :, m_idx]
+                indices_m = self._w_indices[:, m_idx]
+                
+                # Allocate memory for the expanded weights outside the objective function
+                # This prevents reallocation in every optimization step
+                if self.weight_level not in [1, 2]:
+                    W_m_samples_buffer = np.zeros((n_samples, n_classes))
 
-        # Suppress warnings during optimization
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            res = minimize(
-                objective,
-                initial_weights,
-                method="L-BFGS-B",
-                bounds=bounds,
-                options={"maxiter": self.max_iter},
-            )
+                def local_objective(w_m):
+                    if self.weight_level in [1, 2]:
+                        W_m_samples = w_m[indices_m - start][:, np.newaxis]
+                    else:
+                        # Update the pre-allocated buffer in-place
+                        for c in range(n_classes):
+                            W_m_samples_buffer[:, c] = w_m[indices_m - start + c]
+                        W_m_samples = W_m_samples_buffer
 
-        self.learned_weights_ = res.x
+                    if isinstance(self, ALR):
+                        local_weighted_jll = jll_m * W_m_samples
+                    else:
+                        local_weighted_jll = jll_m + np.log(np.maximum(W_m_samples, 1e-10))
+                    
+                    lse = logsumexp(local_weighted_jll, axis=1)
+                    log_proba = local_weighted_jll - lse[:, np.newaxis]
+                    nll = -np.sum(log_proba[y_ohe.astype(bool)])
+                    reg = self.l2_reg * np.sum((w_m - 1.0) ** 2)
+                    return nll + reg
+
+                res_m = minimize(
+                    local_objective, w0_m, method="L-BFGS-B",
+                    bounds=[(0, None)] * len(w0_m),
+                    options={"maxiter": self.max_iter}
+                )
+                self.learned_weights_[start:end] = res_m.x
+        else:
+            # Joint Optimization: Optimize all weights simultaneously (Non-Convex for WeightedAnDE)
+            def objective(w_flat):
+                W_tensor = self._get_weights_for_samples(w_flat, n_samples)
+                final_jll = self._calculate_final_jll(jll_tensor, W_tensor)
+                final_jll = np.clip(final_jll, -1e10, 700)
+
+                lse = logsumexp(final_jll, axis=1)
+                log_proba = final_jll - lse[:, np.newaxis]
+                nll = -np.sum(log_proba[y_ohe.astype(bool)])
+                reg = self.l2_reg * np.sum((w_flat - 1.0) ** 2)
+                return nll + reg
+
+            bounds = [(0, None) for _ in range(self.n_weights_)]
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                res = minimize(
+                    objective, initial_weights, method="L-BFGS-B",
+                    bounds=bounds, options={"maxiter": self.max_iter}
+                )
+            self.learned_weights_ = res.x
+        
         return self
 
     def predict_log_proba(self, X):
@@ -785,7 +825,7 @@ class WeightedAnDE(_HybridOptimizer, AnDE):
     Weighted AnDE [Hybrid].
 
     A discriminative weighting of standard AnDE (Arithmetic Mean).
-    Optimization is Non-Convex.
+    Optimization is Non-Convex (joint) or Strictly Convex (modular).
     """
 
     def _calculate_final_jll(self, jll_tensor, W_tensor):
