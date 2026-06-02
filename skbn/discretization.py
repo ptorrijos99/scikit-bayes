@@ -104,6 +104,14 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
         self.fallback = fallback
         self.random_state = random_state
 
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.allow_nan = True
+        return tags
+
+    def _more_tags(self):
+        return {"allow_nan": True}
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
