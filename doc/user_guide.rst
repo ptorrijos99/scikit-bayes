@@ -337,7 +337,7 @@ References
        Aggregating one-dependence estimators. Machine Learning, 58(1), 5-24.
 
 .. [2] Webb, G. I., Boughton, J., Zheng, F., Ting, K. M., & Salem, H. (2011). 
-       Learning by extrapolation from marginal to full-multivariate probability 
+       Learning by extrapolation from marginal to full-multivariate probability
        distributions: Decreasingly naive Bayesian classification. Machine Learning, 86(2), 233-272.
 
 .. [3] Zaidi, N. A., Webb, G. I., Carman, M. J., & Petitjean, F. (2017). 
