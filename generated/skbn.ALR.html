@@ -403,19 +403,36 @@
 <dt class="sig sig-object py" id="skbn.ALR">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">skbn.</span></span><span class="sig-name descname"><span class="pre">ALR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_dependence</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'quantile'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">l2_reg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">categorical_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bernoulli_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">modular</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.ALR" title="Link to this definition">#</a></dt>
 <dd><p>Accelerated Logistic Regression (ALR) [Hybrid].</p>
-<p>A hybrid generative-discriminative classifier.
-Optimizes weights in log-space (Convex).</p>
-<p>Supports 4 Levels of Weight Granularity:
-1. Per Model (Default)
-2. Per Parent Value
-3. Per Class
-4. Per Parent Value &amp; Class</p>
+<p>A hybrid generative-discriminative classifier that combines the generative
+topology of Averaged n-Dependence Estimators (AnJE) with discriminative
+weight optimization. Weights are optimized in log-space, making the
+optimization problem strictly convex and solvable via L-BFGS-B.</p>
+<p>Supports 4 Levels of Weight Granularity (from coarsest to finest):
+1. Per Model (Default) - One weight per ensemble member.
+2. Per Parent Value - One weight per parent feature value.
+3. Per Class - One weight per target class per model.
+4. Per Parent Value &amp; Class - One weight per parent value per class.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl class="simple">
+<dt><strong>n_dependence</strong><span class="classifier">int, default=1</span></dt><dd><p>The number of parent features conditioned upon (n-dependence).
+0 corresponds to Naive Bayes topology.</p>
+</dd>
+<dt><strong>alpha</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Additive (Laplace/Lidstone) smoothing parameter for probabilities.</p>
+</dd>
+<dt><strong>categorical_features</strong><span class="classifier">array-like of int or str, default=”auto”</span></dt><dd><p>Indices or mask of categorical features. “auto” detects types.</p>
+</dd>
+<dt><strong>discretization_strategy</strong><span class="classifier">{“tree”, “quantile”, “uniform”}, default=”tree”</span></dt><dd><p>Strategy to discretize continuous features.</p>
+</dd>
+<dt><strong>n_bins</strong><span class="classifier">int, default=5</span></dt><dd><p>Maximum number of bins for discretization.</p>
+</dd>
 <dt><strong>weight_level</strong><span class="classifier">int, default=1</span></dt><dd><p>Granularity of weights (1-4).</p>
 </dd>
-<dt><strong>l2_reg</strong><span class="classifier">float, default=1e-4</span></dt><dd><p>L2 regularization.</p>
+<dt><strong>l2_reg</strong><span class="classifier">float, default=1e-4</span></dt><dd><p>L2 regularization applied during weight optimization.</p>
+</dd>
+<dt><strong>random_state</strong><span class="classifier">int, RandomState instance or None, default=None</span></dt><dd><p>Controls random seed for random operations like discretization.</p>
+</dd>
+<dt><strong>n_jobs</strong><span class="classifier">int, default=None</span></dt><dd><p>Number of parallel jobs to run during inference and optimization.</p>
 </dd>
 </dl>
 </dd>
