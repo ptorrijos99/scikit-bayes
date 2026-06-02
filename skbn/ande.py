@@ -637,7 +637,7 @@ class _HybridOptimizer(_BaseAnDE):
         """
         if w_indices is None:
             w_indices = self._w_indices
-            
+
         n_classes = len(self.classes_)
         n_models = len(self.ensemble_)
 
@@ -689,7 +689,7 @@ class _HybridOptimizer(_BaseAnDE):
                 w0_m = initial_weights[start:end]
                 jll_m = jll_tensor[:, :, m_idx]
                 indices_m = self._w_indices[:, m_idx]
-                
+
                 # Allocate memory for the expanded weights outside the objective function
                 # This prevents reallocation in every optimization step
                 if self.weight_level not in [1, 2]:
@@ -707,8 +707,10 @@ class _HybridOptimizer(_BaseAnDE):
                     if isinstance(self, ALR):
                         local_weighted_jll = jll_m * W_m_samples
                     else:
-                        local_weighted_jll = jll_m + np.log(np.maximum(W_m_samples, 1e-10))
-                    
+                        local_weighted_jll = jll_m + np.log(
+                            np.maximum(W_m_samples, 1e-10)
+                        )
+
                     lse = logsumexp(local_weighted_jll, axis=1)
                     log_proba = local_weighted_jll - lse[:, np.newaxis]
                     nll = -np.sum(log_proba[y_ohe.astype(bool)])
@@ -716,9 +718,11 @@ class _HybridOptimizer(_BaseAnDE):
                     return nll + reg
 
                 res_m = minimize(
-                    local_objective, w0_m, method="L-BFGS-B",
+                    local_objective,
+                    w0_m,
+                    method="L-BFGS-B",
                     bounds=[(0, None)] * len(w0_m),
-                    options={"maxiter": self.max_iter}
+                    options={"maxiter": self.max_iter},
                 )
                 self.learned_weights_[start:end] = res_m.x
         else:
@@ -738,11 +742,14 @@ class _HybridOptimizer(_BaseAnDE):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 res = minimize(
-                    objective, initial_weights, method="L-BFGS-B",
-                    bounds=bounds, options={"maxiter": self.max_iter}
+                    objective,
+                    initial_weights,
+                    method="L-BFGS-B",
+                    bounds=bounds,
+                    options={"maxiter": self.max_iter},
                 )
             self.learned_weights_ = res.x
-        
+
         return self
 
     def predict_log_proba(self, X):
@@ -775,7 +782,9 @@ class _HybridOptimizer(_BaseAnDE):
                 else:
                     w_indices[:, m_idx] = base_off
 
-        W_tensor = self._get_weights_for_samples(self.learned_weights_, X.shape[0], w_indices=w_indices)
+        W_tensor = self._get_weights_for_samples(
+            self.learned_weights_, X.shape[0], w_indices=w_indices
+        )
 
         final_jll = self._calculate_final_jll(jll_models, W_tensor)
         final_jll = np.clip(final_jll, -1e10, 700)

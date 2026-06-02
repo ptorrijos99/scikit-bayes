@@ -14,4 +14,12 @@ from .ande import ALR, AnDE, AnJE, WeightedAnDE
 from .mixed_nb import MixedNB
 from .discretization import DecisionTreeDiscretizer
 
-__all__ = ["MixedNB", "AnDE", "AnJE", "ALR", "WeightedAnDE", "DecisionTreeDiscretizer", "__version__"]
+__all__ = [
+    "MixedNB",
+    "AnDE",
+    "AnJE",
+    "ALR",
+    "WeightedAnDE",
+    "DecisionTreeDiscretizer",
+    "__version__",
+]
