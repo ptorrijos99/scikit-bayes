@@ -8,7 +8,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.naive_bayes import BernoulliNB, CategoricalNB, GaussianNB
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.multiclass import unique_labels
-from sklearn.utils.validation import check_is_fitted, check_X_y, validate_data
+from sklearn.utils.validation import check_is_fitted, validate_data
 
 
 class MixedNB(ClassifierMixin, BaseEstimator):
@@ -151,9 +151,8 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         self : object
             Returns the instance itself.
         """
-        X, y = check_X_y(X, y)
+        X, y = validate_data(self, X, y)
         self.classes_ = unique_labels(y)
-        self.n_features_in_ = X.shape[1]
 
         # --- Parameter and Feature Type Validation ---
         cat_feats = self._validate_feature_indices(

@@ -631,23 +631,26 @@ class _HybridOptimizer(_BaseAnDE):
                 else:
                     self._w_indices[:, m_idx] = base_off
 
-    def _get_weights_for_samples(self, flat_weights, n_samples):
+    def _get_weights_for_samples(self, flat_weights, n_samples, w_indices=None):
         """
         Expands flat weights to (N, C, M) tensor based on pre-computed indices.
         """
+        if w_indices is None:
+            w_indices = self._w_indices
+            
         n_classes = len(self.classes_)
         n_models = len(self.ensemble_)
 
         if self.weight_level in [1, 2]:
             # Weights are class-independent (broadcast over C)
-            W_gathered = flat_weights[self._w_indices]
+            W_gathered = flat_weights[w_indices]
             return W_gathered[:, np.newaxis, :]
 
         elif self.weight_level in [3, 4]:
             # Weights are class-specific
             W_out = np.zeros((n_samples, n_classes, n_models))
             for c in range(n_classes):
-                indices_c = self._w_indices + c
+                indices_c = w_indices + c
                 W_out[:, c, :] = flat_weights[indices_c]
             return W_out
 
@@ -671,7 +674,7 @@ class _HybridOptimizer(_BaseAnDE):
         # 3. Optimization
         initial_weights = np.ones(self.n_weights_)
         n_models = len(self.ensemble_)
-        n_samples = X.shape[0]
+        n_samples = X_check.shape[0]
         n_classes = len(self.classes_)
 
         if isinstance(self, WeightedAnDE):
@@ -746,17 +749,17 @@ class _HybridOptimizer(_BaseAnDE):
         jll_models, X_parents_disc = self._get_jll_per_model(X)
         jll_models = np.clip(jll_models, -1e10, 700)
 
-        # Recompute _w_indices for test data using TRAINING cardinalities
+        # Compute w_indices for test data locally using TRAINING cardinalities
         # (NOT calling _setup_weights which would recalculate cardinalities from test data)
         n_samples = X_parents_disc.shape[0]
         n_models = len(self.ensemble_)
         n_classes = len(self.classes_)
-        self._w_indices = np.zeros((n_samples, n_models), dtype=int)
+        w_indices = np.zeros((n_samples, n_models), dtype=int)
 
         for m_idx in range(n_models):
             base_off = self._weight_offsets[m_idx]
             if self.weight_level in [1, 3]:
-                self._w_indices[:, m_idx] = base_off
+                w_indices[:, m_idx] = base_off
             elif self.weight_level in [2, 4]:
                 p_indices, cards, strides = self._model_strides[m_idx]
                 if len(p_indices) > 0:
@@ -766,13 +769,13 @@ class _HybridOptimizer(_BaseAnDE):
                     vals = np.maximum(vals, 0)
                     linear_vals = vals @ strides
                     if self.weight_level == 2:
-                        self._w_indices[:, m_idx] = base_off + linear_vals
+                        w_indices[:, m_idx] = base_off + linear_vals
                     else:
-                        self._w_indices[:, m_idx] = base_off + (linear_vals * n_classes)
+                        w_indices[:, m_idx] = base_off + (linear_vals * n_classes)
                 else:
-                    self._w_indices[:, m_idx] = base_off
+                    w_indices[:, m_idx] = base_off
 
-        W_tensor = self._get_weights_for_samples(self.learned_weights_, X.shape[0])
+        W_tensor = self._get_weights_for_samples(self.learned_weights_, X.shape[0], w_indices=w_indices)
 
         final_jll = self._calculate_final_jll(jll_models, W_tensor)
         final_jll = np.clip(final_jll, -1e10, 700)
@@ -796,21 +799,38 @@ class ALR(_HybridOptimizer, AnJE):
     """
     Accelerated Logistic Regression (ALR) [Hybrid].
 
-    A hybrid generative-discriminative classifier.
-    Optimizes weights in log-space (Convex).
+    A hybrid generative-discriminative classifier that combines the generative
+    topology of Averaged n-Dependence Estimators (AnJE) with discriminative
+    weight optimization. Weights are optimized in log-space, making the
+    optimization problem strictly convex and solvable via L-BFGS-B.
 
-    Supports 4 Levels of Weight Granularity:
-    1. Per Model (Default)
-    2. Per Parent Value
-    3. Per Class
-    4. Per Parent Value & Class
+    Supports 4 Levels of Weight Granularity (from coarsest to finest):
+    1. Per Model (Default) - One weight per ensemble member.
+    2. Per Parent Value - One weight per parent feature value.
+    3. Per Class - One weight per target class per model.
+    4. Per Parent Value & Class - One weight per parent value per class.
 
     Parameters
     ----------
+    n_dependence : int, default=1
+        The number of parent features conditioned upon (n-dependence).
+        0 corresponds to Naive Bayes topology.
+    alpha : float, default=1.0
+        Additive (Laplace/Lidstone) smoothing parameter for probabilities.
+    categorical_features : array-like of int or str, default="auto"
+        Indices or mask of categorical features. "auto" detects types.
+    discretization_strategy : {"tree", "quantile", "uniform"}, default="tree"
+        Strategy to discretize continuous features.
+    n_bins : int, default=5
+        Maximum number of bins for discretization.
     weight_level : int, default=1
         Granularity of weights (1-4).
     l2_reg : float, default=1e-4
-        L2 regularization.
+        L2 regularization applied during weight optimization.
+    random_state : int, RandomState instance or None, default=None
+        Controls random seed for random operations like discretization.
+    n_jobs : int, default=None
+        Number of parallel jobs to run during inference and optimization.
     """
 
     def _calculate_final_jll(self, jll_tensor, W_tensor):
@@ -822,10 +842,40 @@ class ALR(_HybridOptimizer, AnJE):
 
 class WeightedAnDE(_HybridOptimizer, AnDE):
     """
-    Weighted AnDE [Hybrid].
+    Weighted Averaged n-Dependence Estimators (WeightedAnDE) [Hybrid].
 
-    A discriminative weighting of standard AnDE (Arithmetic Mean).
-    Optimization is Non-Convex (joint) or Strictly Convex (modular).
+    A discriminative weighting of the standard AnDE (Arithmetic Mean) ensemble.
+    Unlike ALR which operates on geometric means in log-space, WeightedAnDE
+    optimizes weights in probability space (arithmetic mean), making the
+    joint optimization non-convex.
+
+    Supports 4 Levels of Weight Granularity (from coarsest to finest):
+    1. Per Model (Default) - One weight per ensemble member.
+    2. Per Parent Value - One weight per parent feature value.
+    3. Per Class - One weight per target class per model.
+    4. Per Parent Value & Class - One weight per parent value per class.
+
+    Parameters
+    ----------
+    n_dependence : int, default=1
+        The number of parent features conditioned upon (n-dependence).
+        0 corresponds to Naive Bayes topology.
+    alpha : float, default=1.0
+        Additive (Laplace/Lidstone) smoothing parameter for probabilities.
+    categorical_features : array-like of int or str, default="auto"
+        Indices or mask of categorical features. "auto" detects types.
+    discretization_strategy : {"tree", "quantile", "uniform"}, default="tree"
+        Strategy to discretize continuous features.
+    n_bins : int, default=5
+        Maximum number of bins for discretization.
+    weight_level : int, default=1
+        Granularity of weights (1-4).
+    l2_reg : float, default=1e-4
+        L2 regularization applied during weight optimization.
+    random_state : int, RandomState instance or None, default=None
+        Controls random seed for random operations like discretization.
+    n_jobs : int, default=None
+        Number of parallel jobs to run during inference and optimization.
     """
 
     def _calculate_final_jll(self, jll_tensor, W_tensor):

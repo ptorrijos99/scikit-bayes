@@ -3,7 +3,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
+from sklearn.utils.validation import check_is_fitted, validate_data
 
 
 class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
@@ -130,8 +130,7 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
         """
         self._validate_params()
 
-        X, y = check_X_y(X, y)
-        self.n_features_in_ = X.shape[1]
+        X, y = validate_data(self, X, y, ensure_all_finite="allow-nan")
         self.thresholds_ = []
         self.imputers_ = []
         self.fallback_discretizers_ = []
@@ -183,15 +182,7 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
             If the number of features in ``X`` differs from that seen in
             :meth:`fit`.
         """
-        check_is_fitted(self)
-        X = check_array(X)
-
-        if X.shape[1] != self.n_features_in_:
-            # Standard scikit-learn error message for n_features mismatch
-            raise ValueError(
-                f"X has {X.shape[1]} features, but DecisionTreeDiscretizer is "
-                f"expecting {self.n_features_in_} features as input."
-            )
+        X = validate_data(self, X, reset=False, ensure_all_finite="allow-nan")
 
         X_out = np.empty_like(X, dtype=X.dtype)
 

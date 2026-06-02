@@ -14,7 +14,7 @@ from skbn.utils.discovery import all_estimators
 @pytest.mark.parametrize("name, Estimator", all_estimators())
 def test_all_estimators(name, Estimator):
     # AnDE family tests are skipped due to strict numerical checks in check_estimator
-    # (infinite mismatches on random dense data schemes).
+    # (infinite mismatches on random dense data schemes in check_classifiers_train).
     # MixedNB passes fully.
     if name in ["AnDE", "AnJE", "ALR", "WeightedAnDE"]:
         pytest.skip(
