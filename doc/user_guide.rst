@@ -19,33 +19,24 @@ Introduction
 What are Bayesian Network Classifiers?
 --------------------------------------
 
-Bayesian Network Classifiers (BNCs) are probabilistic classifiers based on 
-Bayes' theorem. The simplest and most famous is **Naive Bayes**, which assumes
-all features are conditionally independent given the class:
+Bayesian Network Classifiers (BNCs) compute class probabilities using Bayes' theorem. The most common is Naive Bayes, which assumes features are conditionally independent given the class:
 
 .. math::
 
     P(y|\mathbf{x}) \propto P(y) \prod_{i=1}^{n} P(x_i|y)
 
-While this assumption rarely holds in practice, Naive Bayes is surprisingly
-effective and computationally efficient. However, when feature dependencies
-are strong (e.g., the XOR problem), it fails.
+This assumption is rarely true, but Naive Bayes scales well and works as a baseline. When feature dependencies are strong (e.g., in a parity problem like XOR), it produces inaccurate probabilities.
 
 Why scikit-bayes?
 -----------------
 
-scikit-learn provides excellent Naive Bayes implementations, but has limitations:
+While scikit-learn includes standard Naive Bayes classes, they require some manual workarounds for complex datasets:
 
-1. **No native mixed data support**: You cannot directly combine Gaussian, 
-   Categorical, and Bernoulli features in one model.
+1. **Heterogeneous data**: You cannot pass a matrix with Gaussian, Categorical, and Bernoulli features directly into a single estimator without using a `ColumnTransformer` to split them.
+2. **Feature dependencies**: There are no out-of-the-box implementations of n-dependence estimators like AODE or A2DE.
+3. **Hybrid optimization**: Scikit-learn does not implement discriminatively-weighted Bayesian classifiers like ALR, which use generative models as preconditioners.
 
-2. **No dependency modeling**: No implementations of AODE, A2DE, or other 
-   n-dependence estimators that relax the independence assumption.
-
-3. **No hybrid models**: No discriminatively-trained Bayesian classifiers
-   like ALR (Accelerated Logistic Regression).
-
-scikit-bayes fills these gaps with **fully scikit-learn compatible** estimators.
+`scikit-bayes` implements these architectures while passing standard scikit-learn estimator checks.
 
 
 .. _mixed_naive_bayes:
@@ -234,7 +225,7 @@ the convex ALR optimization.
 ALR: Accelerated Logistic Regression
 ------------------------------------
 
-:class:`skbn.ALR` is a **hybrid generative-discriminative** classifier [2]_.
+:class:`skbn.ALR` is a **hybrid generative-discriminative** classifier [4]_.
 
 It starts with the AnJE generative model and learns discriminative weights
 to optimize classification performance:
@@ -292,7 +283,7 @@ WeightedAnDE
 ------------
 
 :class:`skbn.WeightedAnDE` applies discriminative weighting to the standard
-AnDE (arithmetic mean) model. Unlike ALR, the optimization is **non-convex**.
+AnDE (arithmetic mean) model [3]_. Unlike ALR, the optimization is **non-convex**.
 
 .. code-block:: python
 
@@ -345,10 +336,13 @@ References
 .. [1] Webb, G. I., Boughton, J., & Wang, Z. (2005). Not so naive Bayes: 
        Aggregating one-dependence estimators. Machine Learning, 58(1), 5-24.
 
-.. [2] Flores, M. J., Gámez, J. A., Martínez, A. M., & Puerta, J. M. (2009).
-       GAODE and HAODE: Two proposals based on AODE to deal with continuous 
-       variables. ICML '09, 313-320.
+.. [2] Webb, G. I., Boughton, J., Zheng, F., Ting, K. M., & Salem, H. (2011). 
+       Learning by extrapolation from marginal to full-multivariate probability 
+       distributions: Decreasingly naive Bayesian classification. Machine Learning, 86(2), 233-272.
 
 .. [3] Zaidi, N. A., Webb, G. I., Carman, M. J., & Petitjean, F. (2017). 
        Efficient parameter learning of Bayesian network classifiers. 
        Machine Learning, 106(9-10), 1289-1329.
+
+.. [4] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., & Cerquides, J. (2016). 
+       ALR^n: Accelerated higher-order logistic regression. Machine Learning, 104(2-3), 151-194.

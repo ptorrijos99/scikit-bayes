@@ -13,9 +13,8 @@ scikit-bayes
 `Issues & Ideas <https://github.com/ptorrijos99/scikit-bayes/issues>`__ |
 
 **scikit-bayes** is a Python package that extends `scikit-learn` with a suite of 
-Bayesian Network Classifiers. The primary goal is to provide robust, 
-`scikit-learn`-compatible implementations of advanced Bayesian classifiers that
-are not available in the core library.
+Bayesian Network Classifiers. It provides `scikit-learn`-compatible implementations 
+of higher-order and hybrid Bayesian models that are missing from the core library.
 
 **Key Features:**
 

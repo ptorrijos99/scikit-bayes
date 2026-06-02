@@ -228,6 +228,25 @@ class TestALR:
         # With much higher regularization, deviation from 1.0 should be smaller
         assert high_reg_deviation <= low_reg_deviation + 1e-2
 
+    def test_alr_modular_optimization(self):
+        """Test ALR with modular optimization (optimizing each SPODE independently)."""
+        model = ALR(n_dependence=1, modular=True, max_iter=10)
+        model.fit(X_MIXED, y_MIXED)
+
+        assert hasattr(model, "learned_weights_")
+        assert len(model.learned_weights_) == model.n_weights_
+        proba = model.predict_proba(X_MIXED)
+        assert_allclose(proba.sum(axis=1), 1.0, rtol=1e-5)
+
+    def test_alr_modular_weight_level_4(self):
+        """Test ALR modular optimization with weight_level=4."""
+        model = ALR(n_dependence=1, modular=True, weight_level=4, n_bins=2, max_iter=10)
+        model.fit(X_MIXED, y_MIXED)
+
+        assert hasattr(model, "learned_weights_")
+        proba = model.predict_proba(X_MIXED)
+        assert_allclose(proba.sum(axis=1), 1.0, rtol=1e-5)
+
 
 # =============================================================================
 # WeightedAnDE Tests (Hybrid Arithmetic Mean)
@@ -293,6 +312,16 @@ class TestWeightedAnDE:
         assert len(model.ensemble_) == 3
         preds = model.predict(X_MIXED)
         assert len(preds) == len(y_MIXED)
+
+    def test_weighted_ande_modular_optimization(self):
+        """Test WeightedAnDE with modular optimization."""
+        model = WeightedAnDE(n_dependence=1, modular=True, max_iter=10)
+        model.fit(X_MIXED, y_MIXED)
+
+        assert hasattr(model, "learned_weights_")
+        assert len(model.learned_weights_) == model.n_weights_
+        proba = model.predict_proba(X_MIXED)
+        assert_allclose(proba.sum(axis=1), 1.0, rtol=1e-5)
 
 
 # =============================================================================
