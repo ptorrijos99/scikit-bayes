@@ -1,6 +1,7 @@
-import pytest
 import numpy as np
+import pytest
 from sklearn.datasets import load_iris
+
 from skbn.discretization import DecisionTreeDiscretizer
 
 

@@ -1,8 +1,10 @@
 import pickle
+
+import numpy as np
 import pytest
 from sklearn.datasets import load_iris
-from skbn import AnDE, MixedNB, DecisionTreeDiscretizer
-import numpy as np
+
+from skbn import AnDE, DecisionTreeDiscretizer, MixedNB
 
 
 @pytest.fixture

@@ -1,8 +1,8 @@
 import pytest
-import numpy as np
 from sklearn.datasets import load_iris
-from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import GridSearchCV, cross_val_score
+from sklearn.pipeline import make_pipeline
+
 from skbn import AnDE, DecisionTreeDiscretizer, MixedNB
 
 

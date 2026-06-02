@@ -3,7 +3,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.utils.validation import check_is_fitted, validate_data
+from sklearn.utils.validation import validate_data
 
 
 class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):

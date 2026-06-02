@@ -11,8 +11,8 @@ except ImportError:
     except (ImportError, PackageNotFoundError):
         __version__ = "0.0.0"
 from .ande import ALR, AnDE, AnJE, WeightedAnDE
-from .mixed_nb import MixedNB
 from .discretization import DecisionTreeDiscretizer
+from .mixed_nb import MixedNB
 
 __all__ = [
     "MixedNB",
