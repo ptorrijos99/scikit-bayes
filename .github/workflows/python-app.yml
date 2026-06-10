@@ -30,7 +30,7 @@ jobs:
       run: pixi run -e test test
 
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: ptorrijos99/scikit-bayes
