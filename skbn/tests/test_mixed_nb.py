@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import numpy as np
+import pytest
 from numpy.testing import assert_allclose
+from sklearn.naive_bayes import BernoulliNB, CategoricalNB, GaussianNB
 from sklearn.utils.estimator_checks import check_estimator
 
 from skbn.mixed_nb import MixedNB
@@ -116,3 +118,23 @@ def test_single_feature_type():
     clf_bern.fit(X_bern, Y_MIXED)
     assert clf_bern.predict(np.array([[1]])) == [1]
     assert "gaussian" not in clf_bern.estimators_
+
+
+@pytest.mark.parametrize(
+    "reference, make_X",
+    [
+        (GaussianNB, lambda rng: rng.normal(size=(200, 3))),
+        (CategoricalNB, lambda rng: rng.integers(0, 4, size=(200, 3))),
+        (BernoulliNB, lambda rng: rng.integers(0, 2, size=(200, 3))),
+    ],
+    ids=["gaussian", "categorical", "bernoulli"],
+)
+def test_equivalence_with_sklearn_naive_bayes(reference, make_X):
+    """On a single attribute type, MixedNB reproduces the scikit-learn Naive Bayes."""
+    rng = np.random.default_rng(0)
+    X = make_X(rng)
+    y = (X[:, 0] + X[:, 1] > np.median(X[:, 0] + X[:, 1])).astype(int)
+    params = {} if reference is GaussianNB else {"alpha": 1.0}
+    expected = reference(**params).fit(X, y).predict_proba(X)
+    got = MixedNB(**params).fit(X, y).predict_proba(X)
+    np.testing.assert_allclose(got, expected, rtol=1e-7, atol=1e-9)

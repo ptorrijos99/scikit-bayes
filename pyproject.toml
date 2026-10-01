@@ -12,9 +12,19 @@ description = "A Python package for AnDE classifiers."
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
+  "numpy",
+  "scipy",
   "scikit-learn>=1.4.2",
+]
+
+[project.optional-dependencies]
+# Only needed by the benchmark pipeline in experiments/, not by the library
+experiments = [
   "pyyaml>=6.0",
   "liac-arff>=2.5",
+  "xgboost>=2.0.0",
+  "lightgbm>=4.0.0",
+  "py-cpuinfo>=9.0.0",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -49,6 +59,8 @@ platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
 [tool.pixi.dependencies]
 python = ">=3.9"
 scikit-learn = ">=1.4.2"
+xgboost = "*"
+lightgbm = "*"
 
 [tool.pixi.pypi-dependencies]
 scikit-bayes = { path=".", editable=true }

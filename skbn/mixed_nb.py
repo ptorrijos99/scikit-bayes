@@ -6,9 +6,73 @@
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.naive_bayes import BernoulliNB, CategoricalNB, GaussianNB
-from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted, validate_data
+
+
+def _fit_gaussian_nb(X, y_idx, classes, var_smoothing):
+    """GaussianNB with the estimates of ``GaussianNB.fit``, computed without a
+    loop over classes (the augmented classes of AnDE can number in the hundreds)."""
+    n_classes = len(classes)
+    count = np.bincount(y_idx, minlength=n_classes).astype(np.float64)
+    theta = (
+        np.column_stack(
+            [
+                np.bincount(y_idx, weights=X[:, j], minlength=n_classes)
+                for j in range(X.shape[1])
+            ]
+        )
+        / count[:, np.newaxis]
+    )
+    sq = (X - theta[y_idx]) ** 2
+    var = (
+        np.column_stack(
+            [
+                np.bincount(y_idx, weights=sq[:, j], minlength=n_classes)
+                for j in range(X.shape[1])
+            ]
+        )
+        / count[:, np.newaxis]
+    )
+    est = GaussianNB(var_smoothing=var_smoothing)
+    est.epsilon_ = var_smoothing * np.var(X, axis=0).max()
+    est.theta_ = theta
+    est.var_ = var + est.epsilon_
+    est.class_count_ = count
+    est.class_prior_ = count / count.sum()
+    est.classes_ = classes
+    est.n_features_in_ = X.shape[1]
+    return est
+
+
+def _fit_categorical_nb(X, y_idx, classes, alpha, n_categories):
+    """CategoricalNB with the estimates of ``CategoricalNB.fit``, using a single
+    ``bincount`` over all features instead of a loop over features and classes."""
+    n_classes = len(classes)
+    cards = np.asarray(n_categories, dtype=np.int64)
+    # Feature j owns the cells [offsets[j], offsets[j] + n_classes * cards[j])
+    offsets = np.concatenate([[0], np.cumsum(n_classes * cards)[:-1]])
+    flat = np.bincount(
+        (offsets + y_idx[:, np.newaxis] * cards + X).ravel(),
+        minlength=int(n_classes * cards.sum()),
+    ).astype(np.float64)
+    # Smoothed log-probabilities of every cell, normalised per (feature, class) row
+    row_len = np.repeat(cards, n_classes)
+    row_start = np.concatenate([[0], np.cumsum(row_len)[:-1]])
+    smoothed = flat + alpha
+    log_cells = np.log(smoothed) - np.repeat(
+        np.log(np.add.reduceat(smoothed, row_start)), row_len
+    )
+    est = CategoricalNB(alpha=alpha, min_categories=n_categories)
+    blocks = [slice(o, o + n_classes * r) for o, r in zip(offsets, cards)]
+    est.category_count_ = [flat[b].reshape(n_classes, -1) for b in blocks]
+    est.feature_log_prob_ = [log_cells[b].reshape(n_classes, -1) for b in blocks]
+    est.class_count_ = np.bincount(y_idx, minlength=n_classes).astype(np.float64)
+    est.class_log_prior_ = np.log(est.class_count_) - np.log(est.class_count_.sum())
+    est.n_categories_ = np.asarray(n_categories, dtype=np.int64)
+    est.classes_ = classes
+    est.n_features_in_ = X.shape[1]
+    return est
 
 
 class MixedNB(ClassifierMixin, BaseEstimator):
@@ -220,11 +284,13 @@ class MixedNB(ClassifierMixin, BaseEstimator):
 
         # --- Fit Sub-estimators ---
         self.estimators_ = {}
+        y_idx = np.searchsorted(self.classes_, y)
 
         if self.feature_types_["gaussian"]:
             indices = self.feature_types_["gaussian"]
-            gauss_nb = GaussianNB(var_smoothing=self.var_smoothing)
-            gauss_nb.fit(X[:, indices], y)
+            gauss_nb = _fit_gaussian_nb(
+                X[:, indices], y_idx, self.classes_, self.var_smoothing
+            )
             if self.var_prior_weight > 0:
                 # Shrink class-conditional variances towards the pooled
                 # variance (normal-inverse-gamma style pseudo-observations).
@@ -237,8 +303,13 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         if self.feature_types_["categorical"]:
             indices = self.feature_types_["categorical"]
             min_cats = self._get_min_categories(X[:, indices])
-            cat_nb = CategoricalNB(alpha=self.alpha, min_categories=min_cats)
-            cat_nb.fit(X[:, indices], y)
+            cat_nb = _fit_categorical_nb(
+                X[:, indices].astype(np.int64),
+                y_idx,
+                self.classes_,
+                self.alpha,
+                min_cats,
+            )
             self.estimators_["categorical"] = cat_nb
             # Save cardinalities for clipping unseen values at test time
             self._cat_cardinalities = np.array(min_cats, dtype=int)
@@ -249,8 +320,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
             bern_nb.fit(X[:, indices] > 0, y)
             self.estimators_["bernoulli"] = bern_nb
 
-        le = LabelEncoder().fit(y)
-        class_counts = np.bincount(le.transform(y), minlength=len(self.classes_))
+        class_counts = np.bincount(y_idx, minlength=len(self.classes_))
         self.class_log_prior_ = np.log(class_counts / class_counts.sum())
 
         return self
