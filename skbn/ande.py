@@ -40,6 +40,7 @@ from sklearn.preprocessing import KBinsDiscretizer, LabelEncoder
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import (
     check_is_fitted,
+    column_or_1d,
     validate_data,
 )
 
@@ -296,9 +297,8 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         declared_gaussian = {int(i) for i in self.gaussian_features or []}
         declared_discrete = {
             int(i)
-            for i in list(self.categorical_features or []) + list(
-                self.bernoulli_features or []
-            )
+            for i in list(self.categorical_features or [])
+            + list(self.bernoulli_features or [])
         }
 
         for i in range(self.n_features_in_):
@@ -342,7 +342,8 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         ).fit(X, y)
         if self.unseen_state not in ("backoff", "laplace"):
             raise ValueError(
-                f"unseen_state must be 'backoff' or 'laplace', got {self.unseen_state!r}"
+                "unseen_state must be 'backoff' or 'laplace', got"
+                f" {self.unseen_state!r}"
             )
         gauss = self.backoff_.feature_types_["gaussian"]
         Xg = np.asarray(X[:, gauss], dtype=float) if gauss else np.zeros((len(X), 0))
@@ -810,7 +811,8 @@ class _HybridOptimizer(_BaseAnDE):
         self._setup_weights(X_parents_disc)
 
         n_classes = len(self.classes_)
-        y_idx = np.searchsorted(self.classes_, y)
+        # The generative fit has already validated y (and warned on a column vector)
+        y_idx = np.searchsorted(self.classes_, column_or_1d(y))
         Y = np.eye(n_classes)[y_idx]
 
         # Samples with no active component are predicted by the NB fallback
@@ -828,10 +830,13 @@ class _HybridOptimizer(_BaseAnDE):
         if self.modular:
             if self._log_space and not self._class_specific:
                 warnings.warn(
-                    "Modular WeightedAnDE with weight_level 1 or 2 is equivalent to "
-                    "the generative AnDE: a class-independent weight cancels in the "
-                    "per-component softmax, so it is not identifiable from that "
-                    "component's conditional likelihood. Weights are fixed to 1.",
+                    (
+                        "Modular WeightedAnDE with weight_level 1 or 2 is equivalent to"
+                        " the generative AnDE: a class-independent weight cancels in"
+                        " the per-component softmax, so it is not identifiable from"
+                        " that component's conditional likelihood. Weights are fixed"
+                        " to 1."
+                    ),
                     UserWarning,
                 )
             else:

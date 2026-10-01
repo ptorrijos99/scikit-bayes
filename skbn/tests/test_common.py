@@ -8,18 +8,15 @@ General tests for all estimators in skbn.
 import pytest
 from sklearn.utils.estimator_checks import check_estimator
 
+from skbn import WeightedAnDE
 from skbn.utils.discovery import all_estimators
 
 
 @pytest.mark.parametrize("name, Estimator", all_estimators())
 def test_all_estimators(name, Estimator):
-    # AnDE family tests are skipped due to strict numerical checks in check_estimator
-    # (infinite mismatches on random dense data schemes in check_classifiers_train).
-    # MixedNB passes fully.
-    if name in ["AnDE", "AnJE", "ALR", "WeightedAnDE"]:
-        pytest.skip(
-            f"{name} skipped: numerical stability issues with random data in"
-            " check_estimator"
-        )
-
     check_estimator(Estimator())
+
+
+def test_modular_weighted_ande():
+    # The modular hybrid is only identifiable at the class-specific granularities
+    check_estimator(WeightedAnDE(modular=True, weight_level=3))
