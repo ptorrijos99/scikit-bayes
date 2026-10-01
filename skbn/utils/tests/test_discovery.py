@@ -11,8 +11,9 @@ def test_all_estimators():
     skbayes_estimators = [
         (name, cls) for name, cls in estimators if cls.__module__.startswith("skbn")
     ]
-    # Should be 6: MixedNB, AnDE, AnJE, ALR, WeightedAnDE, DecisionTreeDiscretizer
-    assert len(skbayes_estimators) == 6
+    # Should be 7: MixedNB, AnDE, AnJE, ALR, WeightedAnDE, DecisionTreeDiscretizer,
+    # MDLPDiscretizer
+    assert len(skbayes_estimators) == 7
     estimator_names = [name for name, _ in skbayes_estimators]
     assert "MixedNB" in estimator_names
     assert "AnDE" in estimator_names
@@ -20,6 +21,7 @@ def test_all_estimators():
     assert "ALR" in estimator_names
     assert "WeightedAnDE" in estimator_names
     assert "DecisionTreeDiscretizer" in estimator_names
+    assert "MDLPDiscretizer" in estimator_names
 
     # Verify classifier filter returns skbn classifiers
     classifiers = all_estimators(type_filter="classifier")

@@ -76,3 +76,42 @@ def test_decision_tree_discretizer_invalid_params():
 
     with pytest.raises(ValueError, match="fallback must be one of"):
         DecisionTreeDiscretizer(fallback="invalid").fit([[1], [2]], [0, 1])
+
+
+# --- MDLPDiscretizer ---------------------------------------------------------
+
+
+def test_mdlp_iris_matches_published_cut_points():
+    from sklearn.datasets import load_iris
+
+    from skbn import MDLPDiscretizer
+
+    X, y = load_iris(return_X_y=True)
+    cuts = MDLPDiscretizer().fit(X, y).cut_points_
+    np.testing.assert_allclose(cuts[2], [2.45, 4.75])
+    np.testing.assert_allclose(cuts[3], [0.8, 1.75])
+
+
+def test_mdlp_collapses_uninformative_feature():
+    from skbn import MDLPDiscretizer
+
+    rng = np.random.RandomState(0)
+    X = np.c_[rng.normal(size=2000), rng.normal(size=2000)]
+    y = (X[:, 0] > 0.3).astype(int)
+    disc = MDLPDiscretizer().fit(X, y)
+    assert len(disc.cut_points_[0]) >= 1
+    assert len(disc.cut_points_[1]) == 0
+    assert np.all(disc.transform(X)[:, 1] == 0)
+
+
+def test_mdlp_handles_nan_and_max_bins():
+    from skbn import MDLPDiscretizer
+
+    rng = np.random.RandomState(1)
+    X = rng.uniform(size=(500, 1))
+    y = np.digitize(X[:, 0], [0.2, 0.4, 0.6, 0.8])
+    X[::17, 0] = np.nan
+    disc = MDLPDiscretizer(max_bins=3).fit(X, y)
+    assert len(disc.cut_points_[0]) <= 2
+    out = disc.transform(X)
+    assert np.isfinite(out).all()
