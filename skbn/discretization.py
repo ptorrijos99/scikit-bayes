@@ -282,3 +282,170 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
         imputer = SimpleImputer(strategy="median")
         imputer.fit(xi)
         return imputer
+
+
+def _entropy(counts):
+    """Shannon entropy (bits) of each row of a class-count array."""
+    counts = np.atleast_2d(counts).astype(float)
+    totals = counts.sum(axis=1, keepdims=True)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        p = np.where(totals > 0, counts / totals, 0.0)
+        logp = np.where(p > 0, np.log2(p), 0.0)
+    return -(p * logp).sum(axis=1)
+
+
+class MDLPDiscretizer(TransformerMixin, BaseEstimator):
+    r"""Supervised entropy discretization with the MDL stopping rule.
+
+    Implements the recursive minimum-entropy partitioning of Fayyad and Irani
+    (1993). Each interval is split at the cut-point that minimises the
+    class-information entropy of the induced partition, and the split is
+    accepted only if its information gain exceeds the Minimum Description
+    Length threshold
+
+    .. math::
+        \mathrm{Gain}(A, T; S) > \frac{\log_2(N-1)}{N} + \frac{\Delta(A, T; S)}{N},
+        \qquad \Delta = \log_2(3^k - 2) - [k\,E(S) - k_1 E(S_1) - k_2 E(S_2)],
+
+    where ``k``, ``k1`` and ``k2`` are the numbers of classes present in the
+    interval and in its two halves. A feature for which no split is accepted
+    is mapped to a single interval (bin 0), so the discretizer also acts as a
+    filter for attributes with no marginal class information.
+
+    Missing values (``NaN``) are imputed with the per-feature median, fitted on
+    the training data.
+
+    Parameters
+    ----------
+    max_bins : int or None, default=None
+        Optional cap on the number of intervals per feature. ``None`` applies
+        the pure MDL criterion.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features seen during :meth:`fit`.
+    cut_points_ : list of ndarray
+        Sorted cut-points of each feature (empty if the feature was collapsed).
+    imputers_ : list of SimpleImputer or None
+        Per-feature median imputers (``None`` if the feature had no NaN).
+
+    References
+    ----------
+    Fayyad, U. M. and Irani, K. B. (1993). Multi-interval discretization of
+    continuous-valued attributes for classification learning. IJCAI, 1022-1027.
+
+    Examples
+    --------
+    >>> from sklearn.datasets import load_iris
+    >>> X, y = load_iris(return_X_y=True)
+    >>> disc = MDLPDiscretizer().fit(X, y)
+    >>> [len(c) for c in disc.cut_points_]
+    [2, 2, 2, 2]
+    """
+
+    def __init__(self, max_bins=None):
+        self.max_bins = max_bins
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.allow_nan = True
+        return tags
+
+    def fit(self, X, y):
+        """Find the MDL cut-points of every feature.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training data. May contain ``NaN`` values.
+        y : array-like of shape (n_samples,)
+            Class labels.
+
+        Returns
+        -------
+        self : MDLPDiscretizer
+            Fitted estimator.
+        """
+        if self.max_bins is not None and self.max_bins < 1:
+            raise ValueError(f"max_bins must be >= 1 or None, got {self.max_bins!r}.")
+        X, y = validate_data(self, X, y, ensure_all_finite="allow-nan")
+        y_codes = np.unique(y, return_inverse=True)[1]
+        n_classes = y_codes.max() + 1
+
+        self.cut_points_ = []
+        self.imputers_ = []
+        for i in range(self.n_features_in_):
+            xi = X[:, i].reshape(-1, 1)
+            imputer = DecisionTreeDiscretizer._fit_imputer(xi)
+            xi = (imputer.transform(xi) if imputer is not None else xi).ravel()
+            self.imputers_.append(imputer)
+            self.cut_points_.append(self._fit_feature(xi, y_codes, n_classes))
+        return self
+
+    def _fit_feature(self, x, y, n_classes):
+        order = np.argsort(x, kind="mergesort")
+        xs, ys = x[order], y[order]
+        onehot = np.zeros((len(ys), n_classes))
+        onehot[np.arange(len(ys)), ys] = 1.0
+
+        cuts = []
+        stack = [(0, len(xs))]
+        while stack:
+            if self.max_bins is not None and len(cuts) + 1 >= self.max_bins:
+                break
+            lo, hi = stack.pop()
+            n = hi - lo
+            if n < 2:
+                continue
+            seg_x = xs[lo:hi]
+            candidates = np.flatnonzero(seg_x[1:] > seg_x[:-1]) + 1  # left sizes
+            if candidates.size == 0:
+                continue
+            cum = np.cumsum(onehot[lo:hi], axis=0)
+            total = cum[-1]
+            left = cum[candidates - 1]
+            right = total - left
+            n_left = candidates.astype(float)
+            n_right = n - n_left
+            ent_split = (n_left * _entropy(left) + n_right * _entropy(right)) / n
+            best = int(np.argmin(ent_split))
+
+            ent_s = _entropy(total)[0]
+            ent_l = _entropy(left[best])[0]
+            ent_r = _entropy(right[best])[0]
+            gain = ent_s - ent_split[best]
+            k = np.count_nonzero(total)
+            k1 = np.count_nonzero(left[best])
+            k2 = np.count_nonzero(right[best])
+            delta = np.log2(3.0**k - 2.0) - (k * ent_s - k1 * ent_l - k2 * ent_r)
+            if gain <= (np.log2(n - 1) + delta) / n:
+                continue
+
+            cut_pos = lo + candidates[best]
+            cuts.append((xs[cut_pos - 1] + xs[cut_pos]) / 2.0)
+            stack.append((lo, cut_pos))
+            stack.append((cut_pos, hi))
+        return np.sort(np.asarray(cuts, dtype=float))
+
+    def transform(self, X):
+        """Map each value to the index of its interval (0-based).
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Data to discretize. May contain ``NaN`` values.
+
+        Returns
+        -------
+        X_out : ndarray of shape (n_samples, n_features)
+            Integer interval indices (stored as float).
+        """
+        X = validate_data(self, X, reset=False, ensure_all_finite="allow-nan")
+        X_out = np.empty(X.shape, dtype=float)
+        for i in range(self.n_features_in_):
+            xi = X[:, i]
+            if self.imputers_[i] is not None:
+                xi = self.imputers_[i].transform(xi.reshape(-1, 1)).ravel()
+            X_out[:, i] = np.digitize(xi, self.cut_points_[i])
+        return X_out
