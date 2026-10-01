@@ -36,7 +36,7 @@ from joblib import Parallel, delayed
 from scipy.optimize import minimize
 from scipy.special import logsumexp
 from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.preprocessing import KBinsDiscretizer, LabelBinarizer, LabelEncoder
+from sklearn.preprocessing import KBinsDiscretizer, LabelEncoder
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import (
     check_is_fitted,
@@ -60,14 +60,20 @@ def _fit_spode(
     categorical_features=None,
     bernoulli_features=None,
     gaussian_features=None,
+    var_prior_weight=0.0,
 ):
     """Fits a single SPODE (Sub-model) in parallel.
 
     Uses integer-based Y* encoding for speed and robustness.
     Y* = class_idx * n_parent_combos + parent_linear_index
+
+    The augmented-class prior P(Y*) is Laplace-smoothed over the *full*
+    grid of augmented states (classes x parent combinations), so that
+    states never observed in training keep a finite, smoothed probability.
     """
     unique_y = np.unique(y)
     y_int = np.searchsorted(unique_y, y)
+    n_classes = len(unique_y)
 
     # A. Compute integer Y*
     if len(parent_indices) > 0:
@@ -75,14 +81,14 @@ def _fit_spode(
         cards = parent_cards[list(parent_indices)]
         strides = np.cumprod(np.concatenate(([1], cards[::-1][:-1])))[::-1]
         n_combos = int(np.prod(cards))
-        parent_keys = (p_vals * strides).sum(axis=1).astype(int)
-        y_star = y_int * n_combos + parent_keys
+        parent_keys = (p_vals * strides).sum(axis=1).astype(np.int64)
+        y_star = y_int.astype(np.int64) * n_combos + parent_keys
     else:
         cards = np.array([1])
         strides = np.array([0])
         n_combos = 1
-        parent_keys = np.zeros(len(y), dtype=int)
-        y_star = y_int
+        parent_keys = np.zeros(len(y), dtype=np.int64)
+        y_star = y_int.astype(np.int64)
 
     # B. Identify child features
     child_indices = [i for i in range(n_features) if i not in parent_indices]
@@ -93,58 +99,60 @@ def _fit_spode(
         X_train_sub = X[:, child_indices]
 
     # Map global feature indices to local sub-indices
-    sub_cat_indices = []
-    sub_bern_indices = []
-    sub_gauss_indices = []
     global_to_sub = {g_idx: s_idx for s_idx, g_idx in enumerate(child_indices)}
 
-    if categorical_features is not None:
-        for g_idx in categorical_features:
-            if g_idx in global_to_sub:
-                sub_cat_indices.append(global_to_sub[g_idx])
+    def _to_sub(features):
+        if features is None:
+            return None
+        sub = [global_to_sub[g] for g in features if g in global_to_sub]
+        return sub if sub else None
 
-    if bernoulli_features is not None:
-        for g_idx in bernoulli_features:
-            if g_idx in global_to_sub:
-                sub_bern_indices.append(global_to_sub[g_idx])
-
-    if gaussian_features is not None:
-        for g_idx in gaussian_features:
-            if g_idx in global_to_sub:
-                sub_gauss_indices.append(global_to_sub[g_idx])
-
-    # C. Fit MixedNB on (X_children, Y*)
+    # C. Fit MixedNB on (X_children, Y*). With no parents (n=0) the component
+    #    is plain Naive Bayes and is kept identical to it (no shrinkage, MLE prior).
+    has_parents = len(parent_indices) > 0
     sub_model = MixedNB(
         alpha=alpha,
-        categorical_features=sub_cat_indices if sub_cat_indices else None,
-        bernoulli_features=sub_bern_indices if sub_bern_indices else None,
-        gaussian_features=sub_gauss_indices if sub_gauss_indices else None,
+        categorical_features=_to_sub(categorical_features),
+        bernoulli_features=_to_sub(bernoulli_features),
+        gaussian_features=_to_sub(gaussian_features),
+        var_prior_weight=var_prior_weight if has_parents else 0.0,
     )
     sub_model.fit(X_train_sub, y_star)
 
-    # D. Build integer-based mapping: y* → (class_idx, parent_key)
-    map_y = []
-    map_parent_key = []
-    for k_star in sub_model.classes_:
-        if len(parent_indices) > 0:
-            c_idx = int(k_star) // n_combos
-            p_key = int(k_star) % n_combos
-        else:
-            c_idx = int(k_star)
-            p_key = 0
-        map_y.append(c_idx)
-        map_parent_key.append(p_key)
+    # D. Laplace-smoothed augmented prior over the full grid of Y* states.
+    n_total = len(y)
+    n_states = n_classes * n_combos
+    if has_parents:
+        counts = np.bincount(np.searchsorted(sub_model.classes_, y_star))
+        denom = n_total + alpha * n_states
+        sub_model.class_log_prior_ = np.log((counts + alpha) / denom)
+        log_prior_unseen = np.log(alpha / denom) if alpha > 0 else -np.inf
+    else:
+        log_prior_unseen = -np.inf
+
+    # E. Observed parent instantiations and their frequencies (for the
+    #    minimum-frequency rule that decides whether a SPODE is used).
+    obs_parent_keys, obs_parent_counts = np.unique(parent_keys, return_counts=True)
 
     return {
         "parent_indices": parent_indices,
         "child_indices": child_indices,
         "estimator": sub_model,
-        "map_y": np.array(map_y, dtype=int),
-        "map_parent_key": np.array(map_parent_key, dtype=int),
+        "ystar_keys": np.asarray(sub_model.classes_, dtype=np.int64),
         "n_parent_combos": n_combos,
         "parent_cards": cards,
         "parent_strides": strides,
+        "obs_parent_keys": obs_parent_keys,
+        "obs_parent_counts": obs_parent_counts,
+        "log_prior_unseen": log_prior_unseen,
     }
+
+
+def _lookup(sorted_keys, queries):
+    """Positions of ``queries`` in ``sorted_keys`` and a mask of hits."""
+    pos = np.searchsorted(sorted_keys, queries)
+    pos = np.minimum(pos, len(sorted_keys) - 1)
+    return pos, sorted_keys[pos] == queries
 
 
 class _BaseAnDE(ClassifierMixin, BaseEstimator):
@@ -169,6 +177,18 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
 
     Where $Y^* = (y, \\mathbf{x}_p)$ is the "Augmented Super-Class".
 
+    **Zero counts.** (i) As in the smoothed estimates of AnDE/AnJE, the
+    augmented prior $P(Y^*)$ is Laplace-smoothed over every augmented state;
+    (ii) when a test instance falls in an augmented state $(y, \\mathbf{x}_p)$
+    that never occurred in training, the child conditionals are taken from
+    ``unseen_state``: ``"backoff"`` uses the class-level estimates
+    $P(x_i \\mid y)$, ``"laplace"`` the uninformed estimate that Laplace
+    smoothing gives an empty cell (uniform for discrete children, the pooled
+    Gaussian of the attribute for continuous ones); and (iii) as in AODE, a
+    SPnDE whose parent instantiation $\\mathbf{x}_p$ occurred fewer than
+    ``min_parent_count`` times is excluded from the ensemble for that instance.
+    If no SPnDE qualifies, the prediction falls back to Naive Bayes.
+
     Parameters
     ----------
     n_dependence : int, default=1
@@ -185,12 +205,27 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         Strategy used for discretization of super-parents.
 
     alpha : float, default=1.0
-        Smoothing parameter passed to the internal MixedNB estimators.
+        Smoothing parameter passed to the internal MixedNB estimators and used
+        for the augmented-class prior.
 
     n_jobs : int, default=None
         The number of jobs to use for the computation.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors.
+
+    var_prior_weight : float, default=1.0
+        Pseudo-observations shrinking each Gaussian child variance towards the
+        pooled variance of the feature (see :class:`MixedNB`).
+
+    min_parent_count : int, default=1
+        Minimum training frequency of a parent instantiation for its SPnDE to
+        take part in the prediction of an instance.
+
+    unseen_state : {"laplace", "backoff"}, default="laplace"
+        Child conditionals used for an augmented state never seen in training.
+        ``"laplace"`` is the standard smoothed estimate of an empty cell;
+        ``"backoff"`` reuses the class-level conditionals. An ablation over the
+        benchmark found no practical difference between them.
     """
 
     def __init__(
@@ -203,6 +238,9 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         categorical_features=None,
         bernoulli_features=None,
         gaussian_features=None,
+        var_prior_weight=1.0,
+        min_parent_count=1,
+        unseen_state="laplace",
     ):
         self.n_dependence = n_dependence
         self.n_bins = n_bins
@@ -212,6 +250,9 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         self.categorical_features = categorical_features
         self.bernoulli_features = bernoulli_features
         self.gaussian_features = gaussian_features
+        self.var_prior_weight = var_prior_weight
+        self.min_parent_count = min_parent_count
+        self.unseen_state = unseen_state
 
     def fit(self, X, y):
         """
@@ -249,12 +290,27 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
             if sklearn_version >= (1, 7):
                 kwargs_discretizer["quantile_method"] = "linear"
 
+        # Declared feature types take precedence over the dtype heuristic, so
+        # integer-valued continuous attributes (ages, amounts, counts) are
+        # binned instead of being used as high-cardinality categorical parents.
+        declared_gaussian = {int(i) for i in self.gaussian_features or []}
+        declared_discrete = {
+            int(i)
+            for i in list(self.categorical_features or []) + list(
+                self.bernoulli_features or []
+            )
+        }
+
         for i in range(self.n_features_in_):
             col = X[:, i]
-            is_continuous = False
-            if np.issubdtype(col.dtype, np.floating):
-                if not np.all(np.mod(col, 1) == 0):
-                    is_continuous = True
+            if i in declared_gaussian:
+                is_continuous = True
+            elif i in declared_discrete:
+                is_continuous = False
+            else:
+                is_continuous = np.issubdtype(col.dtype, np.floating) and not np.all(
+                    np.mod(col, 1) == 0
+                )
 
             if is_continuous:
                 est = KBinsDiscretizer(
@@ -276,7 +332,26 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         # Compute per-feature cardinalities from training data
         self._parent_cards = np.max(self._parent_data, axis=0).astype(int) + 1
 
-        # --- 2. Build Ensemble (Parallelized) ---
+        # --- 2. Class-level back-off model (Naive Bayes on the original class) ---
+        self.backoff_ = MixedNB(
+            alpha=self.alpha,
+            categorical_features=self.categorical_features,
+            bernoulli_features=self.bernoulli_features,
+            gaussian_features=self.gaussian_features,
+            var_prior_weight=self.var_prior_weight,
+        ).fit(X, y)
+        if self.unseen_state not in ("backoff", "laplace"):
+            raise ValueError(
+                f"unseen_state must be 'backoff' or 'laplace', got {self.unseen_state!r}"
+            )
+        gauss = self.backoff_.feature_types_["gaussian"]
+        Xg = np.asarray(X[:, gauss], dtype=float) if gauss else np.zeros((len(X), 0))
+        self._pooled_mean = Xg.mean(axis=0) if gauss else np.zeros(0)
+        self._pooled_var = Xg.var(axis=0) + (
+            self.backoff_.estimators_["gaussian"].epsilon_ if gauss else 0.0
+        )
+
+        # --- 3. Build Ensemble (Parallelized) ---
         parent_combinations = list(
             combinations(range(self.n_features_in_), self.n_dependence)
         )
@@ -301,42 +376,30 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
                 self.categorical_features,
                 self.bernoulli_features,
                 self.gaussian_features,
+                self.var_prior_weight,
             )
             for p_idx in parent_combinations
         )
 
         return self
 
-    def _get_jll_per_model(self, X):
-        """
-        Computes the log-probability P(y, x | m) for each model 'm' in the ensemble.
+    def _discretize_parents(self, X):
+        """Maps (validated) X to the integer parent codes used at fit time.
 
-        Returns
-        -------
-        jll_tensor : ndarray of shape (n_samples, n_classes, n_models)
-            Contains log P(y, x) according to each SPODE.
-            If a SPODE doesn't cover a sample (mismatch parents), returns -inf.
-
-        X_parents_disc : ndarray
-            The discretized version of X used for parent lookup (useful for Hybrid weights).
+        Returns the codes (clipped to the training range) and a boolean mask
+        of categorical values never seen in training; a component whose parent
+        value is unseen is excluded for that sample (minimum-frequency rule).
         """
-        check_is_fitted(self, attributes=["classes_", "ensemble_"])
-        X = validate_data(self, X, reset=False)
         n_samples = X.shape[0]
-        n_classes = len(self.classes_)
-        n_models = len(self.ensemble_)
-
-        # Discretize parents for test set (handles both KBinsDiscretizer and LabelEncoder)
         X_parents_disc = np.zeros((n_samples, self.n_features_in_), dtype=int)
+        unseen = np.zeros((n_samples, self.n_features_in_), dtype=bool)
         for col_idx in range(self.n_features_in_):
             if col_idx in self._discretizers_list:
                 est = self._discretizers_list[col_idx]
                 if isinstance(est, LabelEncoder):
-                    # Fast fallback for unseen categorical values
                     col = X[:, col_idx]
-                    # Create a boolean mask of known classes
                     known_mask = np.isin(col, est.classes_)
-                    # Replace unknown values with the first known class
+                    unseen[:, col_idx] = ~known_mask
                     safe_col = np.where(known_mask, col, est.classes_[0])
                     X_parents_disc[:, col_idx] = est.transform(safe_col)
                 else:
@@ -347,54 +410,142 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
                 X_parents_disc[:, col_idx] = X[:, col_idx].astype(int)
 
         # Clip to training cardinalities (safety for unseen test values)
-        for i in range(self.n_features_in_):
-            np.clip(
-                X_parents_disc[:, i],
-                0,
-                self._parent_cards[i] - 1,
-                out=X_parents_disc[:, i],
+        np.clip(X_parents_disc, 0, self._parent_cards - 1, out=X_parents_disc)
+        return X_parents_disc, unseen
+
+    def _uninformed_log_likelihood(self, X):
+        """Class-independent log-likelihood of each feature for an empty cell.
+
+        Laplace smoothing of an empty cell gives a uniform conditional for a
+        discrete child; for a Gaussian child the uninformed estimate is the
+        pooled Gaussian of the attribute. Returns shape (n_samples, n_features).
+        """
+        out = np.zeros((X.shape[0], self.n_features_in_))
+        types = self.backoff_.feature_types_
+        if types["gaussian"]:
+            g = types["gaussian"]
+            diff = np.asarray(X[:, g], dtype=float) - self._pooled_mean
+            out[:, g] = -0.5 * (
+                diff**2 / self._pooled_var + np.log(2.0 * np.pi * self._pooled_var)
             )
+        if types["categorical"] and "categorical" in self.backoff_.estimators_:
+            out[:, types["categorical"]] = -np.log(self.backoff_._cat_cardinalities)
+        if types["bernoulli"]:
+            out[:, types["bernoulli"]] = -np.log(2.0)
+        return out
 
-        # Output tensor initialized to a very small log-probability (approx 0 prob)
-        # -700 is close to the limit of exp() in float64 (~1e-304)
-        jll_tensor = np.full((n_samples, n_classes, n_models), -700.0)
+    def _get_jll_per_model(self, X):
+        """
+        Computes the log-probability log P_m(y, x) for each model 'm' in the ensemble.
 
-        for m_idx, model_info in enumerate(self.ensemble_):
-            parent_indices = model_info["parent_indices"]
-            estimator = model_info["estimator"]
-            child_indices = model_info["child_indices"]
-            map_y = model_info["map_y"]
-            map_parent_key = model_info["map_parent_key"]
-            parent_strides = model_info["parent_strides"]
+        Returns
+        -------
+        jll_tensor : ndarray of shape (n_samples, n_classes, n_models)
+            Contains log P(y, x) according to each SPODE.
 
-            # 1. Get raw log probabilities for Y*
-            if not child_indices:
-                X_test_sub = np.zeros((n_samples, 1))
-            else:
-                X_test_sub = X[:, child_indices]
+        X_parents_disc : ndarray of shape (n_samples, n_features)
+            The discretized version of X used for parent lookup (useful for Hybrid weights).
 
-            jll_augmented = estimator._joint_log_likelihood(X_test_sub)
+        active : ndarray of bool, shape (n_samples, n_models)
+            Whether SPODE ``m`` takes part in the prediction of each sample
+            (its parent instantiation occurred at least ``min_parent_count``
+            times in training).
+
+        nb_jll : ndarray of shape (n_samples, n_classes)
+            Naive Bayes joint log-likelihood, used for samples with no active
+            SPODE. Only rows where ``active.any(axis=1)`` is False are filled.
+        """
+        check_is_fitted(self, attributes=["classes_", "ensemble_"])
+        X = validate_data(self, X, reset=False)
+        n_samples = X.shape[0]
+        n_classes = len(self.classes_)
+        n_models = len(self.ensemble_)
+
+        X_parents_disc, unseen = self._discretize_parents(X)
+
+        # --- Pass 1: parent keys, activity and augmented-state hits ---
+        keys, hits, positions = [], [], []
+        active = np.ones((n_samples, n_models), dtype=bool)
+        needs_backoff = np.zeros(n_samples, dtype=bool)
+        class_offsets = np.arange(n_classes, dtype=np.int64)
+        for m_idx, info in enumerate(self.ensemble_):
+            if self.n_dependence == 0:
+                keys.append(None)
+                hits.append(None)
+                positions.append(None)
+                continue
+            p_vals = X_parents_disc[:, info["parent_indices"]]
+            pk = (p_vals * info["parent_strides"]).sum(axis=1).astype(np.int64)
+            pos_p, found_p = _lookup(info["obs_parent_keys"], pk)
+            counts = np.where(found_p, info["obs_parent_counts"][pos_p], 0)
+            active[:, m_idx] = (counts >= max(self.min_parent_count, 1)) & ~unseen[
+                :, info["parent_indices"]
+            ].any(axis=1)
+
+            queries = (
+                class_offsets[np.newaxis, :] * info["n_parent_combos"] + pk[:, None]
+            )
+            pos, hit = _lookup(info["ystar_keys"], queries)
+            keys.append(pk)
+            hits.append(hit)
+            positions.append(pos)
+            needs_backoff |= active[:, m_idx] & ~hit.all(axis=1)
+
+        no_active = ~active.any(axis=1)
+        rows_ll = np.flatnonzero(needs_backoff | no_active)
+        row_map = np.full(n_samples, -1, dtype=np.int64)
+        row_map[rows_ll] = np.arange(len(rows_ll))
+        feat_ll = (
+            self.backoff_._feature_log_likelihood(X[rows_ll])
+            if len(rows_ll)
+            else np.zeros((0, n_classes, self.n_features_in_))
+        )
+
+        nb_jll = np.zeros((n_samples, n_classes))
+        if no_active.any():
+            r = row_map[no_active]
+            nb_jll[no_active] = feat_ll[r].sum(axis=2) + self.backoff_.class_log_prior_
+
+        # --- Pass 2: fill the tensor ---
+        jll_tensor = np.zeros((n_samples, n_classes, n_models))
+        for m_idx, info in enumerate(self.ensemble_):
+            child_indices = info["child_indices"]
+            X_sub = X[:, child_indices] if child_indices else np.zeros((n_samples, 1))
+            jll_aug = info["estimator"]._joint_log_likelihood(X_sub)
 
             if self.n_dependence == 0:
-                jll_tensor[:, :, m_idx] = jll_augmented
+                jll_tensor[:, :, m_idx] = jll_aug
                 continue
 
-            # 2. Compute integer parent keys for test samples (vectorized, no strings)
-            test_p_vals = X_parents_disc[:, parent_indices]
-            test_parent_keys = (test_p_vals * parent_strides).sum(axis=1).astype(int)
+            hit, pos = hits[m_idx], positions[m_idx]
+            rows = np.arange(n_samples)[:, None]
+            jll_tensor[:, :, m_idx] = np.where(hit, jll_aug[rows, pos], 0.0)
 
-            # 3. Match each Y* class back to (class_idx, parent_key)
-            for k in range(len(map_parent_key)):
-                target_class_idx = map_y[k]
-                required_key = map_parent_key[k]
-                valid_mask = test_parent_keys == required_key
+            miss = active[:, m_idx][:, None] & ~hit
+            if miss.any():
+                r_idx, c_idx = np.nonzero(miss)
+                if getattr(self, "unseen_state", "laplace") == "laplace":
+                    uninf = self._uninformed_log_likelihood(X[r_idx][:, :])
+                    child_ll = uninf[:, child_indices].sum(axis=1)
+                else:
+                    child_ll = feat_ll[row_map[r_idx], c_idx][:, child_indices].sum(
+                        axis=1
+                    )
+                jll_tensor[r_idx, c_idx, m_idx] = info["log_prior_unseen"] + child_ll
 
-                if np.any(valid_mask):
-                    jll_tensor[valid_mask, target_class_idx, m_idx] = jll_augmented[
-                        valid_mask, k
-                    ]
+        return jll_tensor, X_parents_disc, active, nb_jll
 
-        return jll_tensor, X_parents_disc
+    @staticmethod
+    def _normalize(scores):
+        log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
+        return np.nan_to_num(log_prob, nan=-np.log(scores.shape[1]))
+
+    def predict_proba(self, X):
+        return np.exp(self.predict_log_proba(X))
+
+    def predict(self, X):
+        check_is_fitted(self, attributes=["classes_", "ensemble_"])
+        return self.classes_[np.argmax(self.predict_log_proba(X), axis=1)]
 
 
 # =============================================================================
@@ -402,15 +553,37 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
 # =============================================================================
 
 
+def _arithmetic_scores(jll, active, nb_jll):
+    """log of the mean of the active components' joints (per sample)."""
+    n_active = active.sum(axis=1)
+    masked = np.where(active[:, None, :], jll, -np.inf)
+    with np.errstate(divide="ignore"):
+        scores = logsumexp(masked, axis=2) - np.log(np.maximum(n_active, 1))[:, None]
+    fallback = n_active == 0
+    scores[fallback] = nb_jll[fallback]
+    return scores
+
+
+def _geometric_scores(jll, active, nb_jll):
+    """Mean of the active components' log-joints (log geometric mean)."""
+    n_active = active.sum(axis=1)
+    scores = np.where(active[:, None, :], jll, 0.0).sum(axis=2)
+    scores /= np.maximum(n_active, 1)[:, None]
+    fallback = n_active == 0
+    scores[fallback] = nb_jll[fallback]
+    return scores
+
+
 class AnDE(_BaseAnDE):
     """
     Averaged n-Dependence Estimators (AnDE) [Generative].
 
     This is the standard generative model described by Webb et al. [1].
-    It aggregates the predictions of sub-models (SPODEs) using an **Arithmetic Mean**.
+    It aggregates the predictions of sub-models (SPODEs) using an **Arithmetic Mean**
+    of their joint probabilities.
 
     .. math::
-        P(y|x) \\propto \\sum_{i} P_i(y, x) \\equiv \\log \\sum_{i} \\exp(\\text{JLL}_i)
+        P(y|x) \\propto \\frac{1}{|M|} \\sum_{i} P_i(y, x)
 
     This implementation extends the original AnDE by supporting **mixed data types**
     (Gaussian/Categorical) through the Super-Class strategy.
@@ -433,47 +606,22 @@ class AnDE(_BaseAnDE):
     """
 
     def predict_log_proba(self, X):
-        check_is_fitted(self, attributes=["classes_", "ensemble_"])
-        jll_models, _ = self._get_jll_per_model(X)
-
-        # Arithmetic Mean in Log Space: log(mean(exp(jll)))
-        # = logsumexp(jll) - log(M)
-        total_jll = logsumexp(jll_models, axis=2) - np.log(jll_models.shape[2])
-
-        # Normalize to posterior P(y|x)
-        log_prob_x = logsumexp(total_jll, axis=1)
-        with np.errstate(invalid="ignore"):
-            log_prob = total_jll - log_prob_x[:, np.newaxis]
-
-        # Handle cases where all probs are 0 (log prob is -inf - -inf = nan)
-        # We assign uniform probability or prior if everything is impossible
-        mask_nan = np.isnan(log_prob)
-        if np.any(mask_nan):
-            # Fallback to uniform
-            n_classes = len(self.classes_)
-            log_prob[mask_nan] = -np.log(n_classes)
-
-        return log_prob
-
-    def predict_proba(self, X):
-        return np.exp(self.predict_log_proba(X))
-
-    def predict(self, X):
-        check_is_fitted(self, attributes=["classes_", "ensemble_"])
-        return self.classes_[np.argmax(self.predict_log_proba(X), axis=1)]
+        jll, _, active, nb_jll = self._get_jll_per_model(X)
+        return self._normalize(_arithmetic_scores(jll, active, nb_jll))
 
 
 class AnJE(_BaseAnDE):
     """
     Averaged n-Join Estimators (AnJE) [Generative].
 
-    A generative model similar to AnDE, but aggregates using a **Geometric Mean**.
+    A generative model similar to AnDE, but aggregates using a **Geometric Mean**
+    of the components' joint probabilities.
 
     .. math::
-        P(y|x) \\propto \\prod_{i} P_i(y, x) \\equiv \\sum_{i} \\log P_i(y, x)
+        P(y|x) \\propto \\prod_{i} P_i(y, x)^{1/|M|}
 
     This model corresponds to the generative counterpart of ALR described by
-    Zaidi et al. [2]. While often less accurate than AnDE on its own due to
+    Zaidi et al. [4]. While often less accurate than AnDE on its own due to
     higher bias, it serves as the initialization basis for convex discriminative learning.
 
     Parameters
@@ -492,31 +640,8 @@ class AnJE(_BaseAnDE):
     """
 
     def predict_log_proba(self, X):
-        check_is_fitted(self, attributes=["classes_", "ensemble_"])
-        jll_models, _ = self._get_jll_per_model(X)
-
-        # Geometric Mean in Log Space = Sum of logs
-        total_jll = np.sum(jll_models, axis=2)
-
-        # Normalize
-        log_prob_x = logsumexp(total_jll, axis=1)
-        with np.errstate(invalid="ignore"):
-            log_prob = total_jll - log_prob_x[:, np.newaxis]
-
-        mask_nan = np.isnan(log_prob)
-        if np.any(mask_nan):
-            # Fallback to uniform
-            n_classes = len(self.classes_)
-            log_prob[mask_nan] = -np.log(n_classes)
-
-        return log_prob
-
-    def predict_proba(self, X):
-        return np.exp(self.predict_log_proba(X))
-
-    def predict(self, X):
-        check_is_fitted(self, attributes=["classes_", "ensemble_"])
-        return self.classes_[np.argmax(self.predict_log_proba(X), axis=1)]
+        jll, _, active, nb_jll = self._get_jll_per_model(X)
+        return self._normalize(_geometric_scores(jll, active, nb_jll))
 
 
 # =============================================================================
@@ -529,7 +654,15 @@ class _HybridOptimizer(_BaseAnDE):
     Mixin implementing the 4 levels of parameter granularity for ALR/WeightedAnDE.
 
     This class handles the "Pre-conditioning" (generative fit) and the setup
-    of the weight optimization problem.
+    of the weight optimization problem. All objectives are optimized with
+    L-BFGS-B using exact (analytic) gradients.
+
+    Weight levels (per SPnDE component ``m``):
+
+    1. one weight per component;
+    2. one weight per parent instantiation of the component;
+    3. one weight per class of the component;
+    4. one weight per augmented state (class x parent instantiation).
 
     Reference: Zaidi et al. (2017), Section 5.4 [3].
     """
@@ -548,6 +681,9 @@ class _HybridOptimizer(_BaseAnDE):
         bernoulli_features=None,
         gaussian_features=None,
         modular=False,
+        var_prior_weight=1.0,
+        min_parent_count=1,
+        unseen_state="laplace",
     ):
         super().__init__(
             n_dependence,
@@ -558,106 +694,111 @@ class _HybridOptimizer(_BaseAnDE):
             categorical_features,
             bernoulli_features,
             gaussian_features,
+            var_prior_weight,
+            min_parent_count,
+            unseen_state,
         )
         self.l2_reg = l2_reg
         self.max_iter = max_iter
         self.weight_level = weight_level
         self.modular = modular
 
+    # --- Subclass hooks -----------------------------------------------------
+    _log_space = False  # WeightedAnDE optimizes log-weights
+
+    def _scores_and_grad_factor(self, theta_samples, jll, active):
+        """Return ``(scores, dscore/dtheta)`` for per-sample expanded parameters.
+
+        ``theta_samples`` has shape (N, C, M) (or (N, 1, M) for class-independent
+        levels). The derivative has shape (N, C, M).
+        """
+        raise NotImplementedError
+
+    # --- Weight bookkeeping -------------------------------------------------
+    @property
+    def _class_specific(self):
+        return self.weight_level in (3, 4)
+
     def _setup_weights(self, X_parents_disc):
         """
         Prepares weight offsets based on granularity level.
         Uses training-time cardinalities stored in the ensemble for consistency.
         """
-        n_models = len(self.ensemble_)
+        if self.weight_level not in (1, 2, 3, 4):
+            raise ValueError(f"weight_level must be in 1..4, got {self.weight_level}")
         n_classes = len(self.classes_)
-
         self._weight_offsets = [0]
-        current_offset = 0
+        for info in self.ensemble_:
+            n_comb = info["n_parent_combos"]
+            size = {1: 1, 2: n_comb, 3: n_classes, 4: n_comb * n_classes}[
+                self.weight_level
+            ]
+            self._weight_offsets.append(self._weight_offsets[-1] + size)
+        self.n_weights_ = self._weight_offsets[-1]
+        self._w_indices = self._compute_base_indices(X_parents_disc)
 
-        # Store strides/cardinalities for test-time index computation
-        self._model_strides = []
-
-        for m_idx in range(n_models):
-            p_indices = self.ensemble_[m_idx]["parent_indices"]
-            # Use training cardinalities from _fit_spode (not recalculated from data)
-            cards = self.ensemble_[m_idx]["parent_cards"]
-            strides = self.ensemble_[m_idx]["parent_strides"]
-            n_combinations = self.ensemble_[m_idx]["n_parent_combos"]
-
-            self._model_strides.append((p_indices, cards, strides))
-
-            # Calculate final block size based on Level
-            if self.weight_level == 1:  # Model
-                size = 1
-            elif self.weight_level == 2:  # Value
-                size = n_combinations
-            elif self.weight_level == 3:  # Class
-                size = n_classes
-            elif self.weight_level == 4:  # Value + Class
-                size = n_combinations * n_classes
-
-            current_offset += size
-            self._weight_offsets.append(current_offset)
-
-        self.n_weights_ = current_offset
-
-        # 2. Pre-compute Weight Indices for Samples (Linearized)
+    def _compute_base_indices(self, X_parents_disc):
+        """Index of the first weight used by each (sample, component)."""
         n_samples = X_parents_disc.shape[0]
-        self._w_indices = np.zeros((n_samples, n_models), dtype=int)
-
-        for m_idx in range(n_models):
-            base_off = self._weight_offsets[m_idx]
-
-            if self.weight_level in [1, 3]:
-                self._w_indices[:, m_idx] = base_off
-            elif self.weight_level in [2, 4]:
-                p_indices, cards, strides = self._model_strides[m_idx]
-
-                if len(p_indices) > 0:
-                    # Get values for all parents: (N, n_parents)
-                    vals = X_parents_disc[:, p_indices]
-
-                    # Safety clip (critical for Test data robustness)
-                    # Clip each column j to [0, cards[j]-1]
-                    # This maps unseen outliers to the last valid bin instead of crashing
-                    vals = np.minimum(vals, cards - 1)
-                    vals = np.maximum(vals, 0)
-
-                    # Linearize indices: dot product with strides
-                    # Row i: v_i1*s1 + v_i2*s2 ...
-                    linear_vals = vals @ strides
-
-                    if self.weight_level == 2:
-                        self._w_indices[:, m_idx] = base_off + linear_vals
-                    else:  # Level 4 (Value * n_classes + Class_Offset)
-                        # _w_indices points to the start of the class block for this value
-                        self._w_indices[:, m_idx] = base_off + (linear_vals * n_classes)
-                else:
-                    self._w_indices[:, m_idx] = base_off
-
-    def _get_weights_for_samples(self, flat_weights, n_samples, w_indices=None):
-        """
-        Expands flat weights to (N, C, M) tensor based on pre-computed indices.
-        """
-        if w_indices is None:
-            w_indices = self._w_indices
-
         n_classes = len(self.classes_)
-        n_models = len(self.ensemble_)
+        base = np.zeros((n_samples, len(self.ensemble_)), dtype=np.int64)
+        for m_idx, info in enumerate(self.ensemble_):
+            off = self._weight_offsets[m_idx]
+            if self.weight_level in (1, 3) or len(info["parent_indices"]) == 0:
+                base[:, m_idx] = off
+                continue
+            vals = X_parents_disc[:, info["parent_indices"]]
+            vals = np.clip(vals, 0, info["parent_cards"] - 1)
+            linear = vals @ info["parent_strides"]
+            base[:, m_idx] = off + (
+                linear * n_classes if self.weight_level == 4 else linear
+            )
+        return base
 
-        if self.weight_level in [1, 2]:
-            # Weights are class-independent (broadcast over C)
-            W_gathered = flat_weights[w_indices]
-            return W_gathered[:, np.newaxis, :]
+    def _expand_indices(self, base, n_classes):
+        if self._class_specific:
+            return base[:, None, :] + np.arange(n_classes)[None, :, None]
+        return base[:, None, :]
 
-        elif self.weight_level in [3, 4]:
-            # Weights are class-specific
-            W_out = np.zeros((n_samples, n_classes, n_models))
-            for c in range(n_classes):
-                indices_c = w_indices + c
-                W_out[:, c, :] = flat_weights[indices_c]
-            return W_out
+    # --- Objective ----------------------------------------------------------
+    def _to_weights(self, theta):
+        return np.exp(theta) if self._log_space else theta
+
+    def _objective(self, theta, jll, active, idx, Y):
+        w = self._to_weights(theta)
+        scores, dscore = self._scores_and_grad_factor(theta[idx], jll, active)
+        log_norm = logsumexp(scores, axis=1, keepdims=True)
+        nll = -np.sum((scores - log_norm) * Y)
+        resid = np.exp(scores - log_norm) - Y  # dNLL/dscores
+
+        g_full = resid[:, :, None] * dscore
+        if idx.shape[1] == 1:  # class-independent weights: sum over classes
+            g_full = g_full.sum(axis=1, keepdims=True)
+        grad = np.bincount(
+            np.broadcast_to(idx, g_full.shape).ravel(),
+            weights=g_full.ravel(),
+            minlength=len(theta),
+        )
+
+        reg = self.l2_reg * np.sum((w - 1.0) ** 2)
+        dreg = 2.0 * self.l2_reg * (w - 1.0)
+        if self._log_space:
+            dreg = dreg * w
+        return nll + reg, grad + dreg
+
+    def _optimize(self, theta0, jll, active, idx, Y):
+        bounds = None if self._log_space else [(0.0, None)] * len(theta0)
+        res = minimize(
+            self._objective,
+            theta0,
+            args=(jll, active, idx, Y),
+            jac=True,
+            method="L-BFGS-B",
+            bounds=bounds,
+            options={"maxiter": self.max_iter},
+        )
+        self.n_iter_ = getattr(self, "n_iter_", 0) + res.nit
+        return res.x
 
     def fit(self, X, y):
         # 1. Generative Phase (Pre-conditioning)
@@ -665,148 +806,70 @@ class _HybridOptimizer(_BaseAnDE):
 
         # 2. Setup Weighting Structure
         X_check = validate_data(self, X, reset=False)
-        # Parallel inference for JLL tensor
-        jll_tensor, X_parents_disc = self._get_jll_per_model(X_check)
-        jll_tensor = np.clip(jll_tensor, -1e10, 700)
-
+        jll, X_parents_disc, active, _ = self._get_jll_per_model(X_check)
         self._setup_weights(X_parents_disc)
 
-        lb = LabelBinarizer()
-        y_ohe = lb.fit_transform(y)
-        if len(self.classes_) == 2:
-            y_ohe = np.hstack((1 - y_ohe, y_ohe))
+        n_classes = len(self.classes_)
+        y_idx = np.searchsorted(self.classes_, y)
+        Y = np.eye(n_classes)[y_idx]
+
+        # Samples with no active component are predicted by the NB fallback
+        # and do not depend on the weights.
+        keep = active.any(axis=1)
+        jll, active, Y = jll[keep], active[keep], Y[keep]
+        base = self._w_indices[keep]
+
+        theta = (
+            np.zeros(self.n_weights_) if self._log_space else np.ones(self.n_weights_)
+        )
+        self.n_iter_ = 0
 
         # 3. Optimization
-        initial_weights = np.ones(self.n_weights_)
-        n_models = len(self.ensemble_)
-        n_samples = X_check.shape[0]
-        n_classes = len(self.classes_)
-
-        if isinstance(self, WeightedAnDE):
-            initial_weights /= n_models
-
         if self.modular:
-            self.learned_weights_ = np.zeros(self.n_weights_)
-            # Modular Optimization: Optimize each SPODE independently (Strictly Convex)
-            for m_idx in range(n_models):
-                start = self._weight_offsets[m_idx]
-                end = self._weight_offsets[m_idx + 1]
-                w0_m = initial_weights[start:end]
-                jll_m = jll_tensor[:, :, m_idx]
-                indices_m = self._w_indices[:, m_idx]
-
-                # Allocate memory for the expanded weights outside the objective function
-                # This prevents reallocation in every optimization step
-                if self.weight_level not in [1, 2]:
-                    W_m_samples_buffer = np.zeros((n_samples, n_classes))
-
-                def local_objective(w_m):
-                    if self.weight_level in [1, 2]:
-                        W_m_samples = w_m[indices_m - start][:, np.newaxis]
-                    else:
-                        # Update the pre-allocated buffer in-place
-                        for c in range(n_classes):
-                            W_m_samples_buffer[:, c] = w_m[indices_m - start + c]
-                        W_m_samples = W_m_samples_buffer
-
-                    if isinstance(self, ALR):
-                        local_weighted_jll = jll_m * W_m_samples
-                    else:
-                        local_weighted_jll = jll_m + np.log(
-                            np.maximum(W_m_samples, 1e-10)
-                        )
-
-                    lse = logsumexp(local_weighted_jll, axis=1)
-                    log_proba = local_weighted_jll - lse[:, np.newaxis]
-                    nll = -np.sum(log_proba[y_ohe.astype(bool)])
-                    reg = self.l2_reg * np.sum((w_m - 1.0) ** 2)
-                    return nll + reg
-
-                res_m = minimize(
-                    local_objective,
-                    w0_m,
-                    method="L-BFGS-B",
-                    bounds=[(0, None)] * len(w0_m),
-                    options={"maxiter": self.max_iter},
+            if self._log_space and not self._class_specific:
+                warnings.warn(
+                    "Modular WeightedAnDE with weight_level 1 or 2 is equivalent to "
+                    "the generative AnDE: a class-independent weight cancels in the "
+                    "per-component softmax, so it is not identifiable from that "
+                    "component's conditional likelihood. Weights are fixed to 1.",
+                    UserWarning,
                 )
-                self.learned_weights_[start:end] = res_m.x
+            else:
+                for m_idx in range(len(self.ensemble_)):
+                    rows = active[:, m_idx]
+                    if not rows.any():
+                        continue
+                    lo, hi = (
+                        self._weight_offsets[m_idx],
+                        self._weight_offsets[m_idx + 1],
+                    )
+                    local_idx = self._expand_indices(
+                        base[rows, m_idx : m_idx + 1] - lo, n_classes
+                    )
+                    theta[lo:hi] = self._optimize(
+                        theta[lo:hi],
+                        jll[rows][:, :, m_idx : m_idx + 1],
+                        np.ones((rows.sum(), 1), dtype=bool),
+                        local_idx,
+                        Y[rows],
+                    )
         else:
-            # Joint Optimization: Optimize all weights simultaneously (Non-Convex for WeightedAnDE)
-            def objective(w_flat):
-                W_tensor = self._get_weights_for_samples(w_flat, n_samples)
-                final_jll = self._calculate_final_jll(jll_tensor, W_tensor)
-                final_jll = np.clip(final_jll, -1e10, 700)
+            idx = self._expand_indices(base, n_classes)
+            theta = self._optimize(theta, jll, active, idx, Y)
 
-                lse = logsumexp(final_jll, axis=1)
-                log_proba = final_jll - lse[:, np.newaxis]
-                nll = -np.sum(log_proba[y_ohe.astype(bool)])
-                reg = self.l2_reg * np.sum((w_flat - 1.0) ** 2)
-                return nll + reg
-
-            bounds = [(0, None) for _ in range(self.n_weights_)]
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                res = minimize(
-                    objective,
-                    initial_weights,
-                    method="L-BFGS-B",
-                    bounds=bounds,
-                    options={"maxiter": self.max_iter},
-                )
-            self.learned_weights_ = res.x
-
+        self.coef_theta_ = theta
+        self.learned_weights_ = self._to_weights(theta)
         return self
 
     def predict_log_proba(self, X):
-        jll_models, X_parents_disc = self._get_jll_per_model(X)
-        jll_models = np.clip(jll_models, -1e10, 700)
-
-        # Compute w_indices for test data locally using TRAINING cardinalities
-        # (NOT calling _setup_weights which would recalculate cardinalities from test data)
-        n_samples = X_parents_disc.shape[0]
-        n_models = len(self.ensemble_)
-        n_classes = len(self.classes_)
-        w_indices = np.zeros((n_samples, n_models), dtype=int)
-
-        for m_idx in range(n_models):
-            base_off = self._weight_offsets[m_idx]
-            if self.weight_level in [1, 3]:
-                w_indices[:, m_idx] = base_off
-            elif self.weight_level in [2, 4]:
-                p_indices, cards, strides = self._model_strides[m_idx]
-                if len(p_indices) > 0:
-                    vals = X_parents_disc[:, p_indices].copy()
-                    # Clip to training cardinalities (prevents out-of-bounds)
-                    vals = np.minimum(vals, cards - 1)
-                    vals = np.maximum(vals, 0)
-                    linear_vals = vals @ strides
-                    if self.weight_level == 2:
-                        w_indices[:, m_idx] = base_off + linear_vals
-                    else:
-                        w_indices[:, m_idx] = base_off + (linear_vals * n_classes)
-                else:
-                    w_indices[:, m_idx] = base_off
-
-        W_tensor = self._get_weights_for_samples(
-            self.learned_weights_, X.shape[0], w_indices=w_indices
-        )
-
-        final_jll = self._calculate_final_jll(jll_models, W_tensor)
-        final_jll = np.clip(final_jll, -1e10, 700)
-
-        log_prob_x = logsumexp(final_jll, axis=1)
-        with np.errstate(invalid="ignore"):
-            log_prob = final_jll - log_prob_x[:, np.newaxis]
-
-        mask_nan = np.isnan(log_prob)
-        if np.any(mask_nan):
-            n_classes = len(self.classes_)
-            log_prob[mask_nan] = -np.log(n_classes)
-
-        return log_prob
-
-    def _calculate_final_jll(self, jll_tensor, W_tensor):
-        raise NotImplementedError
+        check_is_fitted(self, attributes=["classes_", "ensemble_", "coef_theta_"])
+        jll, X_parents_disc, active, nb_jll = self._get_jll_per_model(X)
+        base = self._compute_base_indices(X_parents_disc)
+        idx = self._expand_indices(base, len(self.classes_))
+        scores, _ = self._scores_and_grad_factor(self.coef_theta_[idx], jll, active)
+        fallback = ~active.any(axis=1)
+        scores[fallback] = nb_jll[fallback]
+        return self._normalize(scores)
 
 
 class ALR(_HybridOptimizer, AnJE):
@@ -814,9 +877,14 @@ class ALR(_HybridOptimizer, AnJE):
     Accelerated Logistic Regression (ALR) [Hybrid].
 
     A hybrid generative-discriminative classifier that combines the generative
-    topology of Averaged n-Dependence Estimators (AnJE) with discriminative
-    weight optimization. Weights are optimized in log-space, making the
-    optimization problem strictly convex and solvable via L-BFGS-B.
+    topology of Averaged n-Join Estimators (AnJE) with discriminative
+    weight optimization. The score is the weighted log geometric mean
+
+    .. math::
+        s(y, x) = \\frac{1}{|M|} \\sum_m w_m(y, x) \\log P_m(y, x),
+
+    which is linear in the weights, so the conditional log-likelihood is
+    concave and solvable via L-BFGS-B. At ``w = 1`` the model is exactly AnJE.
 
     Supports 4 Levels of Weight Granularity (from coarsest to finest):
     1. Per Model (Default) - One weight per ensemble member.
@@ -831,37 +899,44 @@ class ALR(_HybridOptimizer, AnJE):
         0 corresponds to Naive Bayes topology.
     alpha : float, default=1.0
         Additive (Laplace/Lidstone) smoothing parameter for probabilities.
-    categorical_features : array-like of int or str, default="auto"
-        Indices or mask of categorical features. "auto" detects types.
-    discretization_strategy : {"tree", "quantile", "uniform"}, default="tree"
-        Strategy to discretize continuous features.
     n_bins : int, default=5
         Maximum number of bins for discretization.
     weight_level : int, default=1
         Granularity of weights (1-4).
     l2_reg : float, default=1e-4
-        L2 regularization applied during weight optimization.
-    random_state : int, RandomState instance or None, default=None
-        Controls random seed for random operations like discretization.
+        L2 regularization towards the generative solution (w = 1).
+    max_iter : int, default=100
+        Maximum number of L-BFGS-B iterations.
+    modular : bool, default=False
+        If True, the weights of each component are fitted independently on
+        that component's own conditional log-likelihood.
     n_jobs : int, default=None
-        Number of parallel jobs to run during inference and optimization.
+        Number of parallel jobs to run during the generative phase.
     """
 
-    def _calculate_final_jll(self, jll_tensor, W_tensor):
-        # Geometric Mean Logic: Sum(w * logP)
-        weighted_jll = jll_tensor * W_tensor
-        weighted_jll = np.nan_to_num(weighted_jll, nan=0.0)
-        return np.sum(weighted_jll, axis=2)
+    _log_space = False
+
+    def _scores_and_grad_factor(self, theta_samples, jll, active):
+        n_active = np.maximum(active.sum(axis=1), 1)[:, None, None]
+        jll_active = np.where(active[:, None, :], jll, 0.0) / n_active
+        scores = np.sum(theta_samples * jll_active, axis=2)
+        return scores, jll_active
 
 
 class WeightedAnDE(_HybridOptimizer, AnDE):
     """
     Weighted Averaged n-Dependence Estimators (WeightedAnDE) [Hybrid].
 
-    A discriminative weighting of the standard AnDE (Arithmetic Mean) ensemble.
-    Unlike ALR which operates on geometric means in log-space, WeightedAnDE
-    optimizes weights in probability space (arithmetic mean), making the
-    joint optimization non-convex.
+    A discriminative weighting of the standard AnDE (Arithmetic Mean) ensemble:
+
+    .. math::
+        s(y, x) = \\log \\sum_m w_m(y, x) P_m(y, x).
+
+    Weights are optimized in log-space (``w = exp(theta)``). Jointly fitting
+    all components is non-convex; in ``modular`` mode each component is fitted
+    on its own conditional log-likelihood, which is convex in ``theta``. In
+    modular mode only class-specific levels (3 and 4) are identifiable; levels
+    1 and 2 reduce to the generative AnDE.
 
     Supports 4 Levels of Weight Granularity (from coarsest to finest):
     1. Per Model (Default) - One weight per ensemble member.
@@ -876,25 +951,25 @@ class WeightedAnDE(_HybridOptimizer, AnDE):
         0 corresponds to Naive Bayes topology.
     alpha : float, default=1.0
         Additive (Laplace/Lidstone) smoothing parameter for probabilities.
-    categorical_features : array-like of int or str, default="auto"
-        Indices or mask of categorical features. "auto" detects types.
-    discretization_strategy : {"tree", "quantile", "uniform"}, default="tree"
-        Strategy to discretize continuous features.
     n_bins : int, default=5
         Maximum number of bins for discretization.
     weight_level : int, default=1
         Granularity of weights (1-4).
     l2_reg : float, default=1e-4
-        L2 regularization applied during weight optimization.
-    random_state : int, RandomState instance or None, default=None
-        Controls random seed for random operations like discretization.
+        L2 regularization towards the generative solution (w = 1).
+    max_iter : int, default=100
+        Maximum number of L-BFGS-B iterations.
+    modular : bool, default=False
+        If True, the weights of each component are fitted independently.
     n_jobs : int, default=None
-        Number of parallel jobs to run during inference and optimization.
+        Number of parallel jobs to run during the generative phase.
     """
 
-    def _calculate_final_jll(self, jll_tensor, W_tensor):
-        # Arithmetic Mean Logic: LogSumExp(log(w) + logP)
-        w_safe = np.maximum(W_tensor, 1e-10)
-        weighted_log_terms = np.log(w_safe) + jll_tensor
-        weighted_log_terms = np.clip(weighted_log_terms, -700, 700)
-        return logsumexp(weighted_log_terms, axis=2)
+    _log_space = True
+
+    def _scores_and_grad_factor(self, theta_samples, jll, active):
+        terms = np.where(active[:, None, :], jll + theta_samples, -np.inf)
+        scores = logsumexp(terms, axis=2)
+        with np.errstate(invalid="ignore"):
+            resp = np.exp(terms - scores[:, :, None])
+        return scores, np.nan_to_num(resp)

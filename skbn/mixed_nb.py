@@ -56,6 +56,14 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         Additive (Laplace/Lidstone) smoothing parameter. Passed to
         `CategoricalNB` and `BernoulliNB`.
 
+    var_prior_weight : float, default=0.0
+        Number of pseudo-observations used to shrink each class-conditional
+        variance towards the pooled (class-independent) variance of the
+        feature: ``var_c = (n_c * var_c + nu * var_pooled) / (n_c + nu)``.
+        It plays for Gaussian features the role that ``alpha`` plays for
+        discrete ones, preventing degenerate densities in classes with very
+        few samples. ``0`` reproduces `GaussianNB` exactly.
+
     Attributes
     ----------
     classes_ : ndarray of shape (n_classes,)
@@ -113,12 +121,14 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         gaussian_features=None,
         var_smoothing=1e-9,
         alpha=1.0,
+        var_prior_weight=0.0,
     ):
         self.categorical_features = categorical_features
         self.bernoulli_features = bernoulli_features
         self.gaussian_features = gaussian_features
         self.var_smoothing = var_smoothing
         self.alpha = alpha
+        self.var_prior_weight = var_prior_weight
 
     def _validate_feature_indices(self, indices, n_features, name):
         """Validate provided feature indices."""
@@ -215,6 +225,13 @@ class MixedNB(ClassifierMixin, BaseEstimator):
             indices = self.feature_types_["gaussian"]
             gauss_nb = GaussianNB(var_smoothing=self.var_smoothing)
             gauss_nb.fit(X[:, indices], y)
+            if self.var_prior_weight > 0:
+                # Shrink class-conditional variances towards the pooled
+                # variance (normal-inverse-gamma style pseudo-observations).
+                pooled_var = np.var(X[:, indices], axis=0) + gauss_nb.epsilon_
+                n_c = gauss_nb.class_count_[:, np.newaxis]
+                nu = self.var_prior_weight
+                gauss_nb.var_ = (n_c * gauss_nb.var_ + nu * pooled_var) / (n_c + nu)
             self.estimators_["gaussian"] = gauss_nb
 
         if self.feature_types_["categorical"]:
@@ -243,6 +260,44 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         if X_cat.shape[1] == 0:
             return None
         return (X_cat.max(axis=0) + 1).astype(int, copy=False)
+
+    def _feature_log_likelihood(self, X):
+        """Per-feature class-conditional log-likelihoods.
+
+        Returns
+        -------
+        ndarray of shape (n_samples, n_classes, n_features)
+            Entry ``[i, c, j]`` is ``log P(x_ij | c)``. Features ignored at fit
+            time (constant) contribute zeros. The class prior is not included.
+        """
+        check_is_fitted(self, attributes=["classes_", "estimators_"])
+        X = validate_data(self, X, reset=False)
+        out = np.zeros((X.shape[0], len(self.classes_), self.n_features_in_))
+
+        if "gaussian" in self.estimators_:
+            indices = self.feature_types_["gaussian"]
+            est = self.estimators_["gaussian"]
+            diff = X[:, np.newaxis, indices] - est.theta_
+            out[:, :, indices] = -0.5 * (
+                diff**2 / est.var_ + np.log(2.0 * np.pi * est.var_)
+            )
+
+        if "categorical" in self.estimators_:
+            indices = self.feature_types_["categorical"]
+            est = self.estimators_["categorical"]
+            X_cat = np.clip(X[:, indices].astype(int), 0, self._cat_cardinalities - 1)
+            for i, j in enumerate(indices):
+                out[:, :, j] = est.feature_log_prob_[i][:, X_cat[:, i]].T
+
+        if "bernoulli" in self.estimators_:
+            indices = self.feature_types_["bernoulli"]
+            est = self.estimators_["bernoulli"]
+            X_bern = (X[:, indices] > 0)[:, np.newaxis, :]
+            log_p = est.feature_log_prob_[np.newaxis]
+            log_q = np.log1p(-np.exp(log_p))
+            out[:, :, indices] = np.where(X_bern, log_p, log_q)
+
+        return np.nan_to_num(out, nan=-1e10, neginf=-1e10)
 
     def _joint_log_likelihood(self, X):
         """Calculate the unnormalized posterior log probability of X."""
