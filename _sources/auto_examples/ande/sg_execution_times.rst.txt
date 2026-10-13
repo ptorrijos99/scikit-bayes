@@ -1,0 +1,55 @@
+
+:orphan:
+
+.. _sphx_glr_auto_examples_ande_sg_execution_times:
+
+
+Computation times
+=================
+**00:03.452** total execution time for 7 files **from auto_examples/ande**:
+
+.. container::
+
+  .. raw:: html
+
+    <style scoped>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet" />
+    </style>
+    <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script type="text/javascript" class="init">
+    $(document).ready( function () {
+        $('table.sg-datatable').DataTable({order: [[1, 'desc']]});
+    } );
+    </script>
+
+  .. list-table::
+   :header-rows: 1
+   :class: table table-striped sg-datatable
+
+   * - Example
+     - Time
+     - Mem (MB)
+   * - :ref:`sphx_glr_auto_examples_ande_11_plot_order_cost.py` (``11_plot_order_cost.py``)
+     - 00:02.022
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_ande_09_plot_ande_vs_anje.py` (``09_plot_ande_vs_anje.py``)
+     - 00:00.795
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_ande_07_plot_a2de_xor_slice.py` (``07_plot_a2de_xor_slice.py``)
+     - 00:00.209
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_ande_06_plot_aode_xor.py` (``06_plot_aode_xor.py``)
+     - 00:00.124
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_ande_08_plot_a2de_xor_3d.py` (``08_plot_a2de_xor_3d.py``)
+     - 00:00.123
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_ande_10_plot_unseen_states.py` (``10_plot_unseen_states.py``)
+     - 00:00.097
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_ande_05_plot_aode_mixed_demo.py` (``05_plot_aode_mixed_demo.py``)
+     - 00:00.083
+     - 0.0

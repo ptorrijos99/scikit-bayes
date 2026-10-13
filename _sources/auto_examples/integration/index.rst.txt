@@ -1,0 +1,48 @@
+
+
+.. _sphx_glr_auto_examples_integration:
+
+.. _integration_examples:
+
+Working with scikit-learn
+-------------------------
+
+Pipelines, preprocessing and model selection around the estimators.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="The estimators of the library follow the scikit-learn interface, so they can be combined with its preprocessing, pipelines and model selection.">
+
+.. only:: html
+
+  .. image:: /auto_examples/integration/images/thumb/sphx_glr_16_plot_pipeline_grid_search_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/integration/16_plot_pipeline_grid_search`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Pipelines and Model Selection with scikit-learn</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /auto_examples/integration/16_plot_pipeline_grid_search
+

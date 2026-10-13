@@ -1,0 +1,157 @@
+
+
+.. _sphx_glr_auto_examples_ande:
+
+.. _ande_examples:
+
+Generative AnDE Models
+----------------------
+
+Averaged n-Dependence Estimators: what they solve that Naive Bayes cannot,
+how their components are combined, and what the order of dependence costs.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates why AnDE shines with mixed data types (Continuous + Categorical) compared to Naive Bayes.">
+
+.. only:: html
+
+  .. image:: /auto_examples/ande/images/thumb/sphx_glr_05_plot_aode_mixed_demo_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/ande/05_plot_aode_mixed_demo`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">The Power of Mixed Data: Context-Dependent Logic</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates the limitations of the independence assumption in Naive Bayes and how Averaged n-Dependence Estimators (AnDE) overcome them.">
+
+.. only:: html
+
+  .. image:: /auto_examples/ande/images/thumb/sphx_glr_06_plot_aode_xor_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/ande/06_plot_aode_xor`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Solving the XOR Problem: AnDE vs Naive Bayes</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="While 3D visualizations show the global structure, taking a 2D slice (fixing one feature) allows for a precise analysis of the decision boundary.">
+
+.. only:: html
+
+  .. image:: /auto_examples/ande/images/thumb/sphx_glr_07_plot_a2de_xor_slice_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/ande/07_plot_a2de_xor_slice`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Analytic View: 2D Slice of the 3D XOR Problem</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="To visualize the 3D decision boundaries clearly, we plot a dense cloud of points (voxels) colored by the predicted class probability.">
+
+.. only:: html
+
+  .. image:: /auto_examples/ande/images/thumb/sphx_glr_08_plot_a2de_xor_3d_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/ande/08_plot_a2de_xor_3d`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">3D Voxel-Cloud Visualization: XOR Structure</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="skbn.AnDE and skbn.AnJE fit exactly the same components. They differ only in how they combine them:">
+
+.. only:: html
+
+  .. image:: /auto_examples/ande/images/thumb/sphx_glr_09_plot_ande_vs_anje_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/ande/09_plot_ande_vs_anje`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Arithmetic or Geometric Mean: A Sensor That Fails</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="An AnDE component estimates one distribution per combination of class and super-parent value. When a combination is rare, or never appears in the training data, that estimate is unreliable. Two parameters control what the ensemble does about it.">
+
+.. only:: html
+
+  .. image:: /auto_examples/ande/images/thumb/sphx_glr_10_plot_unseen_states_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/ande/10_plot_unseen_states`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Rare and Unseen Parent Values</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="An AnDE of order $n$ has one component for every set of $n$ attributes, so an ensemble over $d$ attributes has $\binom{d}{n}$ components:">
+
+.. only:: html
+
+  .. image:: /auto_examples/ande/images/thumb/sphx_glr_11_plot_order_cost_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/ande/11_plot_order_cost`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">The Cost of the Order of Dependence</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /auto_examples/ande/05_plot_aode_mixed_demo
+   /auto_examples/ande/06_plot_aode_xor
+   /auto_examples/ande/07_plot_a2de_xor_slice
+   /auto_examples/ande/08_plot_a2de_xor_3d
+   /auto_examples/ande/09_plot_ande_vs_anje
+   /auto_examples/ande/10_plot_unseen_states
+   /auto_examples/ande/11_plot_order_cost
+

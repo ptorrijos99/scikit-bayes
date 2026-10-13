@@ -1,0 +1,103 @@
+
+
+.. _sphx_glr_auto_examples_mixednb:
+
+.. _mixednb_examples:
+
+Mixed Naive Bayes
+-----------------
+
+The Naive Bayes classifier for data with continuous, categorical and binary
+attributes, and its equivalence with the scikit-learn estimators.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.GaussianNB when all features are continuous (Gaussian).">
+
+.. only:: html
+
+  .. image:: /auto_examples/mixednb/images/thumb/sphx_glr_01_plot_gaussiannb_equivalence_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/mixednb/01_plot_gaussiannb_equivalence`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">MixedNB Equivalence with GaussianNB</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.BernoulliNB when all features are binary (Bernoulli).">
+
+.. only:: html
+
+  .. image:: /auto_examples/mixednb/images/thumb/sphx_glr_02_plot_bernoullinb_equivalence_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/mixednb/02_plot_bernoullinb_equivalence`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">MixedNB Equivalence with BernoulliNB</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.CategoricalNB when all features are discrete (categorical).">
+
+.. only:: html
+
+  .. image:: /auto_examples/mixednb/images/thumb/sphx_glr_03_plot_categoricalnb_equivalence_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/mixednb/03_plot_categoricalnb_equivalence`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">MixedNB Equivalence with CategoricalNB</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="This example compares three strategies for handling a dataset with mixed continuous (Gaussian) and discrete (Categorical) features.">
+
+.. only:: html
+
+  .. image:: /auto_examples/mixednb/images/thumb/sphx_glr_04_plot_mixednb_vs_pipeline_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/mixednb/04_plot_mixednb_vs_pipeline`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Handling Mixed Data Types with MixedNB</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /auto_examples/mixednb/01_plot_gaussiannb_equivalence
+   /auto_examples/mixednb/02_plot_bernoullinb_equivalence
+   /auto_examples/mixednb/03_plot_categoricalnb_equivalence
+   /auto_examples/mixednb/04_plot_mixednb_vs_pipeline
+

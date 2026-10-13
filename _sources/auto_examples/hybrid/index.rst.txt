@@ -1,0 +1,85 @@
+
+
+.. _sphx_glr_auto_examples_hybrid:
+
+.. _hybrid_examples:
+
+Hybrid Models
+-------------
+
+Generative components with discriminatively learned weights: granularity of
+the weights, their interpretation and their effect on calibration.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="This experiment compares the full hierarchy of parameter granularity in ALR.">
+
+.. only:: html
+
+  .. image:: /auto_examples/hybrid/images/thumb/sphx_glr_12_plot_compare_ande_variants_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/hybrid/12_plot_compare_ande_variants`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Data Efficiency & Complexity: Generative vs. Hybrid Levels (L1-L4)</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates the &quot;Embedded Feature Selection&quot; capability of Hybrid AnDE models (ALR).">
+
+.. only:: html
+
+  .. image:: /auto_examples/hybrid/images/thumb/sphx_glr_13_plot_compare_ande_interpretability_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/hybrid/13_plot_compare_ande_interpretability`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Interpreting ALR: Automatic Feature Selection via Weights</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="A classifier is calibrated when, among the instances to which it gives a probability of 0.8, about 80% belong to the predicted class. This example draws the reliability diagrams of four models of the library.">
+
+.. only:: html
+
+  .. image:: /auto_examples/hybrid/images/thumb/sphx_glr_14_plot_calibration_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/hybrid/14_plot_calibration`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Calibration: Generative vs Hybrid Models</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /auto_examples/hybrid/12_plot_compare_ande_variants
+   /auto_examples/hybrid/13_plot_compare_ande_interpretability
+   /auto_examples/hybrid/14_plot_calibration
+
