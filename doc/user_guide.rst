@@ -293,6 +293,67 @@ AnDE (arithmetic mean) model [3]_. Unlike ALR, the optimization is **non-convex*
     clf.fit(X, y)
 
 
+.. _tan:
+
+TAN: Tree Augmented Naive Bayes
+===============================
+
+:class:`skbn.TAN` [5]_ relaxes the independence assumption in a different way
+from AnDE: instead of averaging many models, it learns a single network in
+which every attribute has the class and **at most one other attribute** as
+parents.
+
+.. math::
+
+    P(y, \mathbf{x}) = P(y) \, P(x_r | y) \prod_{i \neq r} P(x_i | y, x_{\pi(i)})
+
+Where :math:`r` is the root of the tree and :math:`\pi(i)` the parent of
+attribute :math:`i`.
+
+Learning the Tree
+-----------------
+
+The structure is learned with the Chow-Liu procedure [6]_:
+
+1. Compute the conditional mutual information :math:`I(A_i; A_j | C)` between
+   every pair of attributes.
+2. Build the maximum weight spanning tree of the complete graph with these
+   weights.
+3. Choose a root (``root``) and direct every edge away from it.
+
+The choice of root does not change which attributes are connected, only the
+direction of the edges.
+
+Mixed Data
+----------
+
+TAN uses the same strategy as the AnDE family. Continuous attributes are
+discretized (``n_bins``, ``strategy``) to compute the mutual information and
+when they act as parents; as children they remain continuous and are modeled
+by Gaussian distributions. Every conditional :math:`P(x_i | y, x_{\pi(i)})` is
+a :class:`skbn.MixedNB` fitted on the augmented class :math:`(y, x_{\pi(i)})`,
+so discrete children use Laplace smoothing (``alpha``).
+
+**Key Parameters:**
+
+* ``root``: Index of the root attribute. Default: 0
+* ``alpha``: Laplace smoothing for discrete attributes. Default: 1.0
+* ``n_bins``: Discretization bins for continuous attributes
+* ``strategy``: Discretization strategy ('uniform', 'quantile', 'kmeans')
+
+**Example:**
+
+.. code-block:: python
+
+    from skbn import TAN
+
+    clf = TAN()
+    clf.fit(X, y)
+
+    clf.parents_                   # parent of each attribute (-1 for the root)
+    clf.conditional_mutual_info_   # edge weights used to learn the tree
+
+
 Parameter Tuning Guide
 ======================
 
@@ -346,3 +407,10 @@ References
 
 .. [4] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., & Cerquides, J. (2016). 
        ALR^n: Accelerated higher-order logistic regression. Machine Learning, 104(2-3), 151-194.
+
+.. [5] Friedman, N., Geiger, D., & Goldszmidt, M. (1997). Bayesian network
+       classifiers. Machine Learning, 29(2-3), 131-163.
+
+.. [6] Chow, C. K., & Liu, C. N. (1968). Approximating discrete probability
+       distributions with dependence trees. IEEE Transactions on Information
+       Theory, 14(3), 462-467.

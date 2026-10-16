@@ -117,6 +117,7 @@ sphinx_gallery_conf = {
     "subsection_order": [
         "../examples/mixednb",
         "../examples/ande",
+        "../examples/tan",
         "../examples/hybrid",
         "../examples/discretization",
         "../examples/integration",

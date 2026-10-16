@@ -14,6 +14,7 @@ The primary goal of this package is to provide robust, `scikit-learn`-compatible
 
 - **MixedNB**: Naive Bayes for mixed data types (Gaussian + Categorical + Bernoulli) in a single model
 - **AnDE**: Averaged n-Dependence Estimators (AODE, A2DE) that relax the independence assumption
+- **TAN**: Tree Augmented Naive Bayes, a tree of attribute dependencies learned with the Chow-Liu procedure
 - **ALR**: Accelerated Logistic Regression - hybrid generative-discriminative models with 4 weight granularity levels
 - **WeightedAnDE**: Discriminatively-weighted ensemble models
 - **Full scikit-learn API**: Compatible with pipelines, cross-validation, and grid search
