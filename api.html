@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>API Reference &#8212; scikit-bayes 1.2.1.dev2+g2ff033f79 documentation</title>
+    <title>API Reference &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/documentation_options.js?v=2dcee87c"></script>
+    <script src="_static/documentation_options.js?v=3fad9bd4"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/design-tabs.js?v=f930bc37"></script>
@@ -56,7 +56,7 @@
     <link rel="prev" title="User Guide" href="user_guide.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.2.1" />
+  <meta name="docsearch:version" content="1.2.2" />
   </head>
   
   
@@ -122,8 +122,8 @@
       
     
     
-    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
-    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
   
   
 </a></div>
@@ -329,9 +329,14 @@
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="generated/skbn.AnDE.html">AnDE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="generated/skbn.WeightedAnDE.html">WeightedAnDE</a></li>
+</ul>
+<ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="generated/skbn.AnJE.html">AnJE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="generated/skbn.ALR.html">ALR</a></li>
-<li class="toctree-l1"><a class="reference internal" href="generated/skbn.WeightedAnDE.html">WeightedAnDE</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="generated/skbn.TAN.html">TAN</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="generated/skbn.utils.discovery.all_estimators.html">skbn.utils.discovery.all_estimators</a></li>
@@ -412,20 +417,41 @@
 </section>
 <section id="ande-family">
 <span id="ande-api"></span><h3>AnDE Family<a class="headerlink" href="#ande-family" title="Link to this heading">#</a></h3>
-<p>Averaged n-Dependence Estimators and related classifiers.</p>
+<p>Averaged n-Dependence Estimators and their discriminative weighting.</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/skbn.AnDE.html#skbn.AnDE" title="skbn.AnDE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnDE</span></code></a>([n_dependence, n_bins, strategy, ...])</p></td>
 <td><p>Averaged n-Dependence Estimators (AnDE) [Generative].</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/skbn.AnJE.html#skbn.AnJE" title="skbn.AnJE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnJE</span></code></a>([n_dependence, n_bins, strategy, ...])</p></td>
-<td><p>Averaged n-Join Estimators (AnJE) [Generative].</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ALR</span></code></a>([n_dependence, n_bins, strategy, alpha, ...])</p></td>
-<td><p>Accelerated Logistic Regression (ALR) [Hybrid].</p></td>
-</tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/skbn.WeightedAnDE.html#skbn.WeightedAnDE" title="skbn.WeightedAnDE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WeightedAnDE</span></code></a>([n_dependence, n_bins, ...])</p></td>
 <td><p>Weighted Averaged n-Dependence Estimators (WeightedAnDE) [Hybrid].</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="anje-family">
+<h3>AnJE Family<a class="headerlink" href="#anje-family" title="Link to this heading">#</a></h3>
+<p>Averaged n-Join Estimators and Accelerated Logistic Regression.</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/skbn.AnJE.html#skbn.AnJE" title="skbn.AnJE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnJE</span></code></a>([n_join, n_bins, strategy, alpha, ...])</p></td>
+<td><p>Averaged n-Join Estimators (AnJE) [Generative].</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ALR</span></code></a>([n_join, n_bins, strategy, alpha, ...])</p></td>
+<td><p>Accelerated Higher-Order Logistic Regression (ALR^n) [Hybrid].</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="tree-augmented-naive-bayes">
+<span id="tan-api"></span><h3>Tree Augmented Naive Bayes<a class="headerlink" href="#tree-augmented-naive-bayes" title="Link to this heading">#</a></h3>
+<p>Naive Bayes extended with a tree of dependencies between the attributes.</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/skbn.TAN.html#skbn.TAN" title="skbn.TAN"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TAN</span></code></a>([root, n_bins, strategy, alpha, ...])</p></td>
+<td><p>Tree Augmented Naive Bayes (TAN) classifier.</p></td>
 </tr>
 </tbody>
 </table>
@@ -501,6 +527,8 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#bayesian-classifiers">Bayesian Classifiers</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mixed-naive-bayes">Mixed Naive Bayes</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ande-family">AnDE Family</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#anje-family">AnJE Family</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tree-augmented-naive-bayes">Tree Augmented Naive Bayes</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#utilities">Utilities</a></li>

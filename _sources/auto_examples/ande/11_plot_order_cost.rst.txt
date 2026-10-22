@@ -51,12 +51,12 @@ becomes expensive well before a few hundred.
 
  .. code-block:: none
 
-    d =  5   components: [1, 5, 10]   fit time (s): [0.001, 0.001, 0.002]
-    d = 10   components: [1, 10, 45]   fit time (s): [0.001, 0.002, 0.009]
-    d = 15   components: [1, 15, 105]   fit time (s): [0.001, 0.004, 0.023]
-    d = 20   components: [1, 20, 190]   fit time (s): [0.002, 0.006, 0.049]
-    d = 30   components: [1, 30, 435]   fit time (s): [0.002, 0.011, 0.143]
-    d = 40   components: [1, 40, 780]   fit time (s): [0.003, 0.017, 0.306]
+    d =  5   components: [1, 5, 10]   fit time (s): [0.002, 0.003, 0.005]
+    d = 10   components: [1, 10, 45]   fit time (s): [0.002, 0.006, 0.019]
+    d = 15   components: [1, 15, 105]   fit time (s): [0.003, 0.009, 0.049]
+    d = 20   components: [1, 20, 190]   fit time (s): [0.003, 0.012, 0.099]
+    d = 30   components: [1, 30, 435]   fit time (s): [0.004, 0.021, 0.282]
+    d = 40   components: [1, 40, 780]   fit time (s): [0.006, 0.031, 0.612]
 
 
 
@@ -153,7 +153,7 @@ becomes expensive well before a few hundred.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 2.022 seconds)
+   **Total running time of the script:** (0 minutes 3.956 seconds)
 
 
 .. _sphx_glr_download_auto_examples_ande_11_plot_order_cost.py:

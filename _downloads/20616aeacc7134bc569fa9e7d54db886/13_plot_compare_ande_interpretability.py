@@ -1,13 +1,17 @@
 """
 ====================================================================
-Interpreting ALR: Automatic Feature Selection via Weights
+Interpreting Component Weights: Feature Selection via Weights
 ====================================================================
 
-This example demonstrates the "Embedded Feature Selection" capability of
-Hybrid AnDE models (ALR).
+This example shows how the component weights of :class:`skbn.WeightedAnDE`
+act as an embedded feature selection. With ``weight_level=1`` every SPODE,
+identified by its super-parent, gets one weight; with the geometric mean
+(``mean="geometric"``) the weights scale the log-joints of the SPODEs and
+stay non-negative, so they read as the importance of each super-parent.
 
 **The Result:**
-By ignoring noise, ALR achieves significantly lower Log Loss and higher Accuracy.
+The SPODEs rooted at noise attributes are down-weighted, which lowers the
+log loss and raises the accuracy.
 """
 
 # Author: The scikit-bayes Developers
@@ -18,7 +22,7 @@ import numpy as np
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.model_selection import train_test_split
 
-from skbn.ande import ALR, AnDE
+from skbn import AnDE, WeightedAnDE
 
 # --- 1. Generate Dataset with Heavy Noise ---
 np.random.seed(42)
@@ -53,29 +57,19 @@ ande.fit(X_train, y_train)
 acc_ande = accuracy_score(y_test, ande.predict(X_test))
 ll_ande = log_loss(y_test, ande.predict_proba(X_test))
 
-# Model 2: ALR (Higher regularization for visualization sparsity)
-alr = ALR(n_dependence=1, l2_reg=0.05, max_iter=200)
-alr.fit(X_train, y_train)
-acc_alr = accuracy_score(y_test, alr.predict(X_test))
-ll_alr = log_loss(y_test, alr.predict_proba(X_test))
+# Model 2: one weight per SPODE (higher regularization for a clearer picture)
+wande = WeightedAnDE(n_dependence=1, mean="geometric", l2_reg=0.05, max_iter=200)
+wande.fit(X_train, y_train)
+acc_wande = accuracy_score(y_test, wande.predict(X_test))
+ll_wande = log_loss(y_test, wande.predict_proba(X_test))
 
 # --- 3. Visualization ---
 features = [f"F{i}\n(Signal)" if i < 2 else f"F{i}\n(Noise)" for i in range(n_features)]
 indices = np.arange(n_features)
 
 ande_weights = np.ones(n_features)
-
-# Detect if we have weights per class (Level 3) or simple weights (Level 1)
-n_models = len(alr.ensemble_)
-
-if alr.learned_weights_.size == n_models:
-    # Level 1: One weight per feature. Use directly.
-    alr_weights = alr.learned_weights_
-else:
-    # Level 3: Weights per class. Reshape and average.
-    n_classes = len(alr.classes_)
-    weights_matrix = alr.learned_weights_.reshape(n_models, n_classes)
-    alr_weights = np.mean(weights_matrix, axis=1)
+# One weight per SPODE (weight_level=1); the last one is shared by unseen states
+wande_weights = wande.learned_weights_[:n_features]
 
 fig, axes = plt.subplots(1, 2, figsize=(16, 7), sharey=True)
 
@@ -83,7 +77,7 @@ fig, axes = plt.subplots(1, 2, figsize=(16, 7), sharey=True)
 # Helper for info box (MOVED TO RIGHT)
 def add_score_box(ax, acc, ll):
     textstr = "\n".join(
-        (r"$\bf{Performance (Test):}$", f"Accuracy: {acc:.3f}", f"Log Loss: {ll:.3f}")
+        (r"$\bf{Performance\ (Test):}$", f"Accuracy: {acc:.3f}", f"Log Loss: {ll:.3f}")
     )
     props = dict(boxstyle="round", facecolor="white", alpha=0.9, edgecolor="gray")
     ax.text(
@@ -114,17 +108,17 @@ axes[0].patches[1].set_edgecolor("orange")
 
 add_score_box(axes[0], acc_ande, ll_ande)
 
-# Plot ALR (Hybrid)
+# Plot the weighted model
 # Use INDIGO for learned weights
-bars = axes[1].bar(indices, alr_weights, color="indigo", edgecolor="black", alpha=0.8)
-axes[1].set_title("ALR (Hybrid)\nStrategy: Learned Attention", fontsize=14)
+bars = axes[1].bar(indices, wande_weights, color="indigo", edgecolor="black", alpha=0.8)
+axes[1].set_title("WeightedAnDE (Hybrid)\nStrategy: Learned Attention", fontsize=14)
 axes[1].set_xlabel("Feature (as Super-Parent)", fontsize=12)
 axes[1].set_xticks(indices)
 axes[1].set_xticklabels(features, rotation=45, ha="right")
 
-add_score_box(axes[1], acc_alr, ll_alr)
+add_score_box(axes[1], acc_wande, ll_wande)
 
-# Annotate values on ALR
+# Annotate the learned weights
 for bar in bars:
     height = bar.get_height()
     if height > 0.1:

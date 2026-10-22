@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>The Cost of the Order of Dependence &#8212; scikit-bayes 1.2.1.dev2+g2ff033f79 documentation</title>
+    <title>The Cost of the Order of Dependence &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
   
   
   
@@ -45,18 +45,18 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=2dcee87c"></script>
+    <script src="../../_static/documentation_options.js?v=3fad9bd4"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'auto_examples/ande/11_plot_order_cost';</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Hybrid Models" href="../hybrid/index.html" />
+    <link rel="next" title="Tree Augmented Naive Bayes" href="../tan/index.html" />
     <link rel="prev" title="Rare and Unseen Parent Values" href="10_plot_unseen_states.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.2.1" />
+  <meta name="docsearch:version" content="1.2.2" />
   </head>
   
   
@@ -122,8 +122,8 @@
       
     
     
-    <img src="../../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
-    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
+    <img src="../../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
   
   
 </a></div>
@@ -337,14 +337,18 @@
 <li class="toctree-l2"><a class="reference internal" href="06_plot_aode_xor.html">Solving the XOR Problem: AnDE vs Naive Bayes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="07_plot_a2de_xor_slice.html">Analytic View: 2D Slice of the 3D XOR Problem</a></li>
 <li class="toctree-l2"><a class="reference internal" href="08_plot_a2de_xor_3d.html">3D Voxel-Cloud Visualization: XOR Structure</a></li>
-<li class="toctree-l2"><a class="reference internal" href="09_plot_ande_vs_anje.html">Arithmetic or Geometric Mean: A Sensor That Fails</a></li>
+<li class="toctree-l2"><a class="reference internal" href="09_plot_arithmetic_vs_geometric_mean.html">Arithmetic or Geometric Mean: A Sensor That Fails</a></li>
 <li class="toctree-l2"><a class="reference internal" href="10_plot_unseen_states.html">Rare and Unseen Parent Values</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">The Cost of the Order of Dependence</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../tan/index.html">Tree Augmented Naive Bayes</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tan/17_plot_tan_structure.html">Learning the Tree: TAN vs Naive Bayes</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../hybrid/index.html">Hybrid Models</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../hybrid/12_plot_compare_ande_variants.html">Data Efficiency &amp; Complexity: Generative vs. Hybrid Levels (L1-L4)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../hybrid/13_plot_compare_ande_interpretability.html">Interpreting ALR: Automatic Feature Selection via Weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hybrid/12_plot_weight_scope.html">Component or Factor Weights: Data Efficiency and Cost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hybrid/13_plot_compare_ande_interpretability.html">Interpreting Component Weights: Feature Selection via Weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../hybrid/14_plot_calibration.html">Calibration: Generative vs Hybrid Models</a></li>
 </ul>
 </details></li>
@@ -439,12 +443,12 @@ tables are indexed by the values of $n$ super-parents.</p>
 a growing number of attributes and measures the number of components and
 the training time. Order 2 is affordable with a few tens of attributes and
 becomes expensive well before a few hundred.</p>
-<img src="../../_images/sphx_glr_11_plot_order_cost_001.png" srcset="../../_images/sphx_glr_11_plot_order_cost_001.png" alt="How the Cost of AnDE Grows with Its Order, Size of the Ensemble, Training Time (2000 Instances)" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>d =  5   components: [1, 5, 10]   fit time (s): [0.001, 0.001, 0.002]
-d = 10   components: [1, 10, 45]   fit time (s): [0.001, 0.002, 0.009]
-d = 15   components: [1, 15, 105]   fit time (s): [0.001, 0.004, 0.023]
-d = 20   components: [1, 20, 190]   fit time (s): [0.002, 0.006, 0.049]
-d = 30   components: [1, 30, 435]   fit time (s): [0.002, 0.011, 0.143]
-d = 40   components: [1, 40, 780]   fit time (s): [0.003, 0.017, 0.306]
+<img src="../../_images/sphx_glr_11_plot_order_cost_001.png" srcset="../../_images/sphx_glr_11_plot_order_cost_001.png" alt="How the Cost of AnDE Grows with Its Order, Size of the Ensemble, Training Time (2000 Instances)" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>d =  5   components: [1, 5, 10]   fit time (s): [0.002, 0.003, 0.005]
+d = 10   components: [1, 10, 45]   fit time (s): [0.002, 0.006, 0.019]
+d = 15   components: [1, 15, 105]   fit time (s): [0.003, 0.009, 0.049]
+d = 20   components: [1, 20, 190]   fit time (s): [0.003, 0.012, 0.099]
+d = 30   components: [1, 30, 435]   fit time (s): [0.004, 0.021, 0.282]
+d = 40   components: [1, 40, 780]   fit time (s): [0.006, 0.031, 0.612]
 </pre></div>
 </div>
 <div class="line-block">
@@ -533,7 +537,7 @@ d = 40   components: [1, 40, 780]   fit time (s): [0.003, 0.017, 0.306]
 <a href="https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.show.html#matplotlib.pyplot.show" title="matplotlib.pyplot.show" class="sphx-glr-backref-module-matplotlib-pyplot sphx-glr-backref-type-py-function"><span class="n">plt</span><span class="o">.</span><span class="n">show</span></a><span class="p">()</span>
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 2.022 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 3.956 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-ande-11-plot-order-cost-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/39da30310f7b7259c0b2063d6e25f3d8/11_plot_order_cost.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">11_plot_order_cost.ipynb</span></code></a></p>
@@ -568,11 +572,11 @@ d = 40   components: [1, 40, 780]   fit time (s): [0.003, 0.017, 0.306]
       </div>
     </a>
     <a class="right-next"
-       href="../hybrid/index.html"
+       href="../tan/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Hybrid Models</p>
+        <p class="prev-next-title">Tree Augmented Naive Bayes</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

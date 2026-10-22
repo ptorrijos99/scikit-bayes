@@ -15,10 +15,10 @@ come out of a database. The example builds a single
     (:class:`sklearn.compose.ColumnTransformer`), and
 2.  fits an :class:`skbn.ALR`, told which columns are categorical.
 
-A :class:`sklearn.model_selection.GridSearchCV` then chooses the order of
-the model (``n_dependence``) and the granularity of its weights
-(``weight_level``) by cross-validated log loss. The heatmap shows the score
-of every combination.
+A :class:`sklearn.model_selection.GridSearchCV` then chooses the size of
+the attribute subsets of ALR (``n_join``) and the granularity of its
+weights (``weight_level``) by cross-validated log loss. The heatmap shows
+the score of every combination.
 """
 
 # Author: The scikit-bayes Developers
@@ -82,16 +82,16 @@ cat_idx = list(range(len(numeric), len(numeric) + len(categorical)))
 pipe = Pipeline(
     [
         ("preprocess", preprocess),
-        ("model", ALR(categorical_features=cat_idx, l2_reg=1.0)),
+        ("model", ALR(categorical_features=cat_idx, l2_reg=1.0, max_iter=200)),
     ]
 )
 
 # --- 3. Model Selection ---
-orders = [0, 1, 2]
-levels = [1, 2, 3, 4]
+orders = [1, 2, 3]
+levels = [1, 2, 3]
 search = GridSearchCV(
     pipe,
-    {"model__n_dependence": orders, "model__weight_level": levels},
+    {"model__n_join": orders, "model__weight_level": levels},
     scoring="neg_log_loss",
     cv=5,
 )
@@ -106,7 +106,7 @@ scores = np.zeros((len(orders), len(levels)))
 for params, score in zip(
     search.cv_results_["params"], search.cv_results_["mean_test_score"]
 ):
-    i = orders.index(params["model__n_dependence"])
+    i = orders.index(params["model__n_join"])
     j = levels.index(params["model__weight_level"])
     scores[i, j] = -score
 
@@ -133,7 +133,7 @@ ax.set_xticklabels([f"Level {k}" for k in levels])
 ax.set_yticks(range(len(orders)))
 ax.set_yticklabels([f"n = {n}" for n in orders])
 ax.set_xlabel("Weight Granularity")
-ax.set_ylabel("Order of Dependence")
+ax.set_ylabel("Join Size")
 ax.set_title("Cross-Validated Log Loss of ALR (Lower Is Better)", fontsize=13)
 fig.colorbar(im, ax=ax, label="Log Loss")
 plt.tight_layout()

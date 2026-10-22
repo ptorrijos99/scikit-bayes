@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:28.275** total execution time for 16 files **from all galleries**:
+**00:54.258** total execution time for 17 files **from all galleries**:
 
 .. container::
 
@@ -32,51 +32,54 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
-   * - :ref:`sphx_glr_auto_examples_hybrid_12_plot_compare_ande_variants.py` (``../examples/hybrid/12_plot_compare_ande_variants.py``)
-     - 00:21.354
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_ande_11_plot_order_cost.py` (``../examples/ande/11_plot_order_cost.py``)
-     - 00:02.022
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_integration_16_plot_pipeline_grid_search.py` (``../examples/integration/16_plot_pipeline_grid_search.py``)
-     - 00:01.990
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_ande_09_plot_ande_vs_anje.py` (``../examples/ande/09_plot_ande_vs_anje.py``)
-     - 00:00.795
+   * - :ref:`sphx_glr_auto_examples_hybrid_12_plot_weight_scope.py` (``../examples/hybrid/12_plot_weight_scope.py``)
+     - 00:34.679
      - 0.0
    * - :ref:`sphx_glr_auto_examples_hybrid_14_plot_calibration.py` (``../examples/hybrid/14_plot_calibration.py``)
-     - 00:00.374
+     - 00:06.500
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_integration_16_plot_pipeline_grid_search.py` (``../examples/integration/16_plot_pipeline_grid_search.py``)
+     - 00:04.127
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_ande_11_plot_order_cost.py` (``../examples/ande/11_plot_order_cost.py``)
+     - 00:03.956
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_ande_09_plot_arithmetic_vs_geometric_mean.py` (``../examples/ande/09_plot_arithmetic_vs_geometric_mean.py``)
+     - 00:01.296
      - 0.0
    * - :ref:`sphx_glr_auto_examples_hybrid_13_plot_compare_ande_interpretability.py` (``../examples/hybrid/13_plot_compare_ande_interpretability.py``)
-     - 00:00.360
+     - 00:00.622
      - 0.0
    * - :ref:`sphx_glr_auto_examples_discretization_15_plot_mdlp_discretizer.py` (``../examples/discretization/15_plot_mdlp_discretizer.py``)
-     - 00:00.270
+     - 00:00.566
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_tan_17_plot_tan_structure.py` (``../examples/tan/17_plot_tan_structure.py``)
+     - 00:00.521
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_07_plot_a2de_xor_slice.py` (``../examples/ande/07_plot_a2de_xor_slice.py``)
-     - 00:00.209
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_mixednb_01_plot_gaussiannb_equivalence.py` (``../examples/mixednb/01_plot_gaussiannb_equivalence.py``)
-     - 00:00.173
+     - 00:00.387
      - 0.0
    * - :ref:`sphx_glr_auto_examples_mixednb_04_plot_mixednb_vs_pipeline.py` (``../examples/mixednb/04_plot_mixednb_vs_pipeline.py``)
-     - 00:00.155
+     - 00:00.292
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_mixednb_01_plot_gaussiannb_equivalence.py` (``../examples/mixednb/01_plot_gaussiannb_equivalence.py``)
+     - 00:00.284
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_06_plot_aode_xor.py` (``../examples/ande/06_plot_aode_xor.py``)
-     - 00:00.124
+     - 00:00.230
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_08_plot_a2de_xor_3d.py` (``../examples/ande/08_plot_a2de_xor_3d.py``)
-     - 00:00.123
+     - 00:00.209
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_10_plot_unseen_states.py` (``../examples/ande/10_plot_unseen_states.py``)
-     - 00:00.097
+     - 00:00.186
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_05_plot_aode_mixed_demo.py` (``../examples/ande/05_plot_aode_mixed_demo.py``)
-     - 00:00.083
+     - 00:00.139
      - 0.0
    * - :ref:`sphx_glr_auto_examples_mixednb_03_plot_categoricalnb_equivalence.py` (``../examples/mixednb/03_plot_categoricalnb_equivalence.py``)
-     - 00:00.078
+     - 00:00.138
      - 0.0
    * - :ref:`sphx_glr_auto_examples_mixednb_02_plot_bernoullinb_equivalence.py` (``../examples/mixednb/02_plot_bernoullinb_equivalence.py``)
-     - 00:00.069
+     - 00:00.125
      - 0.0

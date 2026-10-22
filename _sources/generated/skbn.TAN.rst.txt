@@ -1,0 +1,50 @@
+﻿TAN
+======================
+
+.. currentmodule:: skbn
+
+.. autoclass:: TAN
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      
+      
+        ~TAN.fit
+      
+      
+        ~TAN.get_metadata_routing
+      
+      
+        ~TAN.get_params
+      
+      
+        ~TAN.predict
+      
+      
+        ~TAN.predict_log_proba
+      
+      
+        ~TAN.predict_proba
+      
+      
+        ~TAN.score
+      
+      
+        ~TAN.set_params
+      
+      
+        ~TAN.set_score_request
+      
+   
+   
+
+.. include:: skbn.TAN.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

@@ -53,7 +53,7 @@ The Problem
 Consider a dataset with:
 
 * **Feature 0**: Age (continuous) → Gaussian
-* **Feature 1**: Gender (binary) → Bernoulli  
+* **Feature 1**: Gender (binary) → Bernoulli
 * **Feature 2**: Education Level (0, 1, 2, 3) → Categorical
 
 With sklearn, you'd need to:
@@ -78,10 +78,10 @@ You can also specify types manually:
 .. code-block:: python
 
     from skbn import MixedNB
-    
+
     # Force features 2 and 3 to be categorical
     clf = MixedNB(categorical_features=[2, 3])
-    
+
     # Force feature 1 to be Bernoulli
     clf = MixedNB(bernoulli_features=[1])
 
@@ -187,7 +187,7 @@ AnDE (Arithmetic Mean)
 **Key Parameters:**
 
 * ``n_dependence``: Order of dependence
-  
+
   - n=0: Equivalent to Naive Bayes (MixedNB)
   - n=1: AODE (Averaged One-Dependence Estimators)
   - n=2: A2DE (common choice for higher accuracy)
@@ -204,93 +204,198 @@ AnDE (Arithmetic Mean)
     # AODE (n=1)
     clf = AnDE(n_dependence=1, n_bins=5)
     clf.fit(X, y)
-    
+
     # A2DE (n=2) - higher accuracy, more computation
     clf = AnDE(n_dependence=2, n_bins=5)
 
-AnJE (Geometric Mean)
----------------------
+With ``mean="geometric"`` the components are pooled with the geometric mean,
+:math:`P(y|\mathbf{x}) \propto \prod_{m} P_m(y, \mathbf{x})^{1/|M|}`. Every
+component then counts the same, so a few components that give a class a
+probability close to zero rule it out. This pool of SPnDEs is not the AnJE of
+Zaidi et al. [4]_, which is described below.
 
-:class:`skbn.AnJE` aggregates using the geometric mean (product of probabilities):
+WeightedAnDE
+------------
 
-.. math::
+:class:`skbn.WeightedAnDE` learns discriminative weights on top of AnDE by
+maximising the conditional log-likelihood with L-BFGS-B. The weights start at,
+and are regularized towards, the generative model (``w = 1``). Two parameters
+define the model:
 
-    P(y|\mathbf{x}) \propto \prod_{m} P_m(y, \mathbf{x})
+* ``mean``: how the components are pooled (``"arithmetic"`` or ``"geometric"``).
+* ``weight_scope``: what each weight multiplies.
 
-This is equivalent to summing log-probabilities and serves as the basis for
-the convex ALR optimization.
+  - ``"component"``: a whole SPnDE. With the arithmetic mean the weights are
+    mixture coefficients, :math:`\log \sum_m w_m P_m(y, \mathbf{x})`; with the
+    geometric mean they scale the log-joints,
+    :math:`\sum_m w_m \log P_m(y, \mathbf{x})`.
+  - ``"factor"``: every factor of every SPnDE, as in the weighted CCBN of
+    Zaidi et al. [3]_: :math:`P_m^w = \prod_f \theta_f^{w_f}`.
 
-**Usage is identical to AnDE.**
-
-ALR: Accelerated Logistic Regression
-------------------------------------
-
-:class:`skbn.ALR` is a **hybrid generative-discriminative** classifier [4]_.
-
-It starts with the AnJE generative model and learns discriminative weights
-to optimize classification performance:
-
-.. math::
-
-    P(y|\mathbf{x}) \propto \exp\left(\sum_{m} w_m \cdot \log P_m(y, \mathbf{x})\right)
-
-**Weight Granularity Levels:**
-
-ALR supports 4 levels of parameter granularity:
+``weight_level`` sets the variables that index each weight:
 
 .. list-table::
    :header-rows: 1
-   :widths: 10 30 30 30
+   :widths: 10 45 45
 
    * - Level
-     - Description
-     - # Parameters
-     - Best For
+     - Component Weights
+     - Factor Weights [3]_
    * - 1
-     - Per Model
-     - M
-     - Small datasets
+     - Component
+     - Factor
    * - 2
-     - Per Parent Value
-     - M × V
-     - Large datasets
+     - Component × parent value
+     - Factor × value
    * - 3
-     - Per Class
-     - M × C
-     - Multi-class
+     - Component × class
+     - Factor × value × class
    * - 4
-     - Per Value × Class
-     - M × V × C
-     - Very large datasets
+     - Component × class × parent value
+     - Factor × value × class × parents
 
-Where M = number of models, V = parent value combinations, C = classes.
+The factor levels are the nested parameterizations of Zaidi et al. [3]_
+(Sec. 5.4), applied inside each SPnDE. Arithmetic component weights at level 3
+are the per-SPODE, per-class weights of EODE-CLL [5]_. The other component
+levels follow the same nesting at the level of the component; they are a
+choice of this library, not of the literature.
+
+Component weights are cheap (one weight per component and sample) but only
+decide how much each SPnDE is trusted: they cannot correct a dependence
+between children that every SPnDE shares, such as a duplicated attribute.
+Factor weights can, at the cost of about ``n_features`` times more weights.
+With the geometric mean, and with ``modular=True`` (each component fitted on
+its own conditional log-likelihood), the objective is convex.
+
+``average`` decides what the arithmetic mean pools: the weighted joints
+:math:`P^w_m(y, \mathbf{x})`, as AnDE does (``"joint"``, the default), or the
+components' posteriors :math:`P^w_m(y | \mathbf{x})` (``"posterior"``). The two
+coincide for the geometric mean. Factor weights at level 4, fitted with
+``modular=True`` and pooled with ``average="posterior"``, are the AnDE\
+:sup:`w` of FedAnDE: one weighted CCBN per SPnDE, trained on its own data and
+averaged, which is what lets each component be fitted across sites.
+
+.. code-block:: python
+
+    from skbn import WeightedAnDE
+
+    # One weight per SPODE and class
+    clf = WeightedAnDE(n_dependence=1, weight_level=3)
+
+    # Weighted CCBN inside each SPODE
+    clf = WeightedAnDE(n_dependence=1, weight_scope="factor", weight_level=3)
+
+    # AnDE^w of FedAnDE
+    clf = WeightedAnDE(
+        n_dependence=1, weight_scope="factor", weight_level=4,
+        modular=True, average="posterior",
+    )
+    clf.fit(X, y)
+
+AnJE and ALR
+------------
+
+:class:`skbn.AnJE` and :class:`skbn.ALR` follow Zaidi et al. [4]_. Instead of
+SPnDEs they use n-joins, the joint distributions :math:`P(x_\alpha | y)` of
+every subset :math:`\alpha` of ``n_join`` attributes. AnJE pools them with
+the geometric-mean weight of the paper:
+
+.. math::
+
+    P(y|\mathbf{x}) \propto P(y) \prod_{\alpha} P(x_\alpha | y)^{\frac{(n-1)!(a-n)!}{(a-1)!}}
+
+ALR (ALR\ :sup:`n` in the paper) learns one weight per n-join, value and
+class by maximising the conditional log-likelihood, a convex problem:
+
+.. math::
+
+    \log P(y|\mathbf{x}) = w_y \log P(y) + \sum_{\alpha} w_{y,\alpha,x_\alpha} \log P(x_\alpha | y) - \log Z(\mathbf{x})
+
+A1JE is Naive Bayes, and AnJE uses the same statistics as A(n-1)DE, so
+``AnJE(n_join=2)`` is comparable to ``AnDE(n_dependence=1)``. Both models are
+defined on discrete attributes: continuous attributes are discretized into
+``n_bins`` bins (the paper uses MDL discretization, available as
+:class:`skbn.MDLPDiscretizer`). Probabilities are m-estimates with
+``m = alpha``.
+
+``weight_level=3`` (the default) is the model of the paper. Levels 1 (one
+weight per n-join) and 2 (per n-join and value) tie the weights following the
+nesting of [3]_. The other defaults reproduce the protocol of the paper's
+experiments: weights start at ``w = 1``, there is no penalty, and L-BFGS-B
+runs until the relative reduction of the objective falls below 1e-32 or for
+10\ :sup:`4` iterations. The starting point is not the AnJE but the unaveraged
+product of all n-joins, so on small samples the unpenalized model overfits.
+``l2_reg`` adds the penalty towards ``w = 1`` that the paper suggests for
+small datasets, and ``max_iter`` and ``tol`` stop the optimizer earlier.
+
+.. code-block:: python
+
+    from skbn import ALR, AnJE
+
+    clf = AnJE(n_join=2)
+    clf = ALR(n_join=2)  # as in Zaidi et al. (2016)
+    clf.fit(X, y)
+
+
+.. _tan:
+
+TAN: Tree Augmented Naive Bayes
+===============================
+
+:class:`skbn.TAN` [6]_ relaxes the independence assumption in a different way
+from AnDE: instead of averaging many models, it learns a single network in
+which every attribute has the class and **at most one other attribute** as
+parents.
+
+.. math::
+
+    P(y, \mathbf{x}) = P(y) \, P(x_r | y) \prod_{i \neq r} P(x_i | y, x_{\pi(i)})
+
+Where :math:`r` is the root of the tree and :math:`\pi(i)` the parent of
+attribute :math:`i`.
+
+Learning the Tree
+-----------------
+
+The structure is learned with the Chow-Liu procedure [7]_:
+
+1. Compute the conditional mutual information :math:`I(A_i; A_j | C)` between
+   every pair of attributes.
+2. Build the maximum weight spanning tree of the complete graph with these
+   weights.
+3. Choose a root (``root``) and direct every edge away from it.
+
+The choice of root does not change which attributes are connected, only the
+direction of the edges.
+
+Mixed Data
+----------
+
+TAN uses the same strategy as the AnDE family. Continuous attributes are
+discretized (``n_bins``, ``strategy``) to compute the mutual information and
+when they act as parents; as children they remain continuous and are modeled
+by Gaussian distributions. Every conditional :math:`P(x_i | y, x_{\pi(i)})` is
+a :class:`skbn.MixedNB` fitted on the augmented class :math:`(y, x_{\pi(i)})`,
+so discrete children use Laplace smoothing (``alpha``).
+
+**Key Parameters:**
+
+* ``root``: Index of the root attribute. Default: 0
+* ``alpha``: Laplace smoothing for discrete attributes. Default: 1.0
+* ``n_bins``: Discretization bins for continuous attributes
+* ``strategy``: Discretization strategy ('uniform', 'quantile', 'kmeans')
 
 **Example:**
 
 .. code-block:: python
 
-    from skbn import ALR
+    from skbn import TAN
 
-    # Level 1: Simple, low variance
-    clf = ALR(n_dependence=1, weight_level=1, l2_reg=1e-3)
-    
-    # Level 3: Per-class weights (good for multi-class)
-    clf = ALR(n_dependence=1, weight_level=3, l2_reg=1e-4)
-    
+    clf = TAN()
     clf.fit(X, y)
 
-WeightedAnDE
-------------
-
-:class:`skbn.WeightedAnDE` applies discriminative weighting to the standard
-AnDE (arithmetic mean) model [3]_. Unlike ALR, the optimization is **non-convex**.
-
-.. code-block:: python
-
-    from skbn import WeightedAnDE
-    
-    clf = WeightedAnDE(n_dependence=1, weight_level=1)
-    clf.fit(X, y)
+    clf.parents_                   # parent of each attribute (-1 for the root)
+    clf.conditional_mutual_info_   # edge weights used to learn the tree
 
 
 Parameter Tuning Guide
@@ -317,32 +422,48 @@ For continuous super-parents:
 Regularization in Hybrid Models
 -------------------------------
 
-``l2_reg`` controls regularization strength:
-
-* **Small datasets**: Use higher values (1e-2 to 1e-1) to prevent overfitting
-* **Large datasets**: Use lower values (1e-4 to 1e-3) for more flexibility
+``l2_reg`` is the strength of the penalty :math:`\lambda \|\mathbf{w} - 1\|^2`
+added to the *summed* conditional log-likelihood, so its effect weakens as the
+training set grows. The default of :class:`skbn.WeightedAnDE` is 1.0.
+Component weights are few and barely react to it; factor weights are many
+and overfit small datasets with a weak penalty, so for them values between
+0.1 and 10, chosen by cross-validation, are the safe range.
 
 Computational Considerations
 ----------------------------
 
 * Use ``n_jobs=-1`` to parallelize SPODE fitting
-* Higher ``weight_level`` increases optimization time exponentially
+* The cost of an optimization step grows with the number of weights each
+  sample touches: one per component with component weights, one per factor
+  with factor weights and one per n-join in ALR
 * A2DE with n_features=50 creates ~1,225 sub-models
 
 
 References
 ==========
 
-.. [1] Webb, G. I., Boughton, J., & Wang, Z. (2005). Not so naive Bayes: 
+.. [1] Webb, G. I., Boughton, J., & Wang, Z. (2005). Not so naive Bayes:
        Aggregating one-dependence estimators. Machine Learning, 58(1), 5-24.
 
-.. [2] Webb, G. I., Boughton, J., Zheng, F., Ting, K. M., & Salem, H. (2011). 
+.. [2] Webb, G. I., Boughton, J., Zheng, F., Ting, K. M., & Salem, H. (2011).
        Learning by extrapolation from marginal to full-multivariate probability
        distributions: Decreasingly naive Bayesian classification. Machine Learning, 86(2), 233-272.
 
-.. [3] Zaidi, N. A., Webb, G. I., Carman, M. J., & Petitjean, F. (2017). 
-       Efficient parameter learning of Bayesian network classifiers. 
-       Machine Learning, 106(9-10), 1289-1329.
+.. [3] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., Buntine, W.,
+       Hynes, M., & De Sterck, H. (2017). Efficient parameter learning of
+       Bayesian network classifiers. Machine Learning, 106(9-10), 1289-1329.
 
-.. [4] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., & Cerquides, J. (2016). 
+.. [4] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., & Cerquides, J. (2016).
        ALR^n: Accelerated higher-order logistic regression. Machine Learning, 104(2-3), 151-194.
+
+.. [5] Zheng, X., Lin, Z., Xu, H., Chen, C., & Ye, T. (2015). Efficient
+       learning ensemble SuperParent-one-dependence estimator by maximizing
+       conditional log likelihood. Expert Systems with Applications, 42,
+       7732-7745.
+
+.. [6] Friedman, N., Geiger, D., & Goldszmidt, M. (1997). Bayesian network
+       classifiers. Machine Learning, 29(2-3), 131-163.
+
+.. [7] Chow, C. K., & Liu, C. N. (1968). Approximating discrete probability
+       distributions with dependence trees. IEEE Transactions on Information
+       Theory, 14(3), 462-467.

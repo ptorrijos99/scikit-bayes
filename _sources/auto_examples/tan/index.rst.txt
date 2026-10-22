@@ -1,0 +1,49 @@
+
+
+.. _sphx_glr_auto_examples_tan:
+
+.. _tan_examples:
+
+Tree Augmented Naive Bayes
+--------------------------
+
+A single Bayesian network in which every attribute depends on the class and
+on at most one other attribute: how the tree is learned and what it captures.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="skbn.TAN (Tree Augmented Naive Bayes) lets every attribute depend on the class and on at most one other attribute. The dependencies form a tree, learned from the data with the Chow-Liu procedure: the conditional mutual information $I(A_i; A_j \mid C)$ is computed for every pair of attributes, and the tree of maximum total weight is kept.">
+
+.. only:: html
+
+  .. image:: /auto_examples/tan/images/thumb/sphx_glr_17_plot_tan_structure_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/tan/17_plot_tan_structure`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Learning the Tree: TAN vs Naive Bayes</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /auto_examples/tan/17_plot_tan_structure
+

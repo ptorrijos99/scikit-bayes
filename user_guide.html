@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>User guide : contents &#8212; scikit-bayes 1.2.1.dev2+g2ff033f79 documentation</title>
+    <title>User guide : contents &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/documentation_options.js?v=2dcee87c"></script>
+    <script src="_static/documentation_options.js?v=3fad9bd4"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/design-tabs.js?v=f930bc37"></script>
@@ -57,7 +57,7 @@
     <link rel="prev" title="Getting Started" href="quick_start.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.2.1" />
+  <meta name="docsearch:version" content="1.2.2" />
   </head>
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
-    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
   
   
 </a></div>
@@ -379,52 +379,57 @@ including theoretical background and practical usage examples.</p>
 <nav class="contents local" id="table-of-contents">
 <p class="topic-title">Table of Contents</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="#introduction" id="id9">Introduction</a></p>
+<li><p><a class="reference internal" href="#introduction" id="id19">Introduction</a></p>
 <ul>
-<li><p><a class="reference internal" href="#what-are-bayesian-network-classifiers" id="id10">What are Bayesian Network Classifiers?</a></p></li>
-<li><p><a class="reference internal" href="#why-scikit-bayes" id="id11">Why scikit-bayes?</a></p></li>
+<li><p><a class="reference internal" href="#what-are-bayesian-network-classifiers" id="id20">What are Bayesian Network Classifiers?</a></p></li>
+<li><p><a class="reference internal" href="#why-scikit-bayes" id="id21">Why scikit-bayes?</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#mixednb-mixed-data-naive-bayes" id="id12">MixedNB: Mixed Data Naive Bayes</a></p>
+<li><p><a class="reference internal" href="#mixednb-mixed-data-naive-bayes" id="id22">MixedNB: Mixed Data Naive Bayes</a></p>
 <ul>
-<li><p><a class="reference internal" href="#the-problem" id="id13">The Problem</a></p></li>
-<li><p><a class="reference internal" href="#feature-type-detection" id="id14">Feature Type Detection</a></p></li>
-<li><p><a class="reference internal" href="#usage-example" id="id15">Usage Example</a></p></li>
-<li><p><a class="reference internal" href="#parameters" id="id16">Parameters</a></p></li>
+<li><p><a class="reference internal" href="#the-problem" id="id23">The Problem</a></p></li>
+<li><p><a class="reference internal" href="#feature-type-detection" id="id24">Feature Type Detection</a></p></li>
+<li><p><a class="reference internal" href="#usage-example" id="id25">Usage Example</a></p></li>
+<li><p><a class="reference internal" href="#parameters" id="id26">Parameters</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#ande-family-relaxing-independence" id="id17">AnDE Family: Relaxing Independence</a></p>
+<li><p><a class="reference internal" href="#ande-family-relaxing-independence" id="id27">AnDE Family: Relaxing Independence</a></p>
 <ul>
-<li><p><a class="reference internal" href="#the-independence-problem" id="id18">The Independence Problem</a></p></li>
-<li><p><a class="reference internal" href="#the-super-parent-strategy" id="id19">The Super-Parent Strategy</a></p></li>
-<li><p><a class="reference internal" href="#ande-arithmetic-mean" id="id20">AnDE (Arithmetic Mean)</a></p></li>
-<li><p><a class="reference internal" href="#anje-geometric-mean" id="id21">AnJE (Geometric Mean)</a></p></li>
-<li><p><a class="reference internal" href="#alr-accelerated-logistic-regression" id="id22">ALR: Accelerated Logistic Regression</a></p></li>
-<li><p><a class="reference internal" href="#weightedande" id="id23">WeightedAnDE</a></p></li>
+<li><p><a class="reference internal" href="#the-independence-problem" id="id28">The Independence Problem</a></p></li>
+<li><p><a class="reference internal" href="#the-super-parent-strategy" id="id29">The Super-Parent Strategy</a></p></li>
+<li><p><a class="reference internal" href="#ande-arithmetic-mean" id="id30">AnDE (Arithmetic Mean)</a></p></li>
+<li><p><a class="reference internal" href="#weightedande" id="id31">WeightedAnDE</a></p></li>
+<li><p><a class="reference internal" href="#anje-and-alr" id="id32">AnJE and ALR</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#parameter-tuning-guide" id="id24">Parameter Tuning Guide</a></p>
+<li><p><a class="reference internal" href="#tan-tree-augmented-naive-bayes" id="id33">TAN: Tree Augmented Naive Bayes</a></p>
 <ul>
-<li><p><a class="reference internal" href="#choosing-n-dependence" id="id25">Choosing n_dependence</a></p></li>
-<li><p><a class="reference internal" href="#discretization-strategy" id="id26">Discretization Strategy</a></p></li>
-<li><p><a class="reference internal" href="#regularization-in-hybrid-models" id="id27">Regularization in Hybrid Models</a></p></li>
-<li><p><a class="reference internal" href="#computational-considerations" id="id28">Computational Considerations</a></p></li>
+<li><p><a class="reference internal" href="#learning-the-tree" id="id34">Learning the Tree</a></p></li>
+<li><p><a class="reference internal" href="#mixed-data" id="id35">Mixed Data</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#references" id="id29">References</a></p></li>
+<li><p><a class="reference internal" href="#parameter-tuning-guide" id="id36">Parameter Tuning Guide</a></p>
+<ul>
+<li><p><a class="reference internal" href="#choosing-n-dependence" id="id37">Choosing n_dependence</a></p></li>
+<li><p><a class="reference internal" href="#discretization-strategy" id="id38">Discretization Strategy</a></p></li>
+<li><p><a class="reference internal" href="#regularization-in-hybrid-models" id="id39">Regularization in Hybrid Models</a></p></li>
+<li><p><a class="reference internal" href="#computational-considerations" id="id40">Computational Considerations</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#references" id="id41">References</a></p></li>
 </ul>
 </nav>
 <section id="introduction">
-<h2><a class="toc-backref" href="#id9" role="doc-backlink">Introduction</a><a class="headerlink" href="#introduction" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id19" role="doc-backlink">Introduction</a><a class="headerlink" href="#introduction" title="Link to this heading">#</a></h2>
 <section id="what-are-bayesian-network-classifiers">
-<h3><a class="toc-backref" href="#id10" role="doc-backlink">What are Bayesian Network Classifiers?</a><a class="headerlink" href="#what-are-bayesian-network-classifiers" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id20" role="doc-backlink">What are Bayesian Network Classifiers?</a><a class="headerlink" href="#what-are-bayesian-network-classifiers" title="Link to this heading">#</a></h3>
 <p>Bayesian Network Classifiers (BNCs) compute class probabilities using Bayes’ theorem. The most common is Naive Bayes, which assumes features are conditionally independent given the class:</p>
 <div class="math notranslate nohighlight">
 \[P(y|\mathbf{x}) \propto P(y) \prod_{i=1}^{n} P(x_i|y)\]</div>
 <p>This assumption is rarely true, but Naive Bayes scales well and works as a baseline. When feature dependencies are strong (e.g., in a parity problem like XOR), it produces inaccurate probabilities.</p>
 </section>
 <section id="why-scikit-bayes">
-<h3><a class="toc-backref" href="#id11" role="doc-backlink">Why scikit-bayes?</a><a class="headerlink" href="#why-scikit-bayes" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">Why scikit-bayes?</a><a class="headerlink" href="#why-scikit-bayes" title="Link to this heading">#</a></h3>
 <p>While scikit-learn includes standard Naive Bayes classes, they require some manual workarounds for complex datasets:</p>
 <ol class="arabic simple">
 <li><p><strong>Heterogeneous data</strong>: You cannot pass a matrix with Gaussian, Categorical, and Bernoulli features directly into a single estimator without using a <code class="docutils literal notranslate"><span class="pre">ColumnTransformer</span></code> to split them.</p></li>
@@ -435,11 +440,11 @@ including theoretical background and practical usage examples.</p>
 </section>
 </section>
 <section id="mixednb-mixed-data-naive-bayes">
-<span id="mixed-naive-bayes"></span><h2><a class="toc-backref" href="#id12" role="doc-backlink">MixedNB: Mixed Data Naive Bayes</a><a class="headerlink" href="#mixednb-mixed-data-naive-bayes" title="Link to this heading">#</a></h2>
+<span id="mixed-naive-bayes"></span><h2><a class="toc-backref" href="#id22" role="doc-backlink">MixedNB: Mixed Data Naive Bayes</a><a class="headerlink" href="#mixednb-mixed-data-naive-bayes" title="Link to this heading">#</a></h2>
 <p><a class="reference internal" href="generated/skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.MixedNB</span></code></a> handles datasets with heterogeneous feature types
 by internally combining scikit-learn’s specialized Naive Bayes estimators.</p>
 <section id="the-problem">
-<h3><a class="toc-backref" href="#id13" role="doc-backlink">The Problem</a><a class="headerlink" href="#the-problem" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">The Problem</a><a class="headerlink" href="#the-problem" title="Link to this heading">#</a></h3>
 <p>Consider a dataset with:</p>
 <ul class="simple">
 <li><p><strong>Feature 0</strong>: Age (continuous) → Gaussian</p></li>
@@ -455,7 +460,7 @@ by internally combining scikit-learn’s specialized Naive Bayes estimators.</p>
 <p>MixedNB does this automatically.</p>
 </section>
 <section id="feature-type-detection">
-<h3><a class="toc-backref" href="#id14" role="doc-backlink">Feature Type Detection</a><a class="headerlink" href="#feature-type-detection" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Feature Type Detection</a><a class="headerlink" href="#feature-type-detection" title="Link to this heading">#</a></h3>
 <p>MixedNB auto-detects feature types during <code class="docutils literal notranslate"><span class="pre">fit()</span></code>:</p>
 <ul class="simple">
 <li><p><strong>Gaussian</strong>: Float features with non-integer values</p></li>
@@ -474,7 +479,7 @@ by internally combining scikit-learn’s specialized Naive Bayes estimators.</p>
 </div>
 </section>
 <section id="usage-example">
-<h3><a class="toc-backref" href="#id15" role="doc-backlink">Usage Example</a><a class="headerlink" href="#usage-example" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">Usage Example</a><a class="headerlink" href="#usage-example" title="Link to this heading">#</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <span class="n">MixedNB</span>
 
@@ -503,7 +508,7 @@ by internally combining scikit-learn’s specialized Naive Bayes estimators.</p>
 </div>
 </section>
 <section id="parameters">
-<h3><a class="toc-backref" href="#id16" role="doc-backlink">Parameters</a><a class="headerlink" href="#parameters" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">Parameters</a><a class="headerlink" href="#parameters" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">alpha</span></code>: Smoothing parameter (Laplace smoothing) for Categorical/Bernoulli. Default: 1.0</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">var_smoothing</span></code>: Variance smoothing for Gaussian features. Default: 1e-9</p></li>
@@ -513,11 +518,11 @@ by internally combining scikit-learn’s specialized Naive Bayes estimators.</p>
 </section>
 </section>
 <section id="ande-family-relaxing-independence">
-<h2><a class="toc-backref" href="#id17" role="doc-backlink">AnDE Family: Relaxing Independence</a><a class="headerlink" href="#ande-family-relaxing-independence" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id27" role="doc-backlink">AnDE Family: Relaxing Independence</a><a class="headerlink" href="#ande-family-relaxing-independence" title="Link to this heading">#</a></h2>
 <p>The <strong>Averaged n-Dependence Estimators (AnDE)</strong> family relaxes the independence
 assumption by conditioning on “super-parent” features.</p>
 <section id="the-independence-problem">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">The Independence Problem</a><a class="headerlink" href="#the-independence-problem" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">The Independence Problem</a><a class="headerlink" href="#the-independence-problem" title="Link to this heading">#</a></h3>
 <p>Consider the XOR problem:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
@@ -552,7 +557,7 @@ Looking at X2 alone: P(X2|Y=0) = P(X2|Y=1) (symmetric distributions).</p>
 <p>AnDE solves this by modeling <strong>P(X2 | Y, X1)</strong> instead of just P(X2 | Y).</p>
 </section>
 <section id="the-super-parent-strategy">
-<h3><a class="toc-backref" href="#id19" role="doc-backlink">The Super-Parent Strategy</a><a class="headerlink" href="#the-super-parent-strategy" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">The Super-Parent Strategy</a><a class="headerlink" href="#the-super-parent-strategy" title="Link to this heading">#</a></h3>
 <p>An SPnDE (Super-Parent n-Dependence Estimator) conditions all child features
 on the class <strong>and</strong> n parent features:</p>
 <div class="math notranslate nohighlight">
@@ -561,8 +566,8 @@ on the class <strong>and</strong> n parent features:</p>
 <p>AnDE averages over all possible parent combinations.</p>
 </section>
 <section id="ande-arithmetic-mean">
-<h3><a class="toc-backref" href="#id20" role="doc-backlink">AnDE (Arithmetic Mean)</a><a class="headerlink" href="#ande-arithmetic-mean" title="Link to this heading">#</a></h3>
-<p><a class="reference internal" href="generated/skbn.AnDE.html#skbn.AnDE" title="skbn.AnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.AnDE</span></code></a> is the standard generative model described by Webb et al. <a class="footnote-reference brackets" href="#id5" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a>.</p>
+<h3><a class="toc-backref" href="#id30" role="doc-backlink">AnDE (Arithmetic Mean)</a><a class="headerlink" href="#ande-arithmetic-mean" title="Link to this heading">#</a></h3>
+<p><a class="reference internal" href="generated/skbn.AnDE.html#skbn.AnDE" title="skbn.AnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.AnDE</span></code></a> is the standard generative model described by Webb et al. <a class="footnote-reference brackets" href="#id12" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a>.</p>
 <div class="math notranslate nohighlight">
 \[P(y|\mathbf{x}) \propto \sum_{m} P_m(y, \mathbf{x})\]</div>
 <p><strong>Key Parameters:</strong></p>
@@ -588,93 +593,188 @@ on the class <strong>and</strong> n parent features:</p>
 <span class="n">clf</span> <span class="o">=</span> <span class="n">AnDE</span><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 </pre></div>
 </div>
+<p>With <code class="docutils literal notranslate"><span class="pre">mean=&quot;geometric&quot;</span></code> the components are pooled with the geometric mean,
+<span class="math notranslate nohighlight">\(P(y|\mathbf{x}) \propto \prod_{m} P_m(y, \mathbf{x})^{1/|M|}\)</span>. Every
+component then counts the same, so a few components that give a class a
+probability close to zero rule it out. This pool of SPnDEs is not the AnJE of
+Zaidi et al. <a class="footnote-reference brackets" href="#id15" id="id3" role="doc-noteref"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></a>, which is described below.</p>
 </section>
-<section id="anje-geometric-mean">
-<h3><a class="toc-backref" href="#id21" role="doc-backlink">AnJE (Geometric Mean)</a><a class="headerlink" href="#anje-geometric-mean" title="Link to this heading">#</a></h3>
-<p><a class="reference internal" href="generated/skbn.AnJE.html#skbn.AnJE" title="skbn.AnJE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.AnJE</span></code></a> aggregates using the geometric mean (product of probabilities):</p>
-<div class="math notranslate nohighlight">
-\[P(y|\mathbf{x}) \propto \prod_{m} P_m(y, \mathbf{x})\]</div>
-<p>This is equivalent to summing log-probabilities and serves as the basis for
-the convex ALR optimization.</p>
-<p><strong>Usage is identical to AnDE.</strong></p>
-</section>
-<section id="alr-accelerated-logistic-regression">
-<h3><a class="toc-backref" href="#id22" role="doc-backlink">ALR: Accelerated Logistic Regression</a><a class="headerlink" href="#alr-accelerated-logistic-regression" title="Link to this heading">#</a></h3>
-<p><a class="reference internal" href="generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.ALR</span></code></a> is a <strong>hybrid generative-discriminative</strong> classifier <a class="footnote-reference brackets" href="#id8" id="id3" role="doc-noteref"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></a>.</p>
-<p>It starts with the AnJE generative model and learns discriminative weights
-to optimize classification performance:</p>
-<div class="math notranslate nohighlight">
-\[P(y|\mathbf{x}) \propto \exp\left(\sum_{m} w_m \cdot \log P_m(y, \mathbf{x})\right)\]</div>
-<p><strong>Weight Granularity Levels:</strong></p>
-<p>ALR supports 4 levels of parameter granularity:</p>
+<section id="weightedande">
+<h3><a class="toc-backref" href="#id31" role="doc-backlink">WeightedAnDE</a><a class="headerlink" href="#weightedande" title="Link to this heading">#</a></h3>
+<p><a class="reference internal" href="generated/skbn.WeightedAnDE.html#skbn.WeightedAnDE" title="skbn.WeightedAnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.WeightedAnDE</span></code></a> learns discriminative weights on top of AnDE by
+maximising the conditional log-likelihood with L-BFGS-B. The weights start at,
+and are regularized towards, the generative model (<code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">1</span></code>). Two parameters
+define the model:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">mean</span></code>: how the components are pooled (<code class="docutils literal notranslate"><span class="pre">&quot;arithmetic&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;geometric&quot;</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">weight_scope</span></code>: what each weight multiplies.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;component&quot;</span></code>: a whole SPnDE. With the arithmetic mean the weights are
+mixture coefficients, <span class="math notranslate nohighlight">\(\log \sum_m w_m P_m(y, \mathbf{x})\)</span>; with the
+geometric mean they scale the log-joints,
+<span class="math notranslate nohighlight">\(\sum_m w_m \log P_m(y, \mathbf{x})\)</span>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;factor&quot;</span></code>: every factor of every SPnDE, as in the weighted CCBN of
+Zaidi et al. <a class="footnote-reference brackets" href="#id14" id="id4" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a>: <span class="math notranslate nohighlight">\(P_m^w = \prod_f \theta_f^{w_f}\)</span>.</p></li>
+</ul>
+</li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">weight_level</span></code> sets the variables that index each weight:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <colgroup>
 <col style="width: 10.0%" />
-<col style="width: 30.0%" />
-<col style="width: 30.0%" />
-<col style="width: 30.0%" />
+<col style="width: 45.0%" />
+<col style="width: 45.0%" />
 </colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Level</p></th>
-<th class="head"><p>Description</p></th>
-<th class="head"><p># Parameters</p></th>
-<th class="head"><p>Best For</p></th>
+<th class="head"><p>Component Weights</p></th>
+<th class="head"><p>Factor Weights <a class="footnote-reference brackets" href="#id14" id="id5" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a></p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>1</p></td>
-<td><p>Per Model</p></td>
-<td><p>M</p></td>
-<td><p>Small datasets</p></td>
+<td><p>Component</p></td>
+<td><p>Factor</p></td>
 </tr>
 <tr class="row-odd"><td><p>2</p></td>
-<td><p>Per Parent Value</p></td>
-<td><p>M × V</p></td>
-<td><p>Large datasets</p></td>
+<td><p>Component × parent value</p></td>
+<td><p>Factor × value</p></td>
 </tr>
 <tr class="row-even"><td><p>3</p></td>
-<td><p>Per Class</p></td>
-<td><p>M × C</p></td>
-<td><p>Multi-class</p></td>
+<td><p>Component × class</p></td>
+<td><p>Factor × value × class</p></td>
 </tr>
 <tr class="row-odd"><td><p>4</p></td>
-<td><p>Per Value × Class</p></td>
-<td><p>M × V × C</p></td>
-<td><p>Very large datasets</p></td>
+<td><p>Component × class × parent value</p></td>
+<td><p>Factor × value × class × parents</p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>Where M = number of models, V = parent value combinations, C = classes.</p>
-<p><strong>Example:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <span class="n">ALR</span>
+<p>The factor levels are the nested parameterizations of Zaidi et al. <a class="footnote-reference brackets" href="#id14" id="id6" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a>
+(Sec. 5.4), applied inside each SPnDE. Arithmetic component weights at level 3
+are the per-SPODE, per-class weights of EODE-CLL <a class="footnote-reference brackets" href="#id16" id="id7" role="doc-noteref"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></a>. The other component
+levels follow the same nesting at the level of the component; they are a
+choice of this library, not of the literature.</p>
+<p>Component weights are cheap (one weight per component and sample) but only
+decide how much each SPnDE is trusted: they cannot correct a dependence
+between children that every SPnDE shares, such as a duplicated attribute.
+Factor weights can, at the cost of about <code class="docutils literal notranslate"><span class="pre">n_features</span></code> times more weights.
+With the geometric mean, and with <code class="docutils literal notranslate"><span class="pre">modular=True</span></code> (each component fitted on
+its own conditional log-likelihood), the objective is convex.</p>
+<p><code class="docutils literal notranslate"><span class="pre">average</span></code> decides what the arithmetic mean pools: the weighted joints
+<span class="math notranslate nohighlight">\(P^w_m(y, \mathbf{x})\)</span>, as AnDE does (<code class="docutils literal notranslate"><span class="pre">&quot;joint&quot;</span></code>, the default), or the
+components’ posteriors <span class="math notranslate nohighlight">\(P^w_m(y | \mathbf{x})\)</span> (<code class="docutils literal notranslate"><span class="pre">&quot;posterior&quot;</span></code>). The two
+coincide for the geometric mean. Factor weights at level 4, fitted with
+<code class="docutils literal notranslate"><span class="pre">modular=True</span></code> and pooled with <code class="docutils literal notranslate"><span class="pre">average=&quot;posterior&quot;</span></code>, are the AnDE<sup>w</sup> of FedAnDE: one weighted CCBN per SPnDE, trained on its own data and
+averaged, which is what lets each component be fitted across sites.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeightedAnDE</span>
 
-<span class="c1"># Level 1: Simple, low variance</span>
-<span class="n">clf</span> <span class="o">=</span> <span class="n">ALR</span><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weight_level</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">l2_reg</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+<span class="c1"># One weight per SPODE and class</span>
+<span class="n">clf</span> <span class="o">=</span> <span class="n">WeightedAnDE</span><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weight_level</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 
-<span class="c1"># Level 3: Per-class weights (good for multi-class)</span>
-<span class="n">clf</span> <span class="o">=</span> <span class="n">ALR</span><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weight_level</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">l2_reg</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">)</span>
+<span class="c1"># Weighted CCBN inside each SPODE</span>
+<span class="n">clf</span> <span class="o">=</span> <span class="n">WeightedAnDE</span><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weight_scope</span><span class="o">=</span><span class="s2">&quot;factor&quot;</span><span class="p">,</span> <span class="n">weight_level</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 
+<span class="c1"># AnDE^w of FedAnDE</span>
+<span class="n">clf</span> <span class="o">=</span> <span class="n">WeightedAnDE</span><span class="p">(</span>
+    <span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weight_scope</span><span class="o">=</span><span class="s2">&quot;factor&quot;</span><span class="p">,</span> <span class="n">weight_level</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">modular</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">average</span><span class="o">=</span><span class="s2">&quot;posterior&quot;</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="n">clf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
-<section id="weightedande">
-<h3><a class="toc-backref" href="#id23" role="doc-backlink">WeightedAnDE</a><a class="headerlink" href="#weightedande" title="Link to this heading">#</a></h3>
-<p><a class="reference internal" href="generated/skbn.WeightedAnDE.html#skbn.WeightedAnDE" title="skbn.WeightedAnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.WeightedAnDE</span></code></a> applies discriminative weighting to the standard
-AnDE (arithmetic mean) model <a class="footnote-reference brackets" href="#id7" id="id4" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a>. Unlike ALR, the optimization is <strong>non-convex</strong>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeightedAnDE</span>
+<section id="anje-and-alr">
+<h3><a class="toc-backref" href="#id32" role="doc-backlink">AnJE and ALR</a><a class="headerlink" href="#anje-and-alr" title="Link to this heading">#</a></h3>
+<p><a class="reference internal" href="generated/skbn.AnJE.html#skbn.AnJE" title="skbn.AnJE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.AnJE</span></code></a> and <a class="reference internal" href="generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.ALR</span></code></a> follow Zaidi et al. <a class="footnote-reference brackets" href="#id15" id="id8" role="doc-noteref"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></a>. Instead of
+SPnDEs they use n-joins, the joint distributions <span class="math notranslate nohighlight">\(P(x_\alpha | y)\)</span> of
+every subset <span class="math notranslate nohighlight">\(\alpha\)</span> of <code class="docutils literal notranslate"><span class="pre">n_join</span></code> attributes. AnJE pools them with
+the geometric-mean weight of the paper:</p>
+<div class="math notranslate nohighlight">
+\[P(y|\mathbf{x}) \propto P(y) \prod_{\alpha} P(x_\alpha | y)^{\frac{(n-1)!(a-n)!}{(a-1)!}}\]</div>
+<p>ALR (ALR<sup>n</sup> in the paper) learns one weight per n-join, value and
+class by maximising the conditional log-likelihood, a convex problem:</p>
+<div class="math notranslate nohighlight">
+\[\log P(y|\mathbf{x}) = w_y \log P(y) + \sum_{\alpha} w_{y,\alpha,x_\alpha} \log P(x_\alpha | y) - \log Z(\mathbf{x})\]</div>
+<p>A1JE is Naive Bayes, and AnJE uses the same statistics as A(n-1)DE, so
+<code class="docutils literal notranslate"><span class="pre">AnJE(n_join=2)</span></code> is comparable to <code class="docutils literal notranslate"><span class="pre">AnDE(n_dependence=1)</span></code>. Both models are
+defined on discrete attributes: continuous attributes are discretized into
+<code class="docutils literal notranslate"><span class="pre">n_bins</span></code> bins (the paper uses MDL discretization, available as
+<code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.MDLPDiscretizer</span></code>). Probabilities are m-estimates with
+<code class="docutils literal notranslate"><span class="pre">m</span> <span class="pre">=</span> <span class="pre">alpha</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">weight_level=3</span></code> (the default) is the model of the paper. Levels 1 (one
+weight per n-join) and 2 (per n-join and value) tie the weights following the
+nesting of <a class="footnote-reference brackets" href="#id14" id="id9" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a>. The other defaults reproduce the protocol of the paper’s
+experiments: weights start at <code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">1</span></code>, there is no penalty, and L-BFGS-B
+runs until the relative reduction of the objective falls below 1e-32 or for
+10<sup>4</sup> iterations. The starting point is not the AnJE but the unaveraged
+product of all n-joins, so on small samples the unpenalized model overfits.
+<code class="docutils literal notranslate"><span class="pre">l2_reg</span></code> adds the penalty towards <code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">1</span></code> that the paper suggests for
+small datasets, and <code class="docutils literal notranslate"><span class="pre">max_iter</span></code> and <code class="docutils literal notranslate"><span class="pre">tol</span></code> stop the optimizer earlier.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <span class="n">ALR</span><span class="p">,</span> <span class="n">AnJE</span>
 
-<span class="n">clf</span> <span class="o">=</span> <span class="n">WeightedAnDE</span><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weight_level</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">clf</span> <span class="o">=</span> <span class="n">AnJE</span><span class="p">(</span><span class="n">n_join</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">clf</span> <span class="o">=</span> <span class="n">ALR</span><span class="p">(</span><span class="n">n_join</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># as in Zaidi et al. (2016)</span>
 <span class="n">clf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="tan-tree-augmented-naive-bayes">
+<span id="tan"></span><h2><a class="toc-backref" href="#id33" role="doc-backlink">TAN: Tree Augmented Naive Bayes</a><a class="headerlink" href="#tan-tree-augmented-naive-bayes" title="Link to this heading">#</a></h2>
+<p><a class="reference internal" href="generated/skbn.TAN.html#skbn.TAN" title="skbn.TAN"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.TAN</span></code></a> <a class="footnote-reference brackets" href="#id17" id="id10" role="doc-noteref"><span class="fn-bracket">[</span>6<span class="fn-bracket">]</span></a> relaxes the independence assumption in a different way
+from AnDE: instead of averaging many models, it learns a single network in
+which every attribute has the class and <strong>at most one other attribute</strong> as
+parents.</p>
+<div class="math notranslate nohighlight">
+\[P(y, \mathbf{x}) = P(y) \, P(x_r | y) \prod_{i \neq r} P(x_i | y, x_{\pi(i)})\]</div>
+<p>Where <span class="math notranslate nohighlight">\(r\)</span> is the root of the tree and <span class="math notranslate nohighlight">\(\pi(i)\)</span> the parent of
+attribute <span class="math notranslate nohighlight">\(i\)</span>.</p>
+<section id="learning-the-tree">
+<h3><a class="toc-backref" href="#id34" role="doc-backlink">Learning the Tree</a><a class="headerlink" href="#learning-the-tree" title="Link to this heading">#</a></h3>
+<p>The structure is learned with the Chow-Liu procedure <a class="footnote-reference brackets" href="#id18" id="id11" role="doc-noteref"><span class="fn-bracket">[</span>7<span class="fn-bracket">]</span></a>:</p>
+<ol class="arabic simple">
+<li><p>Compute the conditional mutual information <span class="math notranslate nohighlight">\(I(A_i; A_j | C)\)</span> between
+every pair of attributes.</p></li>
+<li><p>Build the maximum weight spanning tree of the complete graph with these
+weights.</p></li>
+<li><p>Choose a root (<code class="docutils literal notranslate"><span class="pre">root</span></code>) and direct every edge away from it.</p></li>
+</ol>
+<p>The choice of root does not change which attributes are connected, only the
+direction of the edges.</p>
+</section>
+<section id="mixed-data">
+<h3><a class="toc-backref" href="#id35" role="doc-backlink">Mixed Data</a><a class="headerlink" href="#mixed-data" title="Link to this heading">#</a></h3>
+<p>TAN uses the same strategy as the AnDE family. Continuous attributes are
+discretized (<code class="docutils literal notranslate"><span class="pre">n_bins</span></code>, <code class="docutils literal notranslate"><span class="pre">strategy</span></code>) to compute the mutual information and
+when they act as parents; as children they remain continuous and are modeled
+by Gaussian distributions. Every conditional <span class="math notranslate nohighlight">\(P(x_i | y, x_{\pi(i)})\)</span> is
+a <a class="reference internal" href="generated/skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.MixedNB</span></code></a> fitted on the augmented class <span class="math notranslate nohighlight">\((y, x_{\pi(i)})\)</span>,
+so discrete children use Laplace smoothing (<code class="docutils literal notranslate"><span class="pre">alpha</span></code>).</p>
+<p><strong>Key Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">root</span></code>: Index of the root attribute. Default: 0</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">alpha</span></code>: Laplace smoothing for discrete attributes. Default: 1.0</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_bins</span></code>: Discretization bins for continuous attributes</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">strategy</span></code>: Discretization strategy (‘uniform’, ‘quantile’, ‘kmeans’)</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <span class="n">TAN</span>
+
+<span class="n">clf</span> <span class="o">=</span> <span class="n">TAN</span><span class="p">()</span>
+<span class="n">clf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="n">clf</span><span class="o">.</span><span class="n">parents_</span>                   <span class="c1"># parent of each attribute (-1 for the root)</span>
+<span class="n">clf</span><span class="o">.</span><span class="n">conditional_mutual_info_</span>   <span class="c1"># edge weights used to learn the tree</span>
 </pre></div>
 </div>
 </section>
 </section>
 <section id="parameter-tuning-guide">
-<h2><a class="toc-backref" href="#id24" role="doc-backlink">Parameter Tuning Guide</a><a class="headerlink" href="#parameter-tuning-guide" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id36" role="doc-backlink">Parameter Tuning Guide</a><a class="headerlink" href="#parameter-tuning-guide" title="Link to this heading">#</a></h2>
 <section id="choosing-n-dependence">
-<h3><a class="toc-backref" href="#id25" role="doc-backlink">Choosing n_dependence</a><a class="headerlink" href="#choosing-n-dependence" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id37" role="doc-backlink">Choosing n_dependence</a><a class="headerlink" href="#choosing-n-dependence" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p><strong>n=1 (AODE)</strong>: Good default. Captures pairwise interactions.</p></li>
 <li><p><strong>n=2 (A2DE)</strong>: Better accuracy, but O(n²) models. Use for &lt;50 features.</p></li>
@@ -682,7 +782,7 @@ AnDE (arithmetic mean) model <a class="footnote-reference brackets" href="#id7" 
 </ul>
 </section>
 <section id="discretization-strategy">
-<h3><a class="toc-backref" href="#id26" role="doc-backlink">Discretization Strategy</a><a class="headerlink" href="#discretization-strategy" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id38" role="doc-backlink">Discretization Strategy</a><a class="headerlink" href="#discretization-strategy" title="Link to this heading">#</a></h3>
 <p>For continuous super-parents:</p>
 <ul class="simple">
 <li><p><strong>‘quantile’</strong> (default): Equal-frequency bins. Robust to outliers.</p></li>
@@ -692,46 +792,69 @@ AnDE (arithmetic mean) model <a class="footnote-reference brackets" href="#id7" 
 <p><code class="docutils literal notranslate"><span class="pre">n_bins</span></code> typically 3-10. More bins = more precision but fewer samples per bin.</p>
 </section>
 <section id="regularization-in-hybrid-models">
-<h3><a class="toc-backref" href="#id27" role="doc-backlink">Regularization in Hybrid Models</a><a class="headerlink" href="#regularization-in-hybrid-models" title="Link to this heading">#</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">l2_reg</span></code> controls regularization strength:</p>
-<ul class="simple">
-<li><p><strong>Small datasets</strong>: Use higher values (1e-2 to 1e-1) to prevent overfitting</p></li>
-<li><p><strong>Large datasets</strong>: Use lower values (1e-4 to 1e-3) for more flexibility</p></li>
-</ul>
+<h3><a class="toc-backref" href="#id39" role="doc-backlink">Regularization in Hybrid Models</a><a class="headerlink" href="#regularization-in-hybrid-models" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">l2_reg</span></code> is the strength of the penalty <span class="math notranslate nohighlight">\(\lambda \|\mathbf{w} - 1\|^2\)</span>
+added to the <em>summed</em> conditional log-likelihood, so its effect weakens as the
+training set grows. The default of <a class="reference internal" href="generated/skbn.WeightedAnDE.html#skbn.WeightedAnDE" title="skbn.WeightedAnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.WeightedAnDE</span></code></a> is 1.0.
+Component weights are few and barely react to it; factor weights are many
+and overfit small datasets with a weak penalty, so for them values between
+0.1 and 10, chosen by cross-validation, are the safe range.</p>
 </section>
 <section id="computational-considerations">
-<h3><a class="toc-backref" href="#id28" role="doc-backlink">Computational Considerations</a><a class="headerlink" href="#computational-considerations" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id40" role="doc-backlink">Computational Considerations</a><a class="headerlink" href="#computational-considerations" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Use <code class="docutils literal notranslate"><span class="pre">n_jobs=-1</span></code> to parallelize SPODE fitting</p></li>
-<li><p>Higher <code class="docutils literal notranslate"><span class="pre">weight_level</span></code> increases optimization time exponentially</p></li>
+<li><p>The cost of an optimization step grows with the number of weights each
+sample touches: one per component with component weights, one per factor
+with factor weights and one per n-join in ALR</p></li>
 <li><p>A2DE with n_features=50 creates ~1,225 sub-models</p></li>
 </ul>
 </section>
 </section>
 <section id="references">
-<h2><a class="toc-backref" href="#id29" role="doc-backlink">References</a><a class="headerlink" href="#references" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id41" role="doc-backlink">References</a><a class="headerlink" href="#references" title="Link to this heading">#</a></h2>
 <aside class="footnote-list brackets">
-<aside class="footnote brackets" id="id5" role="doc-footnote">
+<aside class="footnote brackets" id="id12" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">1</a><span class="fn-bracket">]</span></span>
 <p>Webb, G. I., Boughton, J., &amp; Wang, Z. (2005). Not so naive Bayes:
 Aggregating one-dependence estimators. Machine Learning, 58(1), 5-24.</p>
 </aside>
-<aside class="footnote brackets" id="id6" role="doc-footnote">
+<aside class="footnote brackets" id="id13" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
 <p>Webb, G. I., Boughton, J., Zheng, F., Ting, K. M., &amp; Salem, H. (2011).
 Learning by extrapolation from marginal to full-multivariate probability
 distributions: Decreasingly naive Bayesian classification. Machine Learning, 86(2), 233-272.</p>
 </aside>
-<aside class="footnote brackets" id="id7" role="doc-footnote">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id4">3</a><span class="fn-bracket">]</span></span>
-<p>Zaidi, N. A., Webb, G. I., Carman, M. J., &amp; Petitjean, F. (2017).
-Efficient parameter learning of Bayesian network classifiers.
-Machine Learning, 106(9-10), 1289-1329.</p>
+<aside class="footnote brackets" id="id14" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></span>
+<span class="backrefs">(<a role="doc-backlink" href="#id4">1</a>,<a role="doc-backlink" href="#id5">2</a>,<a role="doc-backlink" href="#id6">3</a>,<a role="doc-backlink" href="#id9">4</a>)</span>
+<p>Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., Buntine, W.,
+Hynes, M., &amp; De Sterck, H. (2017). Efficient parameter learning of
+Bayesian network classifiers. Machine Learning, 106(9-10), 1289-1329.</p>
 </aside>
-<aside class="footnote brackets" id="id8" role="doc-footnote">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">4</a><span class="fn-bracket">]</span></span>
+<aside class="footnote brackets" id="id15" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></span>
+<span class="backrefs">(<a role="doc-backlink" href="#id3">1</a>,<a role="doc-backlink" href="#id8">2</a>)</span>
 <p>Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., &amp; Cerquides, J. (2016).
 ALR^n: Accelerated higher-order logistic regression. Machine Learning, 104(2-3), 151-194.</p>
+</aside>
+<aside class="footnote brackets" id="id16" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id7">5</a><span class="fn-bracket">]</span></span>
+<p>Zheng, X., Lin, Z., Xu, H., Chen, C., &amp; Ye, T. (2015). Efficient
+learning ensemble SuperParent-one-dependence estimator by maximizing
+conditional log likelihood. Expert Systems with Applications, 42,
+7732-7745.</p>
+</aside>
+<aside class="footnote brackets" id="id17" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id10">6</a><span class="fn-bracket">]</span></span>
+<p>Friedman, N., Geiger, D., &amp; Goldszmidt, M. (1997). Bayesian network
+classifiers. Machine Learning, 29(2-3), 131-163.</p>
+</aside>
+<aside class="footnote brackets" id="id18" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id11">7</a><span class="fn-bracket">]</span></span>
+<p>Chow, C. K., &amp; Liu, C. N. (1968). Approximating discrete probability
+distributions with dependence trees. IEEE Transactions on Information
+Theory, 14(3), 462-467.</p>
 </aside>
 </aside>
 </section>
@@ -800,9 +923,13 @@ ALR^n: Accelerated higher-order logistic regression. Machine Learning, 104(2-3),
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-independence-problem">The Independence Problem</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-super-parent-strategy">The Super-Parent Strategy</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ande-arithmetic-mean">AnDE (Arithmetic Mean)</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#anje-geometric-mean">AnJE (Geometric Mean)</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#alr-accelerated-logistic-regression">ALR: Accelerated Logistic Regression</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#weightedande">WeightedAnDE</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#anje-and-alr">AnJE and ALR</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tan-tree-augmented-naive-bayes">TAN: Tree Augmented Naive Bayes</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#learning-the-tree">Learning the Tree</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mixed-data">Mixed Data</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parameter-tuning-guide">Parameter Tuning Guide</a><ul class="nav section-nav flex-column">

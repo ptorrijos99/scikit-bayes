@@ -3,13 +3,12 @@
 Arithmetic or Geometric Mean: A Sensor That Fails
 =====================================================
 
-:class:`skbn.AnDE` and :class:`skbn.AnJE` fit exactly the same components.
-They differ only in how they combine them:
+:class:`skbn.AnDE` can pool its components in two ways:
 
--   **AnDE** averages the joint probabilities of the components
-    (arithmetic mean), so the component that explains an instance best
-    dominates its prediction.
--   **AnJE** averages their logarithms (geometric mean), so every component
+-   ``mean="arithmetic"`` (the standard AnDE) averages the joint
+    probabilities of the components, so the component that explains an
+    instance best dominates its prediction.
+-   ``mean="geometric"`` averages their logarithms, so every component
     counts the same, and a few components that give a class a probability
     close to zero are enough to rule that class out.
 
@@ -28,9 +27,9 @@ negligible probability, because the reading is many standard deviations
 away from what they expect. The component that has the sensor as its
 super-parent does not: it models the other attributes given the reading,
 and they still fit the true class. AnDE follows that component on about
-half of the faulty instances. AnJE averages it with the other five and is
-confidently wrong on most of them, which costs it accuracy and, above all,
-log loss.
+half of the faulty instances. The geometric mean averages it with the
+other five and is confidently wrong on most of them, which costs it
+accuracy and, above all, log loss.
 """
 
 # Author: The scikit-bayes Developers
@@ -40,7 +39,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import accuracy_score, log_loss
 
-from skbn import AnDE, AnJE
+from skbn import AnDE
 
 # --- 1. Generate Data: Five Ordinary Attributes and a Precise Sensor ---
 SENSOR_SHIFT, SENSOR_STD = 5.0, 0.8
@@ -70,7 +69,7 @@ X_test, y_test = make_data(20000, rng)
 # --- 2. Fit the Same Components with Both Aggregation Rules ---
 models = {
     "AnDE (Arithmetic Mean)": (AnDE(n_dependence=1), "teal", "o"),
-    "AnJE (Geometric Mean)": (AnJE(n_dependence=1), "goldenrod", "^"),
+    "AnDE (Geometric Mean)": (AnDE(n_dependence=1, mean="geometric"), "goldenrod", "^"),
 }
 for model, _, _ in models.values():
     model.fit(X_train, y_train)

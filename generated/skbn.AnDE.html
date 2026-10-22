@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>AnDE &#8212; scikit-bayes 1.2.1.dev2+g2ff033f79 documentation</title>
+    <title>AnDE &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=2dcee87c"></script>
+    <script src="../_static/documentation_options.js?v=3fad9bd4"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
@@ -53,11 +53,11 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'generated/skbn.AnDE';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="AnJE" href="skbn.AnJE.html" />
+    <link rel="next" title="WeightedAnDE" href="skbn.WeightedAnDE.html" />
     <link rel="prev" title="MixedNB" href="skbn.MixedNB.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.2.1" />
+  <meta name="docsearch:version" content="1.2.2" />
   </head>
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
-    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
   
   
 </a></div>
@@ -330,9 +330,14 @@
 </ul>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">AnDE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.WeightedAnDE.html">WeightedAnDE</a></li>
+</ul>
+<ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.AnJE.html">AnJE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="skbn.ALR.html">ALR</a></li>
-<li class="toctree-l1"><a class="reference internal" href="skbn.WeightedAnDE.html">WeightedAnDE</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="skbn.TAN.html">TAN</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.utils.discovery.all_estimators.html">skbn.utils.discovery.all_estimators</a></li>
@@ -402,13 +407,19 @@
 <h1>AnDE<a class="headerlink" href="#ande" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="skbn.AnDE">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">skbn.</span></span><span class="sig-name descname"><span class="pre">AnDE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_dependence</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'quantile'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">categorical_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bernoulli_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_prior_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_parent_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unseen_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'laplace'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.AnDE" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">skbn.</span></span><span class="sig-name descname"><span class="pre">AnDE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_dependence</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'quantile'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">categorical_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bernoulli_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_prior_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_parent_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unseen_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'laplace'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'arithmetic'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.AnDE" title="Link to this definition">#</a></dt>
 <dd><p>Averaged n-Dependence Estimators (AnDE) [Generative].</p>
-<p>This is the standard generative model described by Webb et al. [1].
-It aggregates the predictions of sub-models (SPODEs) using an <strong>Arithmetic Mean</strong>
-of their joint probabilities.</p>
+<p>This is the generative model described by Webb et al. <a href="#id3"><span class="problematic" id="id1">[1]_</span></a>: an ensemble of
+SPnDEs whose joint probabilities are pooled with the <strong>arithmetic mean</strong>,</p>
 <div class="math notranslate nohighlight">
-\[P(y|x) \propto \frac{1}{|M|} \sum_{i} P_i(y, x)\]</div>
+\[P(y|x) \propto \frac{1}{|M|} \sum_{m} P_m(y, x).\]</div>
+<p>With <code class="docutils literal notranslate"><span class="pre">mean=&quot;geometric&quot;</span></code> the joints are pooled with the geometric mean
+instead, <span class="math notranslate nohighlight">\(P(y|x) \propto \prod_m P_m(y, x)^{1/|M|}\)</span>. This
+logarithmic pool of SPnDEs is not the AnJE of Zaidi et al. <a href="#id4"><span class="problematic" id="id2">[4]_</span></a>, which
+pools n-joins <span class="math notranslate nohighlight">\(P(x_\alpha | y)\)</span> (see <a class="reference internal" href="skbn.AnJE.html#skbn.AnJE" title="skbn.AnJE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.AnJE</span></code></a>); for
+<code class="docutils literal notranslate"><span class="pre">n_dependence=1</span></code> it equals
+<span class="math notranslate nohighlight">\(P(y) \prod_{i&lt;j} P(x_i, x_j | y)^{2/a} \prod_i P(x_i | y)^{-(a-2)/a}\)</span>
+on discrete data.</p>
 <p>This implementation extends the original AnDE by supporting <strong>mixed data types</strong>
 (Gaussian/Categorical) through the Super-Class strategy.</p>
 <dl class="field-list simple">
@@ -423,6 +434,8 @@ of their joint probabilities.</p>
 <dt><strong>strategy</strong><span class="classifier">str, default=’quantile’</span></dt><dd><p>Discretization strategy.</p>
 </dd>
 <dt><strong>alpha</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Smoothing parameter.</p>
+</dd>
+<dt><strong>mean</strong><span class="classifier">{“arithmetic”, “geometric”}, default=”arithmetic”</span></dt><dd><p>Pooling of the components’ joint probabilities.</p>
 </dd>
 </dl>
 </dd>
@@ -626,8 +639,8 @@ parameters and not others.</p>
 </div><div class="sphx-glr-thumbcontainer" tooltip="To visualize the 3D decision boundaries clearly, we plot a dense cloud of points (voxels) colored by the predicted class probability."><img alt="" src="../_images/sphx_glr_08_plot_a2de_xor_3d_thumb.png" />
 <p><a class="reference internal" href="../auto_examples/ande/08_plot_a2de_xor_3d.html"><span class="doc">3D Voxel-Cloud Visualization: XOR Structure</span></a></p>
   <div class="sphx-glr-thumbnail-title">3D Voxel-Cloud Visualization: XOR Structure</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="skbn.AnDE and skbn.AnJE fit exactly the same components. They differ only in how they combine them:"><img alt="" src="../_images/sphx_glr_09_plot_ande_vs_anje_thumb.png" />
-<p><a class="reference internal" href="../auto_examples/ande/09_plot_ande_vs_anje.html"><span class="doc">Arithmetic or Geometric Mean: A Sensor That Fails</span></a></p>
+</div><div class="sphx-glr-thumbcontainer" tooltip="skbn.AnDE can pool its components in two ways:"><img alt="" src="../_images/sphx_glr_09_plot_arithmetic_vs_geometric_mean_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/ande/09_plot_arithmetic_vs_geometric_mean.html"><span class="doc">Arithmetic or Geometric Mean: A Sensor That Fails</span></a></p>
   <div class="sphx-glr-thumbnail-title">Arithmetic or Geometric Mean: A Sensor That Fails</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="An AnDE component estimates one distribution per combination of class and super-parent value. When a combination is rare, or never appears in the training data, that estimate is unreliable. Two parameters control what the ensemble does about it."><img alt="" src="../_images/sphx_glr_10_plot_unseen_states_thumb.png" />
 <p><a class="reference internal" href="../auto_examples/ande/10_plot_unseen_states.html"><span class="doc">Rare and Unseen Parent Values</span></a></p>
@@ -635,13 +648,13 @@ parameters and not others.</p>
 </div><div class="sphx-glr-thumbcontainer" tooltip="An AnDE of order $n$ has one component for every set of $n$ attributes, so an ensemble over $d$ attributes has $\binom{d}{n}$ components:"><img alt="" src="../_images/sphx_glr_11_plot_order_cost_thumb.png" />
 <p><a class="reference internal" href="../auto_examples/ande/11_plot_order_cost.html"><span class="doc">The Cost of the Order of Dependence</span></a></p>
   <div class="sphx-glr-thumbnail-title">The Cost of the Order of Dependence</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This experiment compares the full hierarchy of parameter granularity in ALR."><img alt="" src="../_images/sphx_glr_12_plot_compare_ande_variants_thumb.png" />
-<p><a class="reference internal" href="../auto_examples/hybrid/12_plot_compare_ande_variants.html"><span class="doc">Data Efficiency &amp; Complexity: Generative vs. Hybrid Levels (L1-L4)</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Data Efficiency & Complexity: Generative vs. Hybrid Levels (L1-L4)</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates the &quot;Embedded Feature Selection&quot; capability of Hybrid AnDE models (ALR)."><img alt="" src="../_images/sphx_glr_13_plot_compare_ande_interpretability_thumb.png" />
-<p><a class="reference internal" href="../auto_examples/hybrid/13_plot_compare_ande_interpretability.html"><span class="doc">Interpreting ALR: Automatic Feature Selection via Weights</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Interpreting ALR: Automatic Feature Selection via Weights</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="A classifier is calibrated when, among the instances to which it gives a probability of 0.8, about 80% belong to the predicted class. This example draws the reliability diagrams of four models of the library."><img alt="" src="../_images/sphx_glr_14_plot_calibration_thumb.png" />
+</div><div class="sphx-glr-thumbcontainer" tooltip="skbn.WeightedAnDE learns discriminative weights on top of AnDE. weight_scope decides what a weight multiplies:"><img alt="" src="../_images/sphx_glr_12_plot_weight_scope_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/hybrid/12_plot_weight_scope.html"><span class="doc">Component or Factor Weights: Data Efficiency and Cost</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Component or Factor Weights: Data Efficiency and Cost</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="This example shows how the component weights of skbn.WeightedAnDE act as an embedded feature selection. With weight_level=1 every SPODE, identified by its super-parent, gets one weight; with the geometric mean (``mean=&quot;geometric&quot;``) the weights scale the log-joints of the SPODEs and stay non-negative, so they read as the importance of each super-parent."><img alt="" src="../_images/sphx_glr_13_plot_compare_ande_interpretability_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/hybrid/13_plot_compare_ande_interpretability.html"><span class="doc">Interpreting Component Weights: Feature Selection via Weights</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Interpreting Component Weights: Feature Selection via Weights</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="A classifier is calibrated when, among the instances to which it gives a probability of 0.8, about 80% belong to the predicted class. This example draws the reliability diagrams of five models of the library."><img alt="" src="../_images/sphx_glr_14_plot_calibration_thumb.png" />
 <p><a class="reference internal" href="../auto_examples/hybrid/14_plot_calibration.html"><span class="doc">Calibration: Generative vs Hybrid Models</span></a></p>
   <div class="sphx-glr-thumbnail-title">Calibration: Generative vs Hybrid Models</div>
 </div></div><div style='clear:both'></div></section>
@@ -667,11 +680,11 @@ parameters and not others.</p>
       </div>
     </a>
     <a class="right-next"
-       href="skbn.AnJE.html"
+       href="skbn.WeightedAnDE.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">AnJE</p>
+        <p class="prev-next-title">WeightedAnDE</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

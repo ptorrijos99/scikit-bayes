@@ -145,7 +145,7 @@ mode C as $x$ moves from the region of class 0 to the region of class 1.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 0.097 seconds)
+   **Total running time of the script:** (0 minutes 0.186 seconds)
 
 
 .. _sphx_glr_download_auto_examples_ande_10_plot_unseen_states.py:

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Calibration: Generative vs Hybrid Models &#8212; scikit-bayes 1.2.1.dev2+g2ff033f79 documentation</title>
+    <title>Calibration: Generative vs Hybrid Models &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=2dcee87c"></script>
+    <script src="../../_static/documentation_options.js?v=3fad9bd4"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
@@ -53,10 +53,10 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="Discretization" href="../discretization/index.html" />
-    <link rel="prev" title="Interpreting ALR: Automatic Feature Selection via Weights" href="13_plot_compare_ande_interpretability.html" />
+    <link rel="prev" title="Interpreting Component Weights: Feature Selection via Weights" href="13_plot_compare_ande_interpretability.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.2.1" />
+  <meta name="docsearch:version" content="1.2.2" />
   </head>
   
   
@@ -122,8 +122,8 @@
       
     
     
-    <img src="../../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
-    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
+    <img src="../../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
   
   
 </a></div>
@@ -337,14 +337,18 @@
 <li class="toctree-l2"><a class="reference internal" href="../ande/06_plot_aode_xor.html">Solving the XOR Problem: AnDE vs Naive Bayes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ande/07_plot_a2de_xor_slice.html">Analytic View: 2D Slice of the 3D XOR Problem</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ande/08_plot_a2de_xor_3d.html">3D Voxel-Cloud Visualization: XOR Structure</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../ande/09_plot_ande_vs_anje.html">Arithmetic or Geometric Mean: A Sensor That Fails</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ande/09_plot_arithmetic_vs_geometric_mean.html">Arithmetic or Geometric Mean: A Sensor That Fails</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ande/10_plot_unseen_states.html">Rare and Unseen Parent Values</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ande/11_plot_order_cost.html">The Cost of the Order of Dependence</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../tan/index.html">Tree Augmented Naive Bayes</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tan/17_plot_tan_structure.html">Learning the Tree: TAN vs Naive Bayes</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Hybrid Models</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="12_plot_compare_ande_variants.html">Data Efficiency &amp; Complexity: Generative vs. Hybrid Levels (L1-L4)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="13_plot_compare_ande_interpretability.html">Interpreting ALR: Automatic Feature Selection via Weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="12_plot_weight_scope.html">Component or Factor Weights: Data Efficiency and Cost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="13_plot_compare_ande_interpretability.html">Interpreting Component Weights: Feature Selection via Weights</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Calibration: Generative vs Hybrid Models</a></li>
 </ul>
 </details></li>
@@ -428,7 +432,7 @@ to download the full example code.</p>
 <span id="sphx-glr-auto-examples-hybrid-14-plot-calibration-py"></span><h1>Calibration: Generative vs Hybrid Models<a class="headerlink" href="#calibration-generative-vs-hybrid-models" title="Link to this heading">#</a></h1>
 <p>A classifier is calibrated when, among the instances to which it gives a
 probability of 0.8, about 80% belong to the predicted class. This example
-draws the reliability diagrams of four models of the library.</p>
+draws the reliability diagrams of five models of the library.</p>
 <p><strong>The Scenario:</strong>
 A binary problem with a few informative attributes and many redundant
 copies of them. Redundant attributes are counted several times by a model
@@ -438,17 +442,23 @@ that assumes independence, which pushes its probabilities towards 0 and 1.</p>
 <li><p><a class="reference internal" href="../../generated/skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.MixedNB</span></code></a>: Naive Bayes, the most affected.</p></li>
 <li><p><a class="reference internal" href="../../generated/skbn.AnDE.html#skbn.AnDE" title="skbn.AnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.AnDE</span></code></a>: conditioning on a super-parent absorbs part of the
 redundancy.</p></li>
-<li><p><a class="reference internal" href="../../generated/skbn.AnJE.html#skbn.AnJE" title="skbn.AnJE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.AnJE</span></code></a>: the geometric ensemble, more extreme than AnDE.</p></li>
-<li><p><a class="reference internal" href="../../generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.ALR</span></code></a>: the same components as AnJE with discriminatively
-learned weights, which rescale the over-counted evidence.</p></li>
+<li><p><a class="reference internal" href="../../generated/skbn.WeightedAnDE.html#skbn.WeightedAnDE" title="skbn.WeightedAnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.WeightedAnDE</span></code></a> with component weights: one weight per SPODE
+and class. It decides how much each SPODE is trusted, but every SPODE
+still counts the redundant children several times.</p></li>
+<li><p><a class="reference internal" href="../../generated/skbn.WeightedAnDE.html#skbn.WeightedAnDE" title="skbn.WeightedAnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.WeightedAnDE</span></code></a> with factor weights: one weight per factor,
+value and class inside each SPODE, which can discount each redundant
+child.</p></li>
+<li><p><a class="reference internal" href="../../generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.ALR</span></code></a>: one weight per pair of attributes over the pairwise
+joins of the AnJE, which also discounts redundant pairs.</p></li>
 </ol>
 <p>A curve below the diagonal on the right and above it on the left means
 overconfidence. The histograms show how often each model predicts each
 probability.</p>
-<img src="../../_images/sphx_glr_14_plot_calibration_001.png" srcset="../../_images/sphx_glr_14_plot_calibration_001.png" alt="Redundant Attributes Make Generative Models Overconfident, Reliability Diagram, Distribution of the Predicted Probabilities" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Naive Bayes  log loss 0.844   Brier 0.259
-AnDE (n=1)   log loss 0.530   Brier 0.169
-AnJE (n=1)   log loss 0.619   Brier 0.180
-ALR (n=1)    log loss 0.472   Brier 0.153
+<img src="../../_images/sphx_glr_14_plot_calibration_001.png" srcset="../../_images/sphx_glr_14_plot_calibration_001.png" alt="Redundant Attributes Make Generative Models Overconfident, Reliability Diagram, Distribution of the Predicted Probabilities" class = "sphx-glr-single-img"/><div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Naive Bayes        log loss 0.844   Brier 0.259
+AnDE               log loss 0.530   Brier 0.169
+Component Weights  log loss 0.478   Brier 0.154
+Factor Weights     log loss 0.398   Brier 0.122
+ALR (Pairs)        log loss 0.434   Brier 0.136
 </pre></div>
 </div>
 <div class="line-block">
@@ -464,7 +474,7 @@ ALR (n=1)    log loss 0.472   Brier 0.153
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.brier_score_loss.html#sklearn.metrics.brier_score_loss" title="sklearn.metrics.brier_score_loss" class="sphx-glr-backref-module-sklearn-metrics sphx-glr-backref-type-py-function"><span class="n">brier_score_loss</span></a><span class="p">,</span> <a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html#sklearn.metrics.log_loss" title="sklearn.metrics.log_loss" class="sphx-glr-backref-module-sklearn-metrics sphx-glr-backref-type-py-function"><span class="n">log_loss</span></a>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <a href="https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html#sklearn.model_selection.train_test_split" title="sklearn.model_selection.train_test_split" class="sphx-glr-backref-module-sklearn-model_selection sphx-glr-backref-type-py-function"><span class="n">train_test_split</span></a>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <a href="../../generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">ALR</span></a><span class="p">,</span> <a href="../../generated/skbn.AnDE.html#skbn.AnDE" title="skbn.AnDE" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">AnDE</span></a><span class="p">,</span> <a href="../../generated/skbn.AnJE.html#skbn.AnJE" title="skbn.AnJE" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">AnJE</span></a><span class="p">,</span> <a href="../../generated/skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">MixedNB</span></a>
+<span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <a href="../../generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">ALR</span></a><span class="p">,</span> <a href="../../generated/skbn.AnDE.html#skbn.AnDE" title="skbn.AnDE" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">AnDE</span></a><span class="p">,</span> <a href="../../generated/skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">MixedNB</span></a><span class="p">,</span> <a href="../../generated/skbn.WeightedAnDE.html#skbn.WeightedAnDE" title="skbn.WeightedAnDE" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">WeightedAnDE</span></a>
 
 <span class="c1"># --- 1. Generate Data with Redundant Attributes ---</span>
 <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">X</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">y</span></a> <span class="o">=</span> <a href="https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_classification.html#sklearn.datasets.make_classification" title="sklearn.datasets.make_classification" class="sphx-glr-backref-module-sklearn-datasets sphx-glr-backref-type-py-function"><span class="n">make_classification</span></a><span class="p">(</span>
@@ -484,17 +494,22 @@ ALR (n=1)    log loss 0.472   Brier 0.153
 <span class="c1"># --- 2. Fit Models ---</span>
 <a href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="builtins.dict" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">models</span></a> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;Naive Bayes&quot;</span><span class="p">:</span> <span class="p">(</span><a href="../../generated/skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">MixedNB</span></a><span class="p">(),</span> <span class="s2">&quot;gray&quot;</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">),</span>
-    <span class="s2">&quot;AnDE (n=1)&quot;</span><span class="p">:</span> <span class="p">(</span><a href="../../generated/skbn.AnDE.html#skbn.AnDE" title="skbn.AnDE" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">AnDE</span></a><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;teal&quot;</span><span class="p">,</span> <span class="s2">&quot;o&quot;</span><span class="p">),</span>
-    <span class="s2">&quot;AnJE (n=1)&quot;</span><span class="p">:</span> <span class="p">(</span><a href="../../generated/skbn.AnJE.html#skbn.AnJE" title="skbn.AnJE" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">AnJE</span></a><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;goldenrod&quot;</span><span class="p">,</span> <span class="s2">&quot;^&quot;</span><span class="p">),</span>
-    <span class="s2">&quot;ALR (n=1)&quot;</span><span class="p">:</span> <span class="p">(</span><a href="../../generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">ALR</span></a><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weight_level</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">l2_reg</span><span class="o">=</span><span class="mf">1.0</span><span class="p">),</span> <span class="s2">&quot;indigo&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;AnDE&quot;</span><span class="p">:</span> <span class="p">(</span><a href="../../generated/skbn.AnDE.html#skbn.AnDE" title="skbn.AnDE" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">AnDE</span></a><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;teal&quot;</span><span class="p">,</span> <span class="s2">&quot;o&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;Component Weights&quot;</span><span class="p">:</span> <span class="p">(</span><a href="../../generated/skbn.WeightedAnDE.html#skbn.WeightedAnDE" title="skbn.WeightedAnDE" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">WeightedAnDE</span></a><span class="p">(</span><span class="n">weight_level</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span> <span class="s2">&quot;sandybrown&quot;</span><span class="p">,</span> <span class="s2">&quot;^&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;Factor Weights&quot;</span><span class="p">:</span> <span class="p">(</span>
+        <a href="../../generated/skbn.WeightedAnDE.html#skbn.WeightedAnDE" title="skbn.WeightedAnDE" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">WeightedAnDE</span></a><span class="p">(</span><span class="n">weight_scope</span><span class="o">=</span><span class="s2">&quot;factor&quot;</span><span class="p">,</span> <span class="n">weight_level</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+        <span class="s2">&quot;mediumseagreen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;v&quot;</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="s2">&quot;ALR (Pairs)&quot;</span><span class="p">:</span> <span class="p">(</span><a href="../../generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class"><span class="n">ALR</span></a><span class="p">(</span><span class="n">n_join</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">weight_level</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;indigo&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">),</span>
 <span class="p">}</span>
 
 <a href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="builtins.dict" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">probas</span></a> <span class="o">=</span> <span class="p">{}</span>
 <span class="k">for</span> <a href="https://docs.python.org/3/builtins/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">name</span></a><span class="p">,</span> <span class="p">(</span><a href="../../generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">model</span></a><span class="p">,</span> <a href="../../generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">_</span></a><span class="p">,</span> <a href="../../generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">_</span></a><span class="p">)</span> <span class="ow">in</span> <a href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="builtins.dict" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">models</span></a><span class="o">.</span><span class="n">items</span><span class="p">():</span>
     <a href="../../generated/skbn.ALR.html#skbn.ALR.fit" title="skbn.ALR.fit" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-method"><span class="n">model</span><span class="o">.</span><span class="n">fit</span></a><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">X_train</span></a><span class="p">,</span> <a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">y_train</span></a><span class="p">)</span>
-    <a href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="builtins.dict" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">probas</span></a><span class="p">[</span><a href="https://docs.python.org/3/builtins/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">name</span></a><span class="p">]</span> <span class="o">=</span> <a href="../../generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">model</span></a><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">X_test</span></a><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
+    <a href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="builtins.dict" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">probas</span></a><span class="p">[</span><a href="https://docs.python.org/3/builtins/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">name</span></a><span class="p">]</span> <span class="o">=</span> <a href="../../generated/skbn.ALR.html#skbn.ALR.predict_proba" title="skbn.ALR.predict_proba" class="sphx-glr-backref-module-skbn sphx-glr-backref-type-py-method"><span class="n">model</span><span class="o">.</span><span class="n">predict_proba</span></a><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">X_test</span></a><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
     <span class="nb">print</span><span class="p">(</span>
-        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><a href="https://docs.python.org/3/builtins/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">name</span></a><span class="si">:</span><span class="s2">12s</span><span class="si">}</span><span class="s2"> log loss </span><span class="si">{</span><a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html#sklearn.metrics.log_loss" title="sklearn.metrics.log_loss" class="sphx-glr-backref-module-sklearn-metrics sphx-glr-backref-type-py-function"><span class="n">log_loss</span></a><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">y_test</span></a><span class="p">,</span><span class="w"> </span><a href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="builtins.dict" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">probas</span></a><span class="p">[</span><a href="https://docs.python.org/3/builtins/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">name</span></a><span class="p">])</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">   &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><a href="https://docs.python.org/3/builtins/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">name</span></a><span class="si">:</span><span class="s2">18s</span><span class="si">}</span><span class="s2"> log loss </span><span class="si">{</span><a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html#sklearn.metrics.log_loss" title="sklearn.metrics.log_loss" class="sphx-glr-backref-module-sklearn-metrics sphx-glr-backref-type-py-function"><span class="n">log_loss</span></a><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">y_test</span></a><span class="p">,</span><span class="w"> </span><a href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="builtins.dict" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">probas</span></a><span class="p">[</span><a href="https://docs.python.org/3/builtins/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">name</span></a><span class="p">])</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">   &quot;</span>
         <span class="sa">f</span><span class="s2">&quot;Brier </span><span class="si">{</span><a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.brier_score_loss.html#sklearn.metrics.brier_score_loss" title="sklearn.metrics.brier_score_loss" class="sphx-glr-backref-module-sklearn-metrics sphx-glr-backref-type-py-function"><span class="n">brier_score_loss</span></a><span class="p">(</span><a href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="numpy.ndarray" class="sphx-glr-backref-module-numpy sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">y_test</span></a><span class="p">,</span><span class="w"> </span><a href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="builtins.dict" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">probas</span></a><span class="p">[</span><a href="https://docs.python.org/3/builtins/stdtypes.html#str" title="builtins.str" class="sphx-glr-backref-module-builtins sphx-glr-backref-type-py-class sphx-glr-backref-instance"><span class="n">name</span></a><span class="p">])</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span>
     <span class="p">)</span>
 
@@ -541,7 +556,7 @@ ALR (n=1)    log loss 0.472   Brier 0.153
 <a href="https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.show.html#matplotlib.pyplot.show" title="matplotlib.pyplot.show" class="sphx-glr-backref-module-matplotlib-pyplot sphx-glr-backref-type-py-function"><span class="n">plt</span><span class="o">.</span><span class="n">show</span></a><span class="p">()</span>
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 0.374 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 6.500 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-hybrid-14-plot-calibration-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/5a0832edc89a8910eaf604fb8f3abdd9/14_plot_calibration.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">14_plot_calibration.ipynb</span></code></a></p>
@@ -572,7 +587,7 @@ ALR (n=1)    log loss 0.472   Brier 0.153
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Interpreting ALR: Automatic Feature Selection via Weights</p>
+        <p class="prev-next-title">Interpreting Component Weights: Feature Selection via Weights</p>
       </div>
     </a>
     <a class="right-next"

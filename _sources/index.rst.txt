@@ -20,6 +20,7 @@ of higher-order and hybrid Bayesian models that are missing from the core librar
 
 * **MixedNB**: Naive Bayes for mixed data types (Gaussian, Categorical, Bernoulli)
 * **AnDE Family**: Averaged n-Dependence Estimators that relax the independence assumption
+* **TAN**: Tree Augmented Naive Bayes with a Chow-Liu tree of attribute dependencies
 * **Hybrid Models**: ALR and WeightedAnDE for discriminative learning
 
 

@@ -88,14 +88,14 @@ how their components are combined, and what the order of dependence costs.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="skbn.AnDE and skbn.AnJE fit exactly the same components. They differ only in how they combine them:">
+    <div class="sphx-glr-thumbcontainer" tooltip="skbn.AnDE can pool its components in two ways:">
 
 .. only:: html
 
-  .. image:: /auto_examples/ande/images/thumb/sphx_glr_09_plot_ande_vs_anje_thumb.png
+  .. image:: /auto_examples/ande/images/thumb/sphx_glr_09_plot_arithmetic_vs_geometric_mean_thumb.png
     :alt:
 
-  :doc:`/auto_examples/ande/09_plot_ande_vs_anje`
+  :doc:`/auto_examples/ande/09_plot_arithmetic_vs_geometric_mean`
 
 .. raw:: html
 
@@ -151,7 +151,7 @@ how their components are combined, and what the order of dependence costs.
    /auto_examples/ande/06_plot_aode_xor
    /auto_examples/ande/07_plot_a2de_xor_slice
    /auto_examples/ande/08_plot_a2de_xor_3d
-   /auto_examples/ande/09_plot_ande_vs_anje
+   /auto_examples/ande/09_plot_arithmetic_vs_geometric_mean
    /auto_examples/ande/10_plot_unseen_states
    /auto_examples/ande/11_plot_order_cost
 

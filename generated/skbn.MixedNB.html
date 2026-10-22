@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>MixedNB &#8212; scikit-bayes 1.2.1.dev2+g2ff033f79 documentation</title>
+    <title>MixedNB &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=2dcee87c"></script>
+    <script src="../_static/documentation_options.js?v=3fad9bd4"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
@@ -56,7 +56,7 @@
     <link rel="prev" title="API Reference" href="../api.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.2.1" />
+  <meta name="docsearch:version" content="1.2.2" />
   </head>
   
   
@@ -122,8 +122,8 @@
       
     
     
-    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
-    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
   
   
 </a></div>
@@ -329,9 +329,14 @@
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.AnDE.html">AnDE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.WeightedAnDE.html">WeightedAnDE</a></li>
+</ul>
+<ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.AnJE.html">AnJE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="skbn.ALR.html">ALR</a></li>
-<li class="toctree-l1"><a class="reference internal" href="skbn.WeightedAnDE.html">WeightedAnDE</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="skbn.TAN.html">TAN</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.utils.discovery.all_estimators.html">skbn.utils.discovery.all_estimators</a></li>
@@ -780,7 +785,10 @@ parameters and not others.</p>
 </div><div class="sphx-glr-thumbcontainer" tooltip="To visualize the 3D decision boundaries clearly, we plot a dense cloud of points (voxels) colored by the predicted class probability."><img alt="" src="../_images/sphx_glr_08_plot_a2de_xor_3d_thumb.png" />
 <p><a class="reference internal" href="../auto_examples/ande/08_plot_a2de_xor_3d.html"><span class="doc">3D Voxel-Cloud Visualization: XOR Structure</span></a></p>
   <div class="sphx-glr-thumbnail-title">3D Voxel-Cloud Visualization: XOR Structure</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="A classifier is calibrated when, among the instances to which it gives a probability of 0.8, about 80% belong to the predicted class. This example draws the reliability diagrams of four models of the library."><img alt="" src="../_images/sphx_glr_14_plot_calibration_thumb.png" />
+</div><div class="sphx-glr-thumbcontainer" tooltip="skbn.TAN (Tree Augmented Naive Bayes) lets every attribute depend on the class and on at most one other attribute. The dependencies form a tree, learned from the data with the Chow-Liu procedure: the conditional mutual information $I(A_i; A_j \mid C)$ is computed for every pair of attributes, and the tree of maximum total weight is kept."><img alt="" src="../_images/sphx_glr_17_plot_tan_structure_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/tan/17_plot_tan_structure.html"><span class="doc">Learning the Tree: TAN vs Naive Bayes</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Learning the Tree: TAN vs Naive Bayes</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="A classifier is calibrated when, among the instances to which it gives a probability of 0.8, about 80% belong to the predicted class. This example draws the reliability diagrams of five models of the library."><img alt="" src="../_images/sphx_glr_14_plot_calibration_thumb.png" />
 <p><a class="reference internal" href="../auto_examples/hybrid/14_plot_calibration.html"><span class="doc">Calibration: Generative vs Hybrid Models</span></a></p>
   <div class="sphx-glr-thumbnail-title">Calibration: Generative vs Hybrid Models</div>
 </div></div><div style='clear:both'></div></section>

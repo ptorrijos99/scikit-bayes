@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>WeightedAnDE &#8212; scikit-bayes 1.2.1.dev2+g2ff033f79 documentation</title>
+    <title>WeightedAnDE &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=2dcee87c"></script>
+    <script src="../_static/documentation_options.js?v=3fad9bd4"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
@@ -53,11 +53,11 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'generated/skbn.WeightedAnDE';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="skbn.utils.discovery.all_estimators" href="skbn.utils.discovery.all_estimators.html" />
-    <link rel="prev" title="ALR" href="skbn.ALR.html" />
+    <link rel="next" title="AnJE" href="skbn.AnJE.html" />
+    <link rel="prev" title="AnDE" href="skbn.AnDE.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.2.1" />
+  <meta name="docsearch:version" content="1.2.2" />
   </head>
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
-    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.1.dev2+g2ff033f79 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
   
   
 </a></div>
@@ -330,9 +330,14 @@
 </ul>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.AnDE.html">AnDE</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">WeightedAnDE</a></li>
+</ul>
+<ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.AnJE.html">AnJE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="skbn.ALR.html">ALR</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">WeightedAnDE</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="skbn.TAN.html">TAN</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.utils.discovery.all_estimators.html">skbn.utils.discovery.all_estimators</a></li>
@@ -402,44 +407,134 @@
 <h1>WeightedAnDE<a class="headerlink" href="#weightedande" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="skbn.WeightedAnDE">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">skbn.</span></span><span class="sig-name descname"><span class="pre">WeightedAnDE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_dependence</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'quantile'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">l2_reg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">categorical_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bernoulli_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">modular</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_prior_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_parent_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unseen_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'laplace'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedAnDE" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">skbn.</span></span><span class="sig-name descname"><span class="pre">WeightedAnDE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_dependence</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'quantile'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">categorical_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bernoulli_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_prior_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_parent_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unseen_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'laplace'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'arithmetic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">average</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'joint'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_scope</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'component'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">l2_reg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">modular</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedAnDE" title="Link to this definition">#</a></dt>
 <dd><p>Weighted Averaged n-Dependence Estimators (WeightedAnDE) [Hybrid].</p>
-<p>A discriminative weighting of the standard AnDE (Arithmetic Mean) ensemble:</p>
+<p>Discriminative weights learned on top of the generative AnDE by maximising
+the conditional log-likelihood with L-BFGS-B, pre-conditioned by the
+generative parameters (the weights start at, and are regularized towards,
+the generative model). <code class="docutils literal notranslate"><span class="pre">weight_scope</span></code> sets what each weight multiplies
+and <code class="docutils literal notranslate"><span class="pre">mean</span></code> how the components are pooled.</p>
+<p><strong>Component weights</strong> (<code class="docutils literal notranslate"><span class="pre">weight_scope=&quot;component&quot;</span></code>) weight each SPnDE as a
+whole. With the arithmetic mean they are mixture coefficients,</p>
 <div class="math notranslate nohighlight">
-\[s(y, x) = \log \sum_m w_m(y, x) P_m(y, x).\]</div>
-<p>Weights are optimized in log-space (<code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">exp(theta)</span></code>). Jointly fitting
-all components is non-convex; in <code class="docutils literal notranslate"><span class="pre">modular</span></code> mode each component is fitted
-on its own conditional log-likelihood, which is convex in <code class="docutils literal notranslate"><span class="pre">theta</span></code>. In
-modular mode only class-specific levels (3 and 4) are identifiable; levels
-1 and 2 reduce to the generative AnDE.</p>
-<p>Supports 4 Levels of Weight Granularity (from coarsest to finest):
-1. Per Model (Default) - One weight per ensemble member.
-2. Per Parent Value - One weight per parent feature value.
-3. Per Class - One weight per target class per model.
-4. Per Parent Value &amp; Class - One weight per parent value per class.</p>
-<dl class="field-list simple">
+\[s(y, x) = \log \sum_m w_m(y, x_p)\, P_m(y, x),\]</div>
+<p>optimized in log-space (<code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">exp(theta)</span></code>); since
+<span class="math notranslate nohighlight">\(P_m = P(y, x_p) \prod_i P(x_i | y, x_p)\)</span>, level 4 is a
+discriminative re-estimation of each component’s root table
+<span class="math notranslate nohighlight">\(P(y, x_p)\)</span>, and the lower levels tie its entries. Level 3 is the
+per-SPODE, per-class weighting of EODE-CLL <a href="#id6"><span class="problematic" id="id1">[5]_</span></a> (without its attribute
+weights). With the geometric mean they scale each component’s log-joint,
+<span class="math notranslate nohighlight">\(s = \frac{1}{|M|} \sum_m w_m \log P_m(y, x)\)</span>, with non-negative
+weights. Component weights do not change how a component combines its
+attributes, so they cannot correct a dependence between children shared
+by every component (e.g. a duplicated attribute).</p>
+<p><strong>Factor weights</strong> (<code class="docutils literal notranslate"><span class="pre">weight_scope=&quot;factor&quot;</span></code>) apply the weighted CCBN of
+Zaidi et al. <a href="#id7"><span class="problematic" id="id2">[3]_</span></a> inside each SPnDE: every factor <code class="docutils literal notranslate"><span class="pre">f</span></code> of component <code class="docutils literal notranslate"><span class="pre">m</span></code>
+gets its own exponent, <span class="math notranslate nohighlight">\(P_m^w(y, x) = \prod_f \theta_f^{w_f}\)</span>, and
+the components are pooled as above. The root factor
+<span class="math notranslate nohighlight">\(P(y, x_p)\)</span> is weighted as one factor whose value is the parent
+instantiation.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">modular=True</span></code> the weights of each SPnDE are fitted on that
+component’s own conditional log-likelihood, a convex problem. Factor
+weights at level 4, fitted modularly and pooled with
+<code class="docutils literal notranslate"><span class="pre">average=&quot;posterior&quot;</span></code>, are the AnDE^w of FedAnDE <a class="reference internal" href="#r3bff78d0efa5-6" id="id3">[6]</a>: one wCCBN per
+SPnDE, whose posteriors are averaged. The joint fit of an arithmetic
+mixture is non-convex; the geometric mean gives a convex joint problem.</p>
+<p>Weight levels (variables indexing each weight, from coarsest to finest):</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Level</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">weight_scope=&quot;component&quot;</span></code></p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">weight_scope=&quot;factor&quot;</span></code> <a href="#id8"><span class="problematic" id="id4">[3]_</span></a></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>Component</p></td>
+<td><p>Factor</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>Component x parent value</p></td>
+<td><p>Factor x value</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>Component x class</p></td>
+<td><p>Factor x value x class</p></td>
+</tr>
+<tr class="row-odd"><td><p>4</p></td>
+<td><p>Component x class x parent value</p></td>
+<td><p>Factor x value x class x parents</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The value of a Gaussian child is not discretized, so its factor weights
+ignore the “value” dimension. Only the combinations that occur in training
+get a weight; the others share one weight that keeps its generative value,
+so the number of weights is bounded by the data, not by the cardinalities
+of the attributes. Factor weights keep the per-factor log-likelihoods of
+the training set in memory, about <code class="docutils literal notranslate"><span class="pre">12</span> <span class="pre">*</span> <span class="pre">n_samples</span> <span class="pre">*</span> <span class="pre">n_classes</span> <span class="pre">*</span>
+<span class="pre">n_models</span> <span class="pre">*</span> <span class="pre">(n_features</span> <span class="pre">-</span> <span class="pre">n_dependence</span> <span class="pre">+</span> <span class="pre">1)</span></code> bytes.</p>
+<dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl class="simple">
 <dt><strong>n_dependence</strong><span class="classifier">int, default=1</span></dt><dd><p>The number of parent features conditioned upon (n-dependence).
 0 corresponds to Naive Bayes topology.</p>
 </dd>
-<dt><strong>alpha</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Additive (Laplace/Lidstone) smoothing parameter for probabilities.</p>
-</dd>
 <dt><strong>n_bins</strong><span class="classifier">int, default=5</span></dt><dd><p>Maximum number of bins for discretization.</p>
 </dd>
-<dt><strong>weight_level</strong><span class="classifier">int, default=1</span></dt><dd><p>Granularity of weights (1-4).</p>
+<dt><strong>alpha</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Additive (Laplace/Lidstone) smoothing parameter for probabilities.</p>
 </dd>
-<dt><strong>l2_reg</strong><span class="classifier">float, default=1e-4</span></dt><dd><p>L2 regularization towards the generative solution (w = 1).</p>
+<dt><strong>mean</strong><span class="classifier">{“arithmetic”, “geometric”}, default=”arithmetic”</span></dt><dd><p>Pooling of the (weighted) components.</p>
+</dd>
+<dt><strong>average</strong><span class="classifier">{“joint”, “posterior”}, default=”joint”</span></dt><dd><p>What the arithmetic mean pools: the components’ weighted joints
+<span class="math notranslate nohighlight">\(P^w_m(y, x)\)</span>, as in AnDE, or their posteriors
+<span class="math notranslate nohighlight">\(P^w_m(y | x)\)</span>. Both give the same geometric mean. With
+<code class="docutils literal notranslate"><span class="pre">&quot;posterior&quot;</span></code> a class-independent component weight cancels, so
+arithmetic component weights need a class-specific level (3 or 4).</p>
+</dd>
+<dt><strong>weight_scope</strong><span class="classifier">{“component”, “factor”}, default=”component”</span></dt><dd><p>Whether a weight multiplies a whole component or one of its factors.</p>
+</dd>
+<dt><strong>weight_level</strong><span class="classifier">int, default=1</span></dt><dd><p>Granularity of weights (1-4, see the table above).</p>
+</dd>
+<dt><strong>l2_reg</strong><span class="classifier">float, default=1.0</span></dt><dd><p>L2 regularization towards the generative solution (w = 1), added to
+the summed conditional log-likelihood.</p>
 </dd>
 <dt><strong>max_iter</strong><span class="classifier">int, default=100</span></dt><dd><p>Maximum number of L-BFGS-B iterations.</p>
 </dd>
-<dt><strong>modular</strong><span class="classifier">bool, default=False</span></dt><dd><p>If True, the weights of each component are fitted independently.</p>
+<dt><strong>tol</strong><span class="classifier">float or None, default=None</span></dt><dd><p>Stopping tolerance of L-BFGS-B on the relative reduction of the
+objective and on the projected gradient; None uses SciPy’s defaults.</p>
+</dd>
+<dt><strong>modular</strong><span class="classifier">bool, default=False</span></dt><dd><p>If True, the weights of each component are fitted independently on
+that component’s own conditional log-likelihood, which is convex. With
+arithmetic component weights only the class-specific levels (3 and 4)
+are identifiable; levels 1 and 2 reduce to the generative AnDE.</p>
 </dd>
 <dt><strong>n_jobs</strong><span class="classifier">int, default=None</span></dt><dd><p>Number of parallel jobs to run during the generative phase.</p>
 </dd>
 </dl>
 </dd>
+<dt class="field-even">Attributes<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>coef_theta_</strong><span class="classifier">ndarray of shape (<a href="#id9"><span class="problematic" id="id10">n_weights_</span></a>,)</span></dt><dd><p>Optimized parameters (<code class="docutils literal notranslate"><span class="pre">log</span> <span class="pre">w</span></code> for arithmetic component weights).</p>
+</dd>
+<dt><strong>learned_weights_</strong><span class="classifier">ndarray of shape (<a href="#id11"><span class="problematic" id="id12">n_weights_</span></a>,)</span></dt><dd><p>Learned weights <code class="docutils literal notranslate"><span class="pre">w</span></code>.</p>
+</dd>
+<dt><strong>n_weights_</strong><span class="classifier">int</span></dt><dd><p>Number of weights, including the shared one for unseen combinations.</p>
+</dd>
+<dt><strong>n_iter_</strong><span class="classifier">int</span></dt><dd><p>Total number of L-BFGS-B iterations.</p>
+</dd>
 </dl>
+</dd>
+</dl>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="r3bff78d0efa5-6" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">6</a><span class="fn-bracket">]</span></span>
+<p>Torrijos, P., Gamez, J. A., &amp; Puerta, J. M. Federated averaged
+n-dependence estimators. Manuscript in preparation.</p>
+</div>
+</div>
 <p class="rubric">Methods</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
@@ -625,7 +720,19 @@ parameters and not others.</p>
 
 </dd></dl>
 
-<div style='clear:both'></div></section>
+<section id="examples-using-skbn-weightedande">
+<h2>Examples using <code class="docutils literal notranslate"><span class="pre">skbn.WeightedAnDE</span></code><a class="headerlink" href="#examples-using-skbn-weightedande" title="Link to this heading">#</a></h2>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="skbn.WeightedAnDE learns discriminative weights on top of AnDE. weight_scope decides what a weight multiplies:"><img alt="" src="../_images/sphx_glr_12_plot_weight_scope_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/hybrid/12_plot_weight_scope.html"><span class="doc">Component or Factor Weights: Data Efficiency and Cost</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Component or Factor Weights: Data Efficiency and Cost</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="This example shows how the component weights of skbn.WeightedAnDE act as an embedded feature selection. With weight_level=1 every SPODE, identified by its super-parent, gets one weight; with the geometric mean (``mean=&quot;geometric&quot;``) the weights scale the log-joints of the SPODEs and stay non-negative, so they read as the importance of each super-parent."><img alt="" src="../_images/sphx_glr_13_plot_compare_ande_interpretability_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/hybrid/13_plot_compare_ande_interpretability.html"><span class="doc">Interpreting Component Weights: Feature Selection via Weights</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Interpreting Component Weights: Feature Selection via Weights</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="A classifier is calibrated when, among the instances to which it gives a probability of 0.8, about 80% belong to the predicted class. This example draws the reliability diagrams of five models of the library."><img alt="" src="../_images/sphx_glr_14_plot_calibration_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/hybrid/14_plot_calibration.html"><span class="doc">Calibration: Generative vs Hybrid Models</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Calibration: Generative vs Hybrid Models</div>
+</div></div><div style='clear:both'></div></section>
+</section>
 
 
                 </article>
@@ -638,20 +745,20 @@ parameters and not others.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="skbn.ALR.html"
+       href="skbn.AnDE.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">ALR</p>
+        <p class="prev-next-title">AnDE</p>
       </div>
     </a>
     <a class="right-next"
-       href="skbn.utils.discovery.all_estimators.html"
+       href="skbn.AnJE.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">skbn.utils.discovery.all_estimators</p>
+        <p class="prev-next-title">AnJE</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -683,6 +790,7 @@ parameters and not others.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedAnDE.set_score_request"><code class="docutils literal notranslate"><span class="pre">WeightedAnDE.set_score_request()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-skbn-weightedande">Examples using <code class="docutils literal notranslate"><span class="pre">skbn.WeightedAnDE</span></code></a></li>
 </ul>
   </nav></div>
 

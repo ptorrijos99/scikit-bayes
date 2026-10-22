@@ -197,14 +197,14 @@ how their components are combined, and what the order of dependence costs.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="skbn.AnDE and skbn.AnJE fit exactly the same components. They differ only in how they combine them:">
+    <div class="sphx-glr-thumbcontainer" tooltip="skbn.AnDE can pool its components in two ways:">
 
 .. only:: html
 
-  .. image:: /auto_examples/ande/images/thumb/sphx_glr_09_plot_ande_vs_anje_thumb.png
+  .. image:: /auto_examples/ande/images/thumb/sphx_glr_09_plot_arithmetic_vs_geometric_mean_thumb.png
     :alt:
 
-  :doc:`/auto_examples/ande/09_plot_ande_vs_anje`
+  :doc:`/auto_examples/ande/09_plot_arithmetic_vs_geometric_mean`
 
 .. raw:: html
 
@@ -253,6 +253,44 @@ how their components are combined, and what the order of dependence costs.
     </div>
 
 
+Tree Augmented Naive Bayes
+--------------------------
+
+A single Bayesian network in which every attribute depends on the class and
+on at most one other attribute: how the tree is learned and what it captures.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="skbn.TAN (Tree Augmented Naive Bayes) lets every attribute depend on the class and on at most one other attribute. The dependencies form a tree, learned from the data with the Chow-Liu procedure: the conditional mutual information $I(A_i; A_j \mid C)$ is computed for every pair of attributes, and the tree of maximum total weight is kept.">
+
+.. only:: html
+
+  .. image:: /auto_examples/tan/images/thumb/sphx_glr_17_plot_tan_structure_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/tan/17_plot_tan_structure`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Learning the Tree: TAN vs Naive Bayes</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
 Hybrid Models
 -------------
 
@@ -269,24 +307,24 @@ the weights, their interpretation and their effect on calibration.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This experiment compares the full hierarchy of parameter granularity in ALR.">
+    <div class="sphx-glr-thumbcontainer" tooltip="skbn.WeightedAnDE learns discriminative weights on top of AnDE. weight_scope decides what a weight multiplies:">
 
 .. only:: html
 
-  .. image:: /auto_examples/hybrid/images/thumb/sphx_glr_12_plot_compare_ande_variants_thumb.png
+  .. image:: /auto_examples/hybrid/images/thumb/sphx_glr_12_plot_weight_scope_thumb.png
     :alt:
 
-  :doc:`/auto_examples/hybrid/12_plot_compare_ande_variants`
+  :doc:`/auto_examples/hybrid/12_plot_weight_scope`
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Data Efficiency & Complexity: Generative vs. Hybrid Levels (L1-L4)</div>
+      <div class="sphx-glr-thumbnail-title">Component or Factor Weights: Data Efficiency and Cost</div>
     </div>
 
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates the &quot;Embedded Feature Selection&quot; capability of Hybrid AnDE models (ALR).">
+    <div class="sphx-glr-thumbcontainer" tooltip="This example shows how the component weights of skbn.WeightedAnDE act as an embedded feature selection. With weight_level=1 every SPODE, identified by its super-parent, gets one weight; with the geometric mean (``mean=&quot;geometric&quot;``) the weights scale the log-joints of the SPODEs and stay non-negative, so they read as the importance of each super-parent.">
 
 .. only:: html
 
@@ -297,13 +335,13 @@ the weights, their interpretation and their effect on calibration.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Interpreting ALR: Automatic Feature Selection via Weights</div>
+      <div class="sphx-glr-thumbnail-title">Interpreting Component Weights: Feature Selection via Weights</div>
     </div>
 
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="A classifier is calibrated when, among the instances to which it gives a probability of 0.8, about 80% belong to the predicted class. This example draws the reliability diagrams of four models of the library.">
+    <div class="sphx-glr-thumbcontainer" tooltip="A classifier is calibrated when, among the instances to which it gives a probability of 0.8, about 80% belong to the predicted class. This example draws the reliability diagrams of five models of the library.">
 
 .. only:: html
 
@@ -406,6 +444,7 @@ Pipelines, preprocessing and model selection around the estimators.
 
    /auto_examples/mixednb/index.rst
    /auto_examples/ande/index.rst
+   /auto_examples/tan/index.rst
    /auto_examples/hybrid/index.rst
    /auto_examples/discretization/index.rst
    /auto_examples/integration/index.rst

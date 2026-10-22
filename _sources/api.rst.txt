@@ -25,16 +25,39 @@ Mixed Naive Bayes
 AnDE Family
 -----------
 
-Averaged n-Dependence Estimators and related classifiers.
+Averaged n-Dependence Estimators and their discriminative weighting.
 
 .. autosummary::
    :toctree: generated/
    :template: class.rst
 
    AnDE
+   WeightedAnDE
+
+AnJE Family
+-----------
+
+Averaged n-Join Estimators and Accelerated Logistic Regression.
+
+.. autosummary::
+   :toctree: generated/
+   :template: class.rst
+
    AnJE
    ALR
-   WeightedAnDE
+
+.. _tan_api:
+
+Tree Augmented Naive Bayes
+--------------------------
+
+Naive Bayes extended with a tree of dependencies between the attributes.
+
+.. autosummary::
+   :toctree: generated/
+   :template: class.rst
+
+   TAN
 
 
 Utilities
