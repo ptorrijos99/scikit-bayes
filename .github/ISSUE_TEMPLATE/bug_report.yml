@@ -1,0 +1,27 @@
+name: Bug report
+description: Something gives a wrong result, an error or a warning it should not
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproducer
+    attributes:
+      label: Minimal reproducer
+      description: A short, self-contained script that shows the problem.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `python -c "import sklearn; sklearn.show_versions(); import skbn; print(skbn.__version__)"`.
+      render: text
+    validations:
+      required: true

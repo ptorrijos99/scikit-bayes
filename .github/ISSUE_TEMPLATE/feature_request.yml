@@ -1,0 +1,16 @@
+name: Feature request
+description: A new model, option or improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What you would like to have, and the reference (paper, other implementation) if it is a model.
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: The use case it serves.

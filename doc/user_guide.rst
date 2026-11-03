@@ -67,13 +67,20 @@ MixedNB does this automatically.
 Feature Type Detection
 ----------------------
 
-MixedNB auto-detects feature types during ``fit()``:
+MixedNB types every feature not declared by the user during ``fit()``, from
+its training values. Every other estimator of the library uses the same rule
+through its class-level :class:`~skbn.MixedNB`, so a feature has the same type
+as a child and as a parent:
 
-* **Gaussian**: Float features with non-integer values
-* **Bernoulli**: Features with exactly 2 unique values
-* **Categorical**: Integer features with >2 unique values
+* **Ignored**: constant features, which carry no information.
+* **Bernoulli**: features with exactly 2 unique values.
+* **Categorical**: non-negative integer-valued features with 3 to 20 unique
+  values.
+* **Gaussian**: everything else, that is, fractional or negative values and
+  integer values with more than 20 distinct values (ages, counts, amounts).
 
-You can also specify types manually:
+The rule only looks at the values, so declaring the types is the safe choice
+whenever they are known, either as indices or as a boolean mask:
 
 .. code-block:: python
 
@@ -84,6 +91,21 @@ You can also specify types manually:
 
     # Force feature 1 to be Bernoulli
     clf = MixedNB(bernoulli_features=[1])
+
+    # The same as the first one, with a boolean mask
+    clf = MixedNB(categorical_features=[False, False, True, True])
+
+Each type is estimated as follows:
+
+* **Categorical** features are label-encoded on the values seen in training,
+  so the codes may be any numbers (negative, sparse or non-integer). A value
+  never seen in training contributes nothing to the prediction, as a missing
+  value would.
+* **Bernoulli** features are binarised as ``x > t``. When the training values
+  lie on both sides of 0, ``t = 0`` as in
+  :class:`~sklearn.naive_bayes.BernoulliNB`; otherwise ``t`` is the midpoint of
+  their range, so that two values such as {1, 2} stay apart.
+* **Gaussian** features with zero variance in training are ignored.
 
 Usage Example
 -------------
@@ -178,7 +200,7 @@ AnDE averages over all possible parent combinations.
 AnDE (Arithmetic Mean)
 ----------------------
 
-:class:`skbn.AnDE` is the standard generative model described by Webb et al. [1]_.
+:class:`skbn.AnDE` is the standard generative model described by Webb et al. [1]_ [2]_.
 
 .. math::
 
@@ -334,6 +356,42 @@ small datasets, and ``max_iter`` and ``tol`` stop the optimizer earlier.
 
     clf = AnJE(n_join=2)
     clf = ALR(n_join=2)  # as in Zaidi et al. (2016)
+    clf.fit(X, y)
+
+Gaussian children
+-----------------
+
+By the chain rule every (n+1)-join is a product of the factors of an SPnDE,
+:math:`P(x_\alpha | y) = P(x_P | y)\, P(x_j | y, x_P)` for each
+:math:`j \in \alpha` and :math:`P = \alpha \setminus \{j\}`. Averaging these
+orders and weighting the joins as in AnJE gives a log-linear pool of the
+factors of the SPnDEs of order ``n``,
+
+.. math::
+
+    \log P(y|\mathbf{x}) \propto \log P(y) + \frac{1}{|M|} \sum_{P}
+    \Big[ \tfrac{d}{n+1} \log P(\mathbf{x}_P | y)
+    + \tfrac{d}{(n+1)(d-n)} \sum_{j \notin P} \log P(x_j | y, \mathbf{x}_P) \Big].
+
+:class:`skbn.GaussianAnJE` builds AnJE on these factors, and
+:class:`skbn.GaussianALR` puts one weight per factor, value, class and parent
+instantiation on them, as ALR\ :sup:`n` does on the n-joins. Since the factors
+are those of :class:`skbn.AnDE`, both models handle mixed data as HAODE does:
+only the super-parents are discretized, and continuous children keep their
+Gaussian conditionals. ``n_dependence`` is the order of the SPnDEs, so
+``GaussianAnJE(n_dependence=1)`` is the counterpart of ``AnJE(n_join=2)``.
+Probabilities are Laplace estimates on the augmented states, and the
+super-parent factor is divided by its total within the class so that every
+factor is conditional on the class. On discrete data the two versions
+coincide as the smoothing vanishes, and ``GaussianALR`` at ``w = 1`` is
+``GaussianAnJE``.
+
+.. code-block:: python
+
+    from skbn import GaussianALR, GaussianAnJE
+
+    clf = GaussianAnJE(n_dependence=1)  # A2JE with Gaussian children
+    clf = GaussianALR(n_dependence=1)  # ALR^2 with Gaussian children
     clf.fit(X, y)
 
 

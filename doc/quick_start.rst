@@ -10,7 +10,8 @@ Installation
 From PyPI (Recommended)
 -----------------------
 
-Once available on PyPI, install scikit-bayes with pip:
+scikit-bayes needs Python 3.10 or later, NumPy, SciPy and scikit-learn 1.6 or
+later. Install it from PyPI with pip:
 
 .. prompt:: bash $
 
@@ -32,7 +33,7 @@ Quick Examples
 MixedNB: Handling Mixed Data Types
 ----------------------------------
 
-:class:`skbayes.MixedNB` automatically detects and handles datasets with 
+:class:`skbn.MixedNB` automatically detects and handles datasets with 
 Gaussian (continuous), Categorical, and Bernoulli (binary) features:
 
 .. code-block:: python
@@ -57,13 +58,13 @@ Gaussian (continuous), Categorical, and Bernoulli (binary) features:
 AnDE: Solving Problems Naive Bayes Cannot
 -----------------------------------------
 
-:class:`skbayes.AnDE` relaxes the independence assumption of Naive Bayes,
+:class:`skbn.AnDE` relaxes the independence assumption of Naive Bayes,
 allowing it to capture feature dependencies like the XOR problem:
 
 .. code-block:: python
 
     import numpy as np
-    from skbayes import AnDE
+    from skbn import AnDE
 
     # XOR problem: class depends on interaction of features
     X = np.array([[-1, -1], [-1, 1], [1, -1], [1, 1]])
