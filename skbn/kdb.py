@@ -23,11 +23,14 @@ References
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
+import math
 import numbers
+from numbers import Integral, Real
 
 import numpy as np
 from scipy.special import logsumexp
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.base import BaseEstimator, ClassifierMixin, _fit_context
+from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted, validate_data
 
@@ -160,7 +163,9 @@ class KDB(ClassifierMixin, BaseEstimator):
         Maximum number of attribute parents of every attribute, in addition
         to the class. An attribute placed when fewer than ``k`` attributes are
         in the network takes all of them as parents. ``k=0`` gives Naive
-        Bayes.
+        Bayes. :meth:`fit` raises a :class:`ValueError` when the joint states
+        of the class and the parents of an attribute exceed a 64-bit index,
+        which calls for a smaller ``k`` or fewer bins.
 
     n_bins : int, default=5
         Number of bins used to discretize continuous attributes for the
@@ -171,21 +176,26 @@ class KDB(ClassifierMixin, BaseEstimator):
         Strategy used for the discretization of continuous attributes.
 
     alpha : float, default=1.0
-        Additive (Laplace/Lidstone) smoothing parameter for the discrete
-        conditional probability tables.
+        Non-negative additive (Laplace/Lidstone) smoothing parameter for the
+        discrete conditional probability tables.
 
-    categorical_features : array-like of int, default=None
-        Indices of the features to treat as categorical. See :class:`MixedNB`.
+    categorical_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as categorical,
+        passed to :class:`MixedNB`, which describes how the undeclared
+        features are typed.
 
-    bernoulli_features : array-like of int, default=None
-        Indices of the features to treat as Bernoulli. See :class:`MixedNB`.
+    bernoulli_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as Bernoulli.
+        See :class:`MixedNB`.
 
-    gaussian_features : array-like of int, default=None
-        Indices of the features to treat as Gaussian. See :class:`MixedNB`.
+    gaussian_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as Gaussian.
+        See :class:`MixedNB`.
 
     var_prior_weight : float, default=1.0
-        Pseudo-observations shrinking each Gaussian variance towards the
-        pooled variance of the feature (see :class:`MixedNB`).
+        Non-negative number of pseudo-observations shrinking each Gaussian
+        variance towards the pooled variance of the feature (see
+        :class:`MixedNB`).
 
     Attributes
     ----------
@@ -259,6 +269,17 @@ class KDB(ClassifierMixin, BaseEstimator):
     True
     """
 
+    _parameter_constraints: dict = {
+        "k": [Interval(Integral, 0, None, closed="left")],
+        "n_bins": [Interval(Integral, 2, None, closed="left")],
+        "strategy": [StrOptions({"uniform", "quantile", "kmeans"})],
+        "alpha": [Interval(Real, 0, None, closed="left")],
+        "categorical_features": ["array-like", None],
+        "bernoulli_features": ["array-like", None],
+        "gaussian_features": ["array-like", None],
+        "var_prior_weight": [Interval(Real, 0, None, closed="left")],
+    }
+
     def __init__(
         self,
         k=1,
@@ -279,6 +300,7 @@ class KDB(ClassifierMixin, BaseEstimator):
         self.gaussian_features = gaussian_features
         self.var_prior_weight = var_prior_weight
 
+    @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
         """
         Fit the KDB classifier according to X, y.
@@ -323,13 +345,13 @@ class KDB(ClassifierMixin, BaseEstimator):
         ).fit(X, y)
         types = self.backoff_.feature_types_
 
-        # --- 2. Discretize attributes (structure learning and parents) ---
+        # --- 2. Discretize attributes (structure learning and parents), with
+        #        the types the children use ---
         self._encoder = _AttributeEncoder(
             self.n_bins,
             self.strategy,
-            gaussian_features=self.gaussian_features,
-            discrete_features=list(self.categorical_features or [])
-            + list(self.bernoulli_features or []),
+            gaussian_features=types["gaussian"],
+            discrete_features=types["categorical"] + types["bernoulli"],
         )
         codes = self._encoder.fit_transform(X)
         cards = self._encoder.cards_
@@ -344,12 +366,18 @@ class KDB(ClassifierMixin, BaseEstimator):
         )
 
         # --- 4. Parameters: P(x_i | y, x_parents) on the augmented class ---
-        X_int = X.astype(np.int64) if types["categorical"] else None
-        n_categories = None if X_int is None else X_int.max(axis=0) + 1
+        X_int, categories = self.backoff_._shared_encoding(X)
         self.cpts_ = {}
         for i, pa in enumerate(self.parents_):
             if len(pa) == 0:
                 continue
+            n_states = n_classes * math.prod(int(c) for c in cards[pa])
+            if n_states >= np.iinfo(np.int64).max:
+                raise ValueError(
+                    f"Attribute {i} has {len(pa)} parents with {n_states} joint"
+                    " states with the class, more than a 64-bit index can hold;"
+                    " use a smaller k or fewer bins."
+                )
             y_star = _augmented_keys(y_idx, codes[:, pa].T, n_classes, cards[pa])
             keys, y_star_idx = np.unique(y_star, return_inverse=True)
             cpt = MixedNB(
@@ -365,7 +393,7 @@ class KDB(ClassifierMixin, BaseEstimator):
                 keys,
                 X_int=X_int,
                 columns=[i],
-                n_categories=n_categories,
+                categories=categories,
             )
             self.cpts_[i] = cpt
 
@@ -394,7 +422,11 @@ class KDB(ClassifierMixin, BaseEstimator):
                 diff**2 / self._pooled_var + np.log(2.0 * np.pi * self._pooled_var)
             )
         if types["categorical"]:
-            out[:, types["categorical"]] = -np.log(self.backoff_._cat_cardinalities)
+            # A value never seen in training contributes nothing
+            unseen = self.backoff_._categorical_codes(X)[1]
+            out[:, types["categorical"]] = np.where(
+                unseen, 0.0, -np.log(self.backoff_._cat_cardinalities)
+            )
         if types["bernoulli"]:
             out[:, types["bernoulli"]] = -np.log(2.0)
         return out
@@ -425,10 +457,9 @@ class KDB(ClassifierMixin, BaseEstimator):
             )
             pos, hit = _lookup(cpt.classes_, queries)
             hit &= ~unseen[:, pa].any(axis=1, keepdims=True)
-            ll = cpt._feature_log_likelihood(X[:, [i]])[:, :, 0]
-            jll += np.where(
-                hit, np.take_along_axis(ll, pos, axis=1), uninformed[:, [i]]
-            )
+            # Only the augmented states of the classes are evaluated
+            ll = cpt._feature_log_likelihood(X[:, [i]], class_idx=pos)[:, :, 0]
+            jll += np.where(hit, ll, uninformed[:, [i]])
         return jll
 
     def predict_log_proba(self, X):

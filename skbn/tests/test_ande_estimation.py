@@ -1,13 +1,16 @@
 """Tests for the estimation details of the AnDE family: aggregation rules,
 weight layouts, zero-count handling, variance shrinkage and analytic gradients."""
 
+# Authors: scikit-bayes developers
+# SPDX-License-Identifier: BSD-3-Clause
+
 import numpy as np
 import pytest
 from scipy.optimize import approx_fprime
 from scipy.special import logsumexp
 from sklearn.naive_bayes import GaussianNB
 
-from skbn import AnDE, MixedNB, WeightedAnDE
+from skbn import AnDE, GaussianALR, GaussianAnJE, MixedNB, WeightedAnDE
 
 MEANS = ["arithmetic", "geometric"]
 SCOPES = ["component", "factor"]
@@ -469,3 +472,12 @@ def test_invalid_unseen_state_raises():
     y = np.array([0, 1, 1, 0])
     with pytest.raises(ValueError, match="unseen_state"):
         AnDE(unseen_state="other", categorical_features=[0, 1]).fit(X, y)
+
+
+@pytest.mark.parametrize("Estimator", [AnDE, WeightedAnDE, GaussianAnJE, GaussianALR])
+@pytest.mark.parametrize("n_dependence", [-1, 1.5, 3])
+def test_invalid_n_dependence_raises(Estimator, n_dependence):
+    X = np.array([[0, 0], [1, 1], [0, 1], [1, 0]], dtype=float)
+    y = np.array([0, 1, 1, 0])
+    with pytest.raises(ValueError, match="n_dependence"):
+        Estimator(n_dependence=n_dependence).fit(X, y)

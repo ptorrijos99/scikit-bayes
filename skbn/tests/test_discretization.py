@@ -1,3 +1,8 @@
+"""Tests for the supervised discretizers."""
+
+# Authors: scikit-bayes developers
+# SPDX-License-Identifier: BSD-3-Clause
+
 import numpy as np
 import pytest
 from sklearn.datasets import load_iris
@@ -71,10 +76,10 @@ def test_decision_tree_discretizer_nan_handling():
 
 
 def test_decision_tree_discretizer_invalid_params():
-    with pytest.raises(ValueError, match="n_bins must be >= 2"):
+    with pytest.raises(ValueError, match="n_bins"):
         DecisionTreeDiscretizer(n_bins=1).fit([[1], [2]], [0, 1])
 
-    with pytest.raises(ValueError, match="fallback must be one of"):
+    with pytest.raises(ValueError, match="fallback"):
         DecisionTreeDiscretizer(fallback="invalid").fit([[1], [2]], [0, 1])
 
 

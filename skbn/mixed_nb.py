@@ -3,11 +3,16 @@
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
+from numbers import Real
+
 import numpy as np
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.base import BaseEstimator, ClassifierMixin, _fit_context
 from sklearn.naive_bayes import BernoulliNB, CategoricalNB, GaussianNB
+from sklearn.utils._param_validation import Interval
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted, validate_data
+
+from ._core import _auto_type, _feature_indices
 
 
 def _fit_gaussian_nb(X, y_idx, classes, var_smoothing):
@@ -75,6 +80,28 @@ def _fit_categorical_nb(X, y_idx, classes, alpha, n_categories):
     return est
 
 
+def _bernoulli_thresholds(X):
+    """Threshold that binarises every column of ``X`` (``x > t`` is 1).
+
+    A column with values on both sides of 0 keeps the convention of
+    ``BernoulliNB`` (``t = 0``); otherwise ``t`` is the midpoint of its range,
+    so that two-valued attributes such as {1, 2} or {0.3, 0.7} keep both
+    values apart.
+    """
+    if X.shape[1] == 0:
+        return np.zeros(0)
+    lo, hi = X.min(axis=0), X.max(axis=0)
+    return np.where((lo <= 0) & (hi > 0), 0.0, (lo + hi) / 2.0)
+
+
+def _encode_categories(col, categories):
+    """Codes of ``col`` in the sorted array ``categories`` and a mask of the
+    values that are not in it (their code is 0)."""
+    pos = np.minimum(np.searchsorted(categories, col), len(categories) - 1)
+    known = categories[pos] == col
+    return np.where(known, pos, 0), ~known
+
+
 def _fit_bernoulli_nb(X_bool, y_idx, classes, alpha):
     """BernoulliNB with the estimates of ``BernoulliNB.fit``, without the dense
     one-hot label matrix that sklearn builds (n_samples x n_classes)."""
@@ -108,43 +135,59 @@ class MixedNB(ClassifierMixin, BaseEstimator):
     respective feature subsets.
 
     Features are classified and handled as follows:
-    1.  User-defined: The user can explicitly specify which features are
-        categorical or Bernoulli using the constructor parameters.
-    2.  Auto-detection: For features not specified by the user, the classifier
-        will attempt to infer the type during `fit`:
-        -   Features with exactly two unique values are treated as Bernoulli.
-        -   Integer features with more than two unique values are treated as
-            Categorical. Note: These features must be encoded as non-negative
-            integers (0, 1, 2, ...).
-        -   Floating-point features are treated as Gaussian.
+
+    1.  User-defined: the constructor parameters fix the type of any feature.
+        The three sets of features must be disjoint.
+    2.  Auto-detection: the remaining features are typed during `fit`:
+
+        -   Constant features carry no information and are ignored.
+        -   Features with exactly two unique values are Bernoulli.
+        -   Integer-valued features (integer dtype, or floats without
+            fractional part) that are non-negative and have from 3 to
+            ``_MAX_AUTO_CATEGORIES`` (20) unique values are categorical.
+        -   The rest (fractional or negative values, or integer values with
+            more distinct values, such as ages or amounts) are Gaussian.
+
+        The detection only looks at the values, so declaring the types is
+        the safe choice whenever they are known.
+
+    Categorical features may hold any numeric codes: they are label-encoded
+    on the values seen in training, so a category is a value, not a position.
+    A value never seen in training contributes nothing to the prediction, as a
+    missing value would (the feature is marginalised for that sample).
+
+    Bernoulli features are binarised as ``x > t``, with ``t = 0`` (the
+    convention of `BernoulliNB`) when the training values lie on both sides of
+    0, and the midpoint of their range otherwise, so that a two-valued
+    attribute such as {1, 2} keeps its two values apart.
+
+    Gaussian features whose training variance is zero are ignored, since
+    their density would be degenerate and the same for every class.
 
     Read more in the :ref:`User Guide <mixed_naive_bayes>`.
 
     Parameters
     ----------
-    categorical_features : array-like of shape (n_categorical_features,), default=None
-        A list of indices for the features that should be treated as
-        categorical. If None, categorical features are inferred from data
-        where dtype is integer and the number of unique values is greater
-        than 2.
-        .. warning::
-           Categorical features must be encoded as non-negative integers.
+    categorical_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as categorical.
 
-    bernoulli_features : array-like of shape (n_bernoulli_features,), default=None
-        A list of indices for the features that should be treated as Bernoulli.
-        If None, Bernoulli features are inferred from data where the number
-        of unique values is exactly 2.
+    bernoulli_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as Bernoulli.
+
+    gaussian_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as Gaussian.
 
     var_smoothing : float, default=1e-9
-        Portion of the largest variance of all Gaussian features that is added
-        to variances for calculation stability. Passed to `GaussianNB`.
+        Non-negative portion of the largest variance of all Gaussian features
+        that is added to variances for calculation stability. Passed to
+        `GaussianNB`.
 
     alpha : float, default=1.0
-        Additive (Laplace/Lidstone) smoothing parameter. Passed to
+        Non-negative additive (Laplace/Lidstone) smoothing parameter. Passed to
         `CategoricalNB` and `BernoulliNB`.
 
     var_prior_weight : float, default=0.0
-        Number of pseudo-observations used to shrink each class-conditional
+        Non-negative number of pseudo-observations used to shrink each class-conditional
         variance towards the pooled (class-independent) variance of the
         feature: ``var_c = (n_c * var_c + nu * var_pooled) / (n_c + nu)``.
         It plays for Gaussian features the role that ``alpha`` plays for
@@ -157,7 +200,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         Class labels known to the classifier.
 
     class_log_prior_ : ndarray of shape (n_classes,)
-        Log probability of each class (smoothed).
+        Log of the empirical frequency of each class.
 
     n_features_in_ : int
         Number of features seen during :term:`fit`.
@@ -168,11 +211,20 @@ class MixedNB(ClassifierMixin, BaseEstimator):
 
     feature_types_ : dict
         A dictionary mapping feature type ('gaussian', 'categorical',
-        'bernoulli') to the indices of the features of that type.
+        'bernoulli') to the indices of the features of that type. Undeclared
+        constant features and Gaussian features with zero variance are in none
+        of the lists.
 
     estimators_ : dict
         A dictionary containing the fitted Naive Bayes estimators for each
         feature type.
+
+    categories_ : list of ndarray
+        Sorted training values of each categorical feature, in the order of
+        ``feature_types_["categorical"]``.
+
+    bernoulli_thresholds_ : ndarray of shape (n_bernoulli_features,)
+        Threshold ``t`` that binarises each Bernoulli feature as ``x > t``.
 
     See Also
     --------
@@ -201,6 +253,15 @@ class MixedNB(ClassifierMixin, BaseEstimator):
     array([1])
     """
 
+    _parameter_constraints: dict = {
+        "categorical_features": ["array-like", None],
+        "bernoulli_features": ["array-like", None],
+        "gaussian_features": ["array-like", None],
+        "var_smoothing": [Interval(Real, 0, None, closed="left")],
+        "alpha": [Interval(Real, 0, None, closed="left")],
+        "var_prior_weight": [Interval(Real, 0, None, closed="left")],
+    }
+
     def __init__(
         self,
         categorical_features=None,
@@ -217,19 +278,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         self.alpha = alpha
         self.var_prior_weight = var_prior_weight
 
-    def _validate_feature_indices(self, indices, n_features, name):
-        """Validate provided feature indices."""
-        if indices is None:
-            return []
-        indices = np.asarray(indices, dtype=int)
-        if indices.ndim > 1:
-            raise ValueError(f"'{name}' must be a 1D array-like.")
-        if np.any(indices < 0) or np.any(indices >= n_features):
-            raise ValueError(
-                f"All indices in '{name}' must be in [0, {n_features - 1}]."
-            )
-        return indices.tolist()
-
+    @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
         """
         Fit the Mixed Naive Bayes classifier according to X, y.
@@ -253,17 +302,18 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         return self._fit_encoded(X, np.searchsorted(classes, y), classes)
 
     def _fit_encoded(
-        self, X, y_idx, classes, X_int=None, columns=None, n_categories=None
+        self, X, y_idx, classes, X_int=None, columns=None, categories=None
     ):
         """Fit on a validated ``X`` with labels given as indices into ``classes``.
 
         AnDE fits one MixedNB per component on data it has already validated and
         encoded; this entry point skips the repeated validation and label
-        encoding. ``X_int`` is an optional integer copy of ``X`` used for the
-        categorical counts. When ``columns`` is given, the model is fitted on
+        encoding. When ``columns`` is given, the model is fitted on
         ``X[:, columns]`` (feature indices refer to positions in ``columns``)
-        without materialising that submatrix. ``n_categories`` optionally gives
-        the number of categories of every column of ``X`` (max + 1).
+        without materialising that submatrix. ``categories`` optionally gives,
+        for every column of ``X``, the sorted categories of a categorical
+        attribute (None for the others), and ``X_int`` the codes of those
+        columns in them; the ensembles compute both once for all components.
         """
         if columns is None:
             columns = np.arange(X.shape[1])
@@ -276,13 +326,13 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         self.n_features_in_ = len(columns)
 
         # --- Parameter and Feature Type Validation ---
-        cat_feats = self._validate_feature_indices(
+        cat_feats = _feature_indices(
             self.categorical_features, self.n_features_in_, "categorical_features"
         )
-        bern_feats = self._validate_feature_indices(
+        bern_feats = _feature_indices(
             self.bernoulli_features, self.n_features_in_, "bernoulli_features"
         )
-        gauss_feats = self._validate_feature_indices(
+        gauss_feats = _feature_indices(
             self.gaussian_features, self.n_features_in_, "gaussian_features"
         )
 
@@ -301,36 +351,26 @@ class MixedNB(ClassifierMixin, BaseEstimator):
 
         user_defined_indices = set(cat_feats) | set(bern_feats) | set(gauss_feats)
 
-        # Auto-detect remaining features
+        # Auto-detect remaining features (constant ones are ignored)
         for i in range(self.n_features_in_):
-            if i in user_defined_indices:
-                continue
+            if i not in user_defined_indices:
+                kind = _auto_type(X[:, columns[i]])
+                if kind is not None:
+                    self.feature_types_[kind].append(i)
 
-            feature_col = X[:, columns[i]]
-            unique_vals = np.unique(feature_col)
-
-            # Check if float column essentially contains integers
-            is_integer_like = False
-            if np.issubdtype(feature_col.dtype, np.integer):
-                is_integer_like = True
-            elif np.issubdtype(feature_col.dtype, np.floating):
-                # Check if all fractional parts are zero
-                if np.all(np.mod(feature_col, 1) == 0):
-                    is_integer_like = True
-
-            if len(unique_vals) == 1:
-                # Constant feature, can be ignored
-                continue
-            elif len(unique_vals) == 2:
-                self.feature_types_["bernoulli"].append(i)
-            elif is_integer_like and np.all(feature_col >= 0):
-                # Only treat as categorical if non-negative (CategoricalNB requirement)
-                self.feature_types_["categorical"].append(i)
-            else:  # Floating or negative integer-like -> Gaussian
-                self.feature_types_["gaussian"].append(i)
+        # A Gaussian feature with no variance has the same degenerate density
+        # in every class: it is ignored, as an undeclared constant feature is
+        gauss = self.feature_types_["gaussian"]
+        if gauss:
+            constant = np.ptp(X[:, cols(gauss)], axis=0) == 0
+            self.feature_types_["gaussian"] = [
+                i for i, c in zip(gauss, constant) if not c
+            ]
 
         # --- Fit Sub-estimators ---
         self.estimators_ = {}
+        self.categories_ = []
+        self.bernoulli_thresholds_ = np.zeros(0)
 
         if self.feature_types_["gaussian"]:
             X_gauss = X[:, cols(self.feature_types_["gaussian"])]
@@ -348,26 +388,29 @@ class MixedNB(ClassifierMixin, BaseEstimator):
 
         if self.feature_types_["categorical"]:
             g = cols(self.feature_types_["categorical"])
-            X_cat = X[:, g].astype(np.int64) if X_int is None else X_int[:, g]
-            if n_categories is None:
-                min_cats = self._get_min_categories(X_cat)
+            if categories is None:
+                self.categories_ = [np.unique(X[:, j]) for j in g]
+                X_cat = np.column_stack(
+                    [
+                        _encode_categories(X[:, j], c)[0]
+                        for j, c in zip(g, self.categories_)
+                    ]
+                )
             else:
-                min_cats = np.asarray(n_categories, dtype=int)[g]
-            cat_nb = _fit_categorical_nb(
-                X_cat,
-                y_idx,
-                self.classes_,
-                self.alpha,
-                min_cats,
+                self.categories_ = [categories[j] for j in g]
+                X_cat = X_int[:, g]
+            self._cat_cardinalities = np.array(
+                [len(c) for c in self.categories_], dtype=int
             )
-            self.estimators_["categorical"] = cat_nb
-            # Save cardinalities for clipping unseen values at test time
-            self._cat_cardinalities = np.array(min_cats, dtype=int)
+            self.estimators_["categorical"] = _fit_categorical_nb(
+                X_cat, y_idx, self.classes_, self.alpha, self._cat_cardinalities
+            )
 
         if self.feature_types_["bernoulli"]:
             g = cols(self.feature_types_["bernoulli"])
+            self.bernoulli_thresholds_ = _bernoulli_thresholds(X[:, g])
             self.estimators_["bernoulli"] = _fit_bernoulli_nb(
-                X[:, g] > 0, y_idx, self.classes_, self.alpha
+                X[:, g] > self.bernoulli_thresholds_, y_idx, self.classes_, self.alpha
             )
 
         class_counts = np.bincount(y_idx, minlength=len(self.classes_))
@@ -375,11 +418,30 @@ class MixedNB(ClassifierMixin, BaseEstimator):
 
         return self
 
-    def _get_min_categories(self, X_cat):
-        """Helper to determine min_categories for CategoricalNB."""
-        if X_cat.shape[1] == 0:
-            return None
-        return (X_cat.max(axis=0) + 1).astype(int, copy=False)
+    def _categorical_codes(self, X):
+        """Codes of the categorical features of a validated ``X`` and a mask of
+        the values never seen in training, each of shape
+        (n_samples, n_categorical_features)."""
+        indices = self.feature_types_["categorical"]
+        codes = np.zeros((X.shape[0], len(indices)), dtype=np.int64)
+        unseen = np.zeros(codes.shape, dtype=bool)
+        for k, (j, cats) in enumerate(zip(indices, self.categories_)):
+            codes[:, k], unseen[:, k] = _encode_categories(X[:, j], cats)
+        return codes, unseen
+
+    def _shared_encoding(self, X):
+        """Categorical encoding of a validated training ``X`` for the models an
+        ensemble fits on its columns (see ``_fit_encoded``): the categories of
+        every column (None for the non-categorical ones) and an integer array
+        with the codes of the categorical columns."""
+        categories = [None] * X.shape[1]
+        X_int = np.zeros(X.shape, dtype=np.int64)
+        indices = self.feature_types_["categorical"]
+        if indices:
+            X_int[:, indices] = self._categorical_codes(X)[0]
+            for j, cats in zip(indices, self.categories_):
+                categories[j] = cats
+        return X_int, categories
 
     def _feature_log_likelihood(self, X, class_idx=None):
         """Per-feature class-conditional log-likelihoods.
@@ -392,8 +454,8 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         -------
         ndarray of shape (n_samples, k, n_features)
             Entry ``[i, c, j]`` is ``log P(x_ij | class_idx[i, c])``. Features
-            ignored at fit time (constant) contribute zeros. The class prior is
-            not included.
+            ignored at fit time (constant) and categorical values never seen in
+            training contribute zeros. The class prior is not included.
         """
         check_is_fitted(self, attributes=["classes_", "estimators_"])
         X = validate_data(self, X, reset=False)
@@ -415,14 +477,15 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         if "categorical" in self.estimators_:
             indices = self.feature_types_["categorical"]
             est = self.estimators_["categorical"]
-            X_cat = np.clip(X[:, indices].astype(int), 0, self._cat_cardinalities - 1)
+            codes, unseen = self._categorical_codes(X)
             for i, j in enumerate(indices):
-                out[:, :, j] = est.feature_log_prob_[i][class_idx, X_cat[rows, i]]
+                ll = est.feature_log_prob_[i][class_idx, codes[rows, i]]
+                out[:, :, j] = np.where(unseen[:, [i]], 0.0, ll)
 
         if "bernoulli" in self.estimators_:
             indices = self.feature_types_["bernoulli"]
             est = self.estimators_["bernoulli"]
-            X_bern = (X[:, indices] > 0)[:, np.newaxis, :]
+            X_bern = (X[:, indices] > self.bernoulli_thresholds_)[:, np.newaxis, :]
             log_p = est.feature_log_prob_[class_idx]
             out[:, :, indices] = np.where(X_bern, log_p, np.log1p(-np.exp(log_p)))
 
@@ -454,22 +517,18 @@ class MixedNB(ClassifierMixin, BaseEstimator):
                 log_prob + log_constant
             )  # broadcasting: (n_samples, n_classes) + (n_classes,)
 
-        # Categorical features (vectorized, with unseen-category clipping)
+        # Categorical features; a value never seen in training adds nothing
         if "categorical" in self.estimators_:
-            indices = self.feature_types_["categorical"]
-            X_cat = X[:, indices].astype(int)
             est = self.estimators_["categorical"]
-            # Clip to valid range: unseen categories map to last valid one
-            X_cat = np.clip(X_cat, 0, self._cat_cardinalities - 1)
-
-            # Cumulative log-likelihood lookup
-            for i in range(X_cat.shape[1]):
-                jll += est.feature_log_prob_[i][:, X_cat[:, i]].T
+            codes, unseen = self._categorical_codes(X)
+            for i in range(codes.shape[1]):
+                ll = est.feature_log_prob_[i][:, codes[:, i]].T
+                jll += np.where(unseen[:, [i]], 0.0, ll)
 
         # Bernoulli features
         if "bernoulli" in self.estimators_:
             indices = self.feature_types_["bernoulli"]
-            X_bern = (X[:, indices] > 0).astype(np.float64)
+            X_bern = (X[:, indices] > self.bernoulli_thresholds_).astype(np.float64)
             est = self.estimators_["bernoulli"]
             log_prob_pos = est.feature_log_prob_
             log_prob_neg = np.log1p(-np.exp(log_prob_pos))  # numerically safer

@@ -6,16 +6,17 @@ Choosing k: KDB with Increasing Dependence
 :class:`skbn.KDB` (K-Dependence Bayesian classifier) lets every attribute
 depend on the class and on at most ``k`` other attributes. The attributes are
 added to the network in decreasing order of their mutual information with the
-class $I(A_i; C)$, and each one takes as parents the ``k`` attributes already
-in the network with the highest conditional mutual information
+class $I(A_i; C)$, and each one takes as parents the ``min(k, t)``
+attributes, among the ``t`` already in the network, with the highest
+conditional mutual information
 $I(A_i; A_j \\mid C)$.
 
 **The Scenario:**
 Seven categorical attributes in two groups of three and a noise attribute.
 In each group, $a$ is uniform, $b$ is a noisy copy of $a$, and
 $s = a + b + y$ (with some noise). On its own, $a$ or $b$ says nothing about
-the class; the class is recovered exactly only from the three attributes of a
-group together.
+the class; only the three attributes of a group together determine it, up to
+that noise.
 
 **What Happens:**
 The sums $s$ are the attributes most informative about the class, so they
@@ -26,6 +27,9 @@ most accurate. ``k=0`` is Naive Bayes, and ``k=1`` (a tree, comparable to
 groups, but its conditional probability tables have many more cells and need
 more data: it loses with small training sets and catches up as they grow.
 """
+
+# Authors: scikit-bayes developers
+# SPDX-License-Identifier: BSD-3-Clause
 
 # Author: The scikit-bayes Developers
 # SPDX-License-Identifier: BSD-3-Clause

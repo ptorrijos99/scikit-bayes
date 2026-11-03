@@ -3,13 +3,38 @@
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
+import warnings
+
 import numpy as np
 import sklearn
 from scipy.optimize import minimize
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import KBinsDiscretizer, LabelEncoder
 
 # Number of elements a temporary array of a chunked computation may hold.
 _CHUNK_ELEMENTS = 1 << 22
+
+# Undeclared integer-valued attributes with more distinct values than this are
+# taken as continuous (ages, counts, amounts) rather than categorical.
+_MAX_AUTO_CATEGORIES = 20
+
+
+def _auto_type(col):
+    """Type inferred for an undeclared attribute from its training values:
+    None for a constant, then "bernoulli" (two values), "categorical"
+    (non-negative integer values, at most ``_MAX_AUTO_CATEGORIES`` of them) or
+    "gaussian" (anything else)."""
+    n_unique = len(np.unique(col))
+    if n_unique == 1:
+        return None
+    if n_unique == 2:
+        return "bernoulli"
+    integer_valued = np.issubdtype(col.dtype, np.integer) or (
+        np.issubdtype(col.dtype, np.floating) and np.all(np.mod(col, 1) == 0)
+    )
+    if integer_valued and np.all(col >= 0) and n_unique <= _MAX_AUTO_CATEGORIES:
+        return "categorical"
+    return "gaussian"
 
 
 def _row_chunks(n_rows, row_size):
@@ -20,14 +45,34 @@ def _row_chunks(n_rows, row_size):
         yield slice(start, min(start + step, n_rows))
 
 
+def _feature_indices(indices, n_features, name):
+    """Feature indices given as integers or as a boolean mask, as a list."""
+    if indices is None:
+        return []
+    indices = np.asarray(indices)
+    if indices.ndim != 1:
+        raise ValueError(f"'{name}' must be a 1D array-like.")
+    if indices.dtype == bool:
+        if len(indices) != n_features:
+            raise ValueError(
+                f"The boolean mask '{name}' must have length {n_features}, got"
+                f" {len(indices)}."
+            )
+        return np.flatnonzero(indices).tolist()
+    if indices.size and not np.issubdtype(indices.dtype, np.integer):
+        raise ValueError(f"'{name}' must hold integer indices or be a boolean mask.")
+    indices = indices.astype(int)
+    if np.any(indices < 0) or np.any(indices >= n_features):
+        raise ValueError(f"All indices in '{name}' must be in [0, {n_features - 1}].")
+    return indices.tolist()
+
+
 class _AttributeEncoder:
     """Integer codes of the attributes, as used for parents and joins.
 
-    Continuous attributes (declared Gaussian, or floating-point with fractional
-    values when undeclared) are binned with :class:`KBinsDiscretizer`; the rest
-    are label-encoded. Declared types take precedence over the dtype heuristic,
-    so integer-valued continuous attributes (ages, amounts, counts) are binned
-    instead of becoming high-cardinality discrete attributes.
+    Continuous attributes (declared Gaussian, or typed Gaussian by
+    :func:`_auto_type` when undeclared, the rule of :class:`MixedNB`) are
+    binned with :class:`KBinsDiscretizer`; the rest are label-encoded.
 
     Attributes
     ----------
@@ -62,9 +107,7 @@ class _AttributeEncoder:
             elif i in declared_discrete:
                 continuous = False
             else:
-                continuous = np.issubdtype(col.dtype, np.floating) and not np.all(
-                    np.mod(col, 1) == 0
-                )
+                continuous = _auto_type(col) == "gaussian"
             if continuous:
                 enc = KBinsDiscretizer(
                     n_bins=self.n_bins,
@@ -118,6 +161,8 @@ def _fit_weights(
         Optimal parameters.
     n_iter : int
         Number of L-BFGS-B iterations.
+    converged : bool
+        False when the optimiser stopped at its iteration or evaluation limit.
     """
 
     def objective(theta):
@@ -134,4 +179,19 @@ def _fit_weights(
     res = minimize(
         objective, theta0, jac=True, method="L-BFGS-B", bounds=bounds, options=options
     )
-    return res.x, res.nit
+    return res.x, res.nit, res.status != 1
+
+
+def _warn_not_converged(n_failed, n_problems, max_iter):
+    """One :class:`~sklearn.exceptions.ConvergenceWarning` for the weight
+    problems of a fit that stopped at ``max_iter``."""
+    if not n_failed:
+        return
+    where = "" if n_problems == 1 else f" in {n_failed} of {n_problems} components"
+    warnings.warn(
+        (
+            f"L-BFGS-B reached max_iter={max_iter} before converging{where};"
+            " increase max_iter or tol."
+        ),
+        ConvergenceWarning,
+    )

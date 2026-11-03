@@ -1,3 +1,8 @@
+"""Tests that fitted estimators survive pickling."""
+
+# Authors: scikit-bayes developers
+# SPDX-License-Identifier: BSD-3-Clause
+
 import pickle
 
 import numpy as np

@@ -1,3 +1,8 @@
+"""Tests of the estimators inside scikit-learn pipelines and model selection."""
+
+# Authors: scikit-bayes developers
+# SPDX-License-Identifier: BSD-3-Clause
+
 import pytest
 from sklearn.datasets import load_iris
 from sklearn.model_selection import GridSearchCV, cross_val_score

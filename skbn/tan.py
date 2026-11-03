@@ -25,14 +25,16 @@ References
 # SPDX-License-Identifier: BSD-3-Clause
 
 import numbers
+from numbers import Integral, Real
 
 import numpy as np
 from scipy.special import logsumexp
-from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.preprocessing import KBinsDiscretizer, LabelEncoder
+from sklearn.base import BaseEstimator, ClassifierMixin, _fit_context
+from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted, validate_data
 
+from ._core import _AttributeEncoder
 from .ande import _lookup
 from .mixed_nb import MixedNB
 
@@ -150,8 +152,9 @@ class TAN(ClassifierMixin, BaseEstimator):
     Parameters
     ----------
     root : int, default=0
-        Index of the attribute used as root of the tree. The choice does not
-        change the learned (undirected) tree, only the direction of its edges.
+        Index of the attribute used as root of the tree, in
+        ``[0, n_features - 1]``. The choice does not change the learned
+        (undirected) tree, only the direction of its edges.
 
     n_bins : int, default=5
         Number of bins used to discretize continuous attributes for the
@@ -162,21 +165,26 @@ class TAN(ClassifierMixin, BaseEstimator):
         Strategy used for the discretization of continuous attributes.
 
     alpha : float, default=1.0
-        Additive (Laplace/Lidstone) smoothing parameter for the discrete
-        conditional probability tables.
+        Non-negative additive (Laplace/Lidstone) smoothing parameter for the
+        discrete conditional probability tables.
 
-    categorical_features : array-like of int, default=None
-        Indices of the features to treat as categorical. See :class:`MixedNB`.
+    categorical_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as categorical,
+        passed to :class:`MixedNB`, which describes how the undeclared
+        features are typed.
 
-    bernoulli_features : array-like of int, default=None
-        Indices of the features to treat as Bernoulli. See :class:`MixedNB`.
+    bernoulli_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as Bernoulli.
+        See :class:`MixedNB`.
 
-    gaussian_features : array-like of int, default=None
-        Indices of the features to treat as Gaussian. See :class:`MixedNB`.
+    gaussian_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as Gaussian.
+        See :class:`MixedNB`.
 
     var_prior_weight : float, default=1.0
-        Pseudo-observations shrinking each Gaussian variance towards the
-        pooled variance of the feature (see :class:`MixedNB`).
+        Non-negative number of pseudo-observations shrinking each Gaussian
+        variance towards the pooled variance of the feature (see
+        :class:`MixedNB`).
 
     Attributes
     ----------
@@ -230,11 +238,22 @@ class TAN(ClassifierMixin, BaseEstimator):
     >>> x2 = rng.randint(0, 3, size=200)  # noise
     >>> X = np.column_stack([x0, x1, x2])
     >>> clf = TAN().fit(X, y)
-    >>> clf.parents_
-    array([-1,  0,  0])
+    >>> clf.parents_.tolist()
+    [-1, 0, 0]
     >>> clf.score(X, y)
     1.0
     """
+
+    _parameter_constraints: dict = {
+        "root": [Interval(Integral, 0, None, closed="left")],
+        "n_bins": [Interval(Integral, 2, None, closed="left")],
+        "strategy": [StrOptions({"uniform", "quantile", "kmeans"})],
+        "alpha": [Interval(Real, 0, None, closed="left")],
+        "categorical_features": ["array-like", None],
+        "bernoulli_features": ["array-like", None],
+        "gaussian_features": ["array-like", None],
+        "var_prior_weight": [Interval(Real, 0, None, closed="left")],
+    }
 
     def __init__(
         self,
@@ -256,6 +275,7 @@ class TAN(ClassifierMixin, BaseEstimator):
         self.gaussian_features = gaussian_features
         self.var_prior_weight = var_prior_weight
 
+    @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
         """
         Fit the TAN classifier according to X, y.
@@ -312,8 +332,7 @@ class TAN(ClassifierMixin, BaseEstimator):
         self.parents_ = _maximum_spanning_tree(self.conditional_mutual_info_, self.root)
 
         # --- 4. Parameters: P(x_i | y, x_parent) on the augmented class ---
-        X_int = X.astype(np.int64) if types["categorical"] else None
-        n_categories = None if X_int is None else X_int.max(axis=0) + 1
+        X_int, categories = self.backoff_._shared_encoding(X)
         self.cpts_ = {}
         for i, p in enumerate(self.parents_):
             if p < 0:
@@ -335,7 +354,7 @@ class TAN(ClassifierMixin, BaseEstimator):
                 keys,
                 X_int=X_int,
                 columns=[i],
-                n_categories=n_categories,
+                categories=categories,
             )
             self.cpts_[i] = cpt
 
@@ -349,75 +368,25 @@ class TAN(ClassifierMixin, BaseEstimator):
         return self
 
     def _fit_discretizers(self, X):
-        """Fits one discretizer per attribute and stores the integer codes."""
-        self._discretizers_list = {}  # KBinsDiscretizer or LabelEncoder per feature
-        self._parent_data = np.zeros(X.shape, dtype=int)
-
-        # Use all data for discretizer to ensure maximum precision
-        kwargs_discretizer = {"subsample": None}
-
-        if self.strategy == "quantile":
-            # quantile_method was added in sklearn 1.7
-            import sklearn
-
-            sklearn_version = tuple(map(int, sklearn.__version__.split(".")[:2]))
-            if sklearn_version >= (1, 7):
-                kwargs_discretizer["quantile_method"] = "linear"
-
-        # Declared feature types take precedence over the dtype heuristic
-        declared_gaussian = {int(i) for i in self.gaussian_features or []}
-        declared_discrete = {
-            int(i)
-            for i in list(self.categorical_features or [])
-            + list(self.bernoulli_features or [])
-        }
-
-        for i in range(self.n_features_in_):
-            col = X[:, i]
-            if i in declared_gaussian:
-                is_continuous = True
-            elif i in declared_discrete:
-                is_continuous = False
-            else:
-                is_continuous = np.issubdtype(col.dtype, np.floating) and not np.all(
-                    np.mod(col, 1) == 0
-                )
-
-            if is_continuous:
-                est = KBinsDiscretizer(
-                    n_bins=self.n_bins,
-                    encode="ordinal",
-                    strategy=self.strategy,
-                    **kwargs_discretizer,
-                )
-                self._parent_data[:, i] = est.fit_transform(
-                    col.reshape(-1, 1)
-                ).flatten()
-            else:
-                est = LabelEncoder()
-                self._parent_data[:, i] = est.fit_transform(col)
-            self._discretizers_list[i] = est
-
-        self._parent_cards = np.max(self._parent_data, axis=0).astype(int) + 1
+        """Integer codes of the attributes for structure learning and parents:
+        Gaussian attributes are binned, the rest label-encoded."""
+        types = self.backoff_.feature_types_
+        self._encoder = _AttributeEncoder(
+            self.n_bins,
+            self.strategy,
+            gaussian_features=types["gaussian"],
+            discrete_features=types["categorical"] + types["bernoulli"],
+        )
+        self._parent_data = self._encoder.fit_transform(X)
+        self._parent_cards = self._encoder.cards_
 
     def _discretize(self, X):
         """Maps (validated) X to the integer codes used at fit time.
 
         Returns the codes (clipped to the training range) and a boolean mask
-        of categorical values never seen in training.
+        of discrete values never seen in training.
         """
-        codes = np.zeros(X.shape, dtype=int)
-        unseen = np.zeros(X.shape, dtype=bool)
-        for i, est in self._discretizers_list.items():
-            if isinstance(est, LabelEncoder):
-                col = X[:, i]
-                known = np.isin(col, est.classes_)
-                unseen[:, i] = ~known
-                codes[:, i] = est.transform(np.where(known, col, est.classes_[0]))
-            else:
-                codes[:, i] = est.transform(X[:, [i]]).flatten().astype(int)
-        np.clip(codes, 0, self._parent_cards - 1, out=codes)
-        return codes, unseen
+        return self._encoder.transform(X)
 
     def _uninformed_log_likelihood(self, X):
         """Class-independent log-likelihood of each feature for an empty cell.
@@ -435,7 +404,11 @@ class TAN(ClassifierMixin, BaseEstimator):
                 diff**2 / self._pooled_var + np.log(2.0 * np.pi * self._pooled_var)
             )
         if types["categorical"]:
-            out[:, types["categorical"]] = -np.log(self.backoff_._cat_cardinalities)
+            # A value never seen in training contributes nothing
+            unseen = self.backoff_._categorical_codes(X)[1]
+            out[:, types["categorical"]] = np.where(
+                unseen, 0.0, -np.log(self.backoff_._cat_cardinalities)
+            )
         if types["bernoulli"]:
             out[:, types["bernoulli"]] = -np.log(2.0)
         return out
@@ -465,10 +438,9 @@ class TAN(ClassifierMixin, BaseEstimator):
             )
             pos, hit = _lookup(cpt.classes_, queries)
             hit &= ~unseen[:, [p]]
-            ll = cpt._feature_log_likelihood(X[:, [i]])[:, :, 0]
-            jll += np.where(
-                hit, np.take_along_axis(ll, pos, axis=1), uninformed[:, [i]]
-            )
+            # Only the augmented states of the classes are evaluated
+            ll = cpt._feature_log_likelihood(X[:, [i]], class_idx=pos)[:, :, 0]
+            jll += np.where(hit, ll, uninformed[:, [i]])
         return jll
 
     def predict_log_proba(self, X):

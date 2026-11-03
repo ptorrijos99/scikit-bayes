@@ -252,7 +252,7 @@ def test_posterior_matches_reference(categorical_data, k, alpha):
 
 @pytest.mark.parametrize("alpha", [1.0, 0.5])
 def test_k0_is_naive_bayes(categorical_data, alpha):
-    # Proposition 1 of Sahami (1996): the 0-dependence KDB is Naive Bayes
+    # Proposition 1 of Sahami (1996, p. 336): the 0-dependence KDB is Naive Bayes
     X, y = categorical_data
     rng = np.random.RandomState(0)
     X = np.column_stack(
@@ -374,7 +374,7 @@ def test_mixed_types(strategy):
 def test_invalid_k(k):
     X = np.array([[0, 1, 0], [1, 0, 1], [0, 0, 1], [1, 1, 0]])
     y = np.array([0, 1, 0, 1])
-    with pytest.raises(ValueError, match="k must be a non-negative integer"):
+    with pytest.raises(ValueError, match="k"):
         KDB(k=k).fit(X, y)
 
 
@@ -401,3 +401,28 @@ def test_pickle_roundtrip(categorical_data):
     restored = pickle.loads(pickle.dumps(model))
     assert _as_lists(restored.parents_) == _as_lists(model.parents_)
     np.testing.assert_allclose(restored.predict_proba(X), model.predict_proba(X))
+
+
+def test_prediction_memory_does_not_grow_with_the_parent_states():
+    """Each conditional is evaluated only at the augmented states of the
+    classes, not at every observed one."""
+    import tracemalloc
+
+    rng = np.random.RandomState(0)
+    X = rng.randint(0, 6, size=(3000, 8))
+    y = rng.randint(0, 2, size=3000)
+    model = KDB(k=5, categorical_features=list(range(8))).fit(X, y)
+    assert max(len(cpt.classes_) for cpt in model.cpts_.values()) > 1000
+    tracemalloc.start()
+    model.predict_proba(X)
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    assert peak < 50 * 2**20
+
+
+def test_too_many_parent_states_raise_a_clear_error():
+    rng = np.random.RandomState(0)
+    X = rng.randint(0, 7, size=(300, 30))
+    y = rng.randint(0, 2, size=300)
+    with pytest.raises(ValueError, match="64-bit index"):
+        KDB(k=29, categorical_features=list(range(30))).fit(X, y)

@@ -332,7 +332,7 @@ def test_mixed_types(strategy):
 def test_invalid_root(root):
     X = np.array([[0, 1, 0], [1, 0, 1], [0, 0, 1], [1, 1, 0]])
     y = np.array([0, 1, 0, 1])
-    with pytest.raises(ValueError, match="root must be an integer"):
+    with pytest.raises(ValueError, match="root"):
         TAN(root=root).fit(X, y)
 
 

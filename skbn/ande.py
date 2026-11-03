@@ -11,7 +11,8 @@ natively through the "Super-Class" strategy:
     one per component of the ensemble or one per factor of each component.
 
 The Averaged n-Join Estimators and ALR of Zaidi et al. [4]_ are built on
-n-joins rather than SPnDEs and live in :mod:`skbn.anje`.
+n-joins rather than SPnDEs and live in :mod:`skbn.anje`, together with their
+extension to Gaussian children on the factors of the SPnDEs.
 
 References
 ----------
@@ -34,15 +35,21 @@ References
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
+# Authors: scikit-bayes developers
+# SPDX-License-Identifier: BSD-3-Clause
+
+import numbers
 import warnings
 from itertools import combinations
+from numbers import Integral, Real
 from typing import NamedTuple, Optional
 
 import numpy as np
 from joblib import Parallel, delayed
 from scipy.sparse import csr_matrix
 from scipy.special import logsumexp
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.base import BaseEstimator, ClassifierMixin, _fit_context
+from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import (
     check_is_fitted,
@@ -50,8 +57,15 @@ from sklearn.utils.validation import (
     validate_data,
 )
 
-from ._core import _AttributeEncoder, _fit_weights, _row_chunks
+from ._core import (
+    _AttributeEncoder,
+    _fit_weights,
+    _row_chunks,
+    _warn_not_converged,
+)
 from .mixed_nb import MixedNB
+
+_LOG_TINY = np.log(np.finfo(float).tiny)
 
 # --- Helper Functions for Parallelization ---
 # Defined at module level to ensure picklability with joblib
@@ -71,16 +85,16 @@ def _fit_spode(
     var_prior_weight=0.0,
     n_classes=None,
     X_int=None,
-    n_categories=None,
+    categories=None,
 ):
     """Fits a single SPODE (Sub-model) in parallel.
 
     Uses integer-based Y* encoding for speed and robustness.
     Y* = class_idx * n_parent_combos + parent_linear_index
 
-    ``y`` holds class indices (0..n_classes-1), ``X_int`` an optional
-    integer copy of ``X`` for the categorical counts and ``n_categories`` the
-    number of categories of each of its columns; all are computed once by the
+    ``y`` holds class indices (0..n_classes-1), ``categories`` the sorted
+    categories of every categorical column of ``X`` (None for the others) and
+    ``X_int`` the codes of those columns; all are computed once by the
     ensemble rather than once per component.
 
     The augmented-class prior P(Y*) is Laplace-smoothed over the *full*
@@ -144,7 +158,7 @@ def _fit_spode(
         ystar_classes,
         X_int=X_int_fit,
         columns=columns,
-        n_categories=n_categories if columns is not None else None,
+        categories=categories if columns is not None else None,
     )
     counts = np.bincount(ystar_idx, minlength=len(ystar_classes))
 
@@ -221,41 +235,100 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
     Parameters
     ----------
     n_dependence : int, default=1
-        The order of dependence 'n'.
-        - n=0: Equivalent to Naive Bayes.
-        - n=1: AODE (Averaged One-Dependence Estimators).
-        - n=2: A2DE.
+        Order ``n`` of the dependence, the number of super-parent attributes of
+        each SPnDE. It must satisfy ``0 <= n_dependence <= n_features``.
+
+        - ``n=0``: Naive Bayes.
+        - ``n=1``: AODE (Averaged One-Dependence Estimators).
+        - ``n=2``: A2DE.
 
     n_bins : int, default=5
-        Number of bins for discretizing numerical features ONLY when they act as super-parents.
-        Children features remain continuous and are modeled by Gaussian distributions.
+        Number of bins for discretizing continuous attributes when they act as
+        super-parents (at least 2). Children remain continuous and are modeled
+        by Gaussian distributions.
 
     strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
-        Strategy used for discretization of super-parents.
+        Strategy used for the discretization of super-parents.
 
     alpha : float, default=1.0
-        Smoothing parameter passed to the internal MixedNB estimators and used
-        for the augmented-class prior.
+        Non-negative smoothing parameter passed to the internal
+        :class:`MixedNB` estimators and used for the augmented-class prior.
 
     n_jobs : int, default=None
-        The number of jobs to use for the computation.
+        Number of jobs used to fit the SPnDEs.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors.
 
+    categorical_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the attributes to treat as categorical,
+        passed to :class:`MixedNB`, which describes how the undeclared
+        attributes are typed.
+
+    bernoulli_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the attributes to treat as Bernoulli.
+        See :class:`MixedNB`.
+
+    gaussian_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the attributes to treat as Gaussian.
+        See :class:`MixedNB`.
+
     var_prior_weight : float, default=1.0
         Pseudo-observations shrinking each Gaussian child variance towards the
-        pooled variance of the feature (see :class:`MixedNB`).
+        pooled variance of the feature (see :class:`MixedNB`). It applies to
+        the SPnDEs with super-parents and to the class-level back-off model;
+        ``0`` gives the variances of :class:`~sklearn.naive_bayes.GaussianNB`.
 
     min_parent_count : int, default=1
         Minimum training frequency of a parent instantiation for its SPnDE to
-        take part in the prediction of an instance.
+        take part in the prediction of an instance. Values below 1 behave as 1.
 
     unseen_state : {"laplace", "backoff"}, default="laplace"
         Child conditionals used for an augmented state never seen in training.
         ``"laplace"`` is the standard smoothed estimate of an empty cell;
         ``"backoff"`` reuses the class-level conditionals. An ablation over the
         benchmark found no practical difference between them.
+
+    Attributes
+    ----------
+    classes_ : ndarray of shape (n_classes,)
+        Class labels.
+
+    class_count_ : ndarray of shape (n_classes,)
+        Number of training samples of each class.
+
+    n_features_in_ : int
+        Number of features seen during :term:`fit`.
+
+    feature_names_in_ : ndarray of shape (`n_features_in_`,)
+        Names of features seen during :term:`fit`. Defined only when `X`
+        has feature names that are all strings.
+
+    ensemble_ : list of dict
+        The fitted SPnDEs, one per set of ``n_dependence`` super-parents (a
+        single one for ``n_dependence=0``). Each dict holds the
+        ``"parent_indices"`` and ``"child_indices"`` of the component, its
+        ``"estimator"`` (a :class:`MixedNB` fitted on the augmented class
+        :math:`Y^*`) and the counts used for the minimum-frequency rule.
+
+    backoff_ : MixedNB
+        Naive Bayes on the original class, used for the class-level
+        conditionals, to resolve the type of every attribute and as the
+        fallback when no SPnDE qualifies.
     """
+
+    _parameter_constraints: dict = {
+        "n_dependence": [Interval(Integral, 0, None, closed="left")],
+        "n_bins": [Interval(Integral, 2, None, closed="left")],
+        "strategy": [StrOptions({"uniform", "quantile", "kmeans"})],
+        "alpha": [Interval(Real, 0, None, closed="left")],
+        "n_jobs": [Integral, None],
+        "categorical_features": ["array-like", None],
+        "bernoulli_features": ["array-like", None],
+        "gaussian_features": ["array-like", None],
+        "var_prior_weight": [Interval(Real, 0, None, closed="left")],
+        "min_parent_count": [Interval(Integral, 0, None, closed="left")],
+        "unseen_state": [StrOptions({"laplace", "backoff"})],
+    }
 
     def __init__(
         self,
@@ -283,15 +356,20 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         self.min_parent_count = min_parent_count
         self.unseen_state = unseen_state
 
+    @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
         """
-        Generative fitting.
-        Learns the joint probability P(y, x) for each subspace (SPODE) by counting frequencies.
+        Fit the SPnDEs of the ensemble by counting frequencies.
+
+        Learns the joint probability :math:`P(y, \\mathbf{x})` of every SPnDE
+        and the class-level back-off model.
 
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
-            Training vectors.
+            Training vectors, where ``n_samples`` is the number of samples and
+            ``n_features`` is the number of features.
+
         y : array-like of shape (n_samples,)
             Target values.
 
@@ -302,23 +380,22 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         """
         X, y = validate_data(self, X, y)
         self.classes_ = unique_labels(y)
+        if (
+            not isinstance(self.n_dependence, numbers.Integral)
+            or not 0 <= self.n_dependence <= self.n_features_in_
+        ):
+            raise ValueError(
+                "n_dependence must be an integer between 0 and the number of"
+                f" features ({self.n_features_in_}), got {self.n_dependence!r}"
+            )
         if self.unseen_state not in ("backoff", "laplace"):
             raise ValueError(
                 "unseen_state must be 'backoff' or 'laplace', got"
                 f" {self.unseen_state!r}"
             )
 
-        # --- 1. Discretize Parents ---
-        self._encoder = _AttributeEncoder(
-            self.n_bins,
-            self.strategy,
-            gaussian_features=self.gaussian_features,
-            discrete_features=list(self.categorical_features or [])
-            + list(self.bernoulli_features or []),
-        )
-        parent_data = self._encoder.fit_transform(X)
-
-        # --- 2. Class-level back-off model (Naive Bayes on the original class) ---
+        # --- 1. Class-level back-off model (Naive Bayes on the original class),
+        #        which also resolves the type of every attribute ---
         self.backoff_ = MixedNB(
             alpha=self.alpha,
             categorical_features=self.categorical_features,
@@ -326,7 +403,17 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
             gaussian_features=self.gaussian_features,
             var_prior_weight=self.var_prior_weight,
         ).fit(X, y)
-        gauss = self.backoff_.feature_types_["gaussian"]
+        types = self.backoff_.feature_types_
+
+        # --- 2. Discretize parents, with the types the children use ---
+        self._encoder = _AttributeEncoder(
+            self.n_bins,
+            self.strategy,
+            gaussian_features=types["gaussian"],
+            discrete_features=types["categorical"] + types["bernoulli"],
+        )
+        parent_data = self._encoder.fit_transform(X)
+        gauss = types["gaussian"]
         Xg = np.asarray(X[:, gauss], dtype=float) if gauss else np.zeros((len(X), 0))
         self._pooled_mean = Xg.mean(axis=0) if gauss else np.zeros(0)
         self._pooled_var = Xg.var(axis=0) + (
@@ -340,13 +427,13 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         if self.n_dependence == 0:
             parent_combinations = [()]
 
-        # Work shared by every component, computed once: class indices, the
-        # feature types detected by the back-off model, and integer codes of
-        # the categorical attributes.
+        # Work shared by every component, computed once: class indices and
+        # the categories and codes of the categorical attributes.
         y_int = np.searchsorted(self.classes_, y)
-        types = self.backoff_.feature_types_
-        X_int = X.astype(np.int64) if types["categorical"] else None
-        n_categories = None if X_int is None else X_int.max(axis=0) + 1
+        self.class_count_ = np.bincount(y_int, minlength=len(self.classes_)).astype(
+            float
+        )
+        X_int, categories = self.backoff_._shared_encoding(X)
 
         # Use joblib to fit SPODEs in parallel
         # Disabling memory mapping (max_nbytes=None, mmap_mode=None) prevents joblib from writing temporary files to disk.
@@ -369,7 +456,7 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
                 self.var_prior_weight,
                 len(self.classes_),
                 X_int,
-                n_categories,
+                categories,
             )
             for p_idx in parent_combinations
         )
@@ -402,8 +489,12 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
             out[:, g] = -0.5 * (
                 diff**2 / self._pooled_var + np.log(2.0 * np.pi * self._pooled_var)
             )
-        if types["categorical"] and "categorical" in self.backoff_.estimators_:
-            out[:, types["categorical"]] = -np.log(self.backoff_._cat_cardinalities)
+        if types["categorical"]:
+            # A value never seen in training contributes nothing
+            unseen = self.backoff_._categorical_codes(X)[1]
+            out[:, types["categorical"]] = np.where(
+                unseen, 0.0, -np.log(self.backoff_._cat_cardinalities)
+            )
         if types["bernoulli"]:
             out[:, types["bernoulli"]] = -np.log(2.0)
         return out
@@ -493,7 +584,6 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         out = np.zeros(
             (n_samples, n_classes, n_models) + ((n_factors,) if per_factor else ())
         )
-        rows = np.arange(n_samples)[:, None]
         for m_idx, info in enumerate(self.ensemble_):
             child_indices = info["child_indices"]
             est = info["estimator"]
@@ -507,8 +597,13 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
                     child = est._feature_log_likelihood(X_sub, class_idx=pos)
                     factors[..., 1:] = np.where(hit[..., None], child, 0.0)
             else:
-                jll_aug = est._joint_log_likelihood(X_sub)
-                out[:, :, m_idx] = np.where(hit, jll_aug[rows, pos], 0.0)
+                # Only the augmented states of the classes are evaluated, not
+                # every state of the component
+                jll = est.class_log_prior_[pos]
+                if child_indices:
+                    child = est._feature_log_likelihood(X_sub, class_idx=pos)
+                    jll = jll + child.sum(axis=2)
+                out[:, :, m_idx] = np.where(hit, jll, 0.0)
 
             miss = active[:, m_idx][:, None] & ~hit
             if miss.any():
@@ -531,12 +626,42 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
     @staticmethod
     def _normalize(scores):
         log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
-        return np.nan_to_num(log_prob, nan=-np.log(scores.shape[1]))
+        log_prob = np.nan_to_num(log_prob, nan=-np.log(scores.shape[1]))
+        # Below the smallest positive float the probability would underflow to
+        # 0, and predict_log_proba would no longer be log(predict_proba)
+        return np.maximum(log_prob, _LOG_TINY)
 
     def predict_proba(self, X):
+        """
+        Return probability estimates for the test vector X.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples.
+
+        Returns
+        -------
+        C : ndarray of shape (n_samples, n_classes)
+            Probability of the samples for each class, in the order of
+            ``classes_``.
+        """
         return np.exp(self.predict_log_proba(X))
 
     def predict(self, X):
+        """
+        Perform classification on an array of test vectors X.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples.
+
+        Returns
+        -------
+        C : ndarray of shape (n_samples,)
+            Predicted target values for X.
+        """
         check_is_fitted(self, attributes=["classes_", "ensemble_"])
         return self.classes_[np.argmax(self.predict_log_proba(X), axis=1)]
 
@@ -582,7 +707,7 @@ class AnDE(_BaseAnDE):
 
     With ``mean="geometric"`` the joints are pooled with the geometric mean
     instead, :math:`P(y|x) \\propto \\prod_m P_m(y, x)^{1/|M|}`. This
-    logarithmic pool of SPnDEs is not the AnJE of Zaidi et al. [4]_, which
+    logarithmic pool of SPnDEs is not the AnJE of Zaidi et al. [3]_, which
     pools n-joins :math:`P(x_\\alpha | y)` (see :class:`skbn.AnJE`); for
     ``n_dependence=1`` it equals
     :math:`P(y) \\prod_{i<j} P(x_i, x_j | y)^{2/a} \\prod_i P(x_i | y)^{-(a-2)/a}`
@@ -591,25 +716,123 @@ class AnDE(_BaseAnDE):
     This implementation extends the original AnDE by supporting **mixed data types**
     (Gaussian/Categorical) through the Super-Class strategy.
 
+    When a test instance falls in an augmented state :math:`(y, \\mathbf{x}_p)`
+    never seen in training, the child conditionals come from ``unseen_state``;
+    a SPnDE whose parent instantiation occurred fewer than ``min_parent_count``
+    times is left out of the pool for that instance, and the prediction falls
+    back to Naive Bayes when no SPnDE qualifies.
+
     Parameters
     ----------
     n_dependence : int, default=1
-        The order of dependence.
-        - n=1: AODE (Averaged One-Dependence Estimators).
-        - n=2: A2DE.
+        Order ``n`` of the dependence, the number of super-parent attributes of
+        each SPnDE. It must satisfy ``0 <= n_dependence <= n_features``.
+
+        - ``n=0``: Naive Bayes.
+        - ``n=1``: AODE (Averaged One-Dependence Estimators).
+        - ``n=2``: A2DE.
 
     n_bins : int, default=5
-        Bins for discretizing super-parents.
+        Number of bins for discretizing continuous attributes when they act as
+        super-parents (at least 2). Children remain continuous and are modeled
+        by Gaussian distributions.
 
-    strategy : str, default='quantile'
-        Discretization strategy.
+    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+        Strategy used for the discretization of super-parents.
 
     alpha : float, default=1.0
-        Smoothing parameter.
+        Non-negative smoothing parameter passed to the internal
+        :class:`MixedNB` estimators and used for the augmented-class prior.
+
+    n_jobs : int, default=None
+        Number of jobs used to fit the SPnDEs.
+        ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
+        ``-1`` means using all processors.
+
+    categorical_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the attributes to treat as categorical,
+        passed to :class:`MixedNB`, which describes how the undeclared
+        attributes are typed.
+
+    bernoulli_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the attributes to treat as Bernoulli.
+        See :class:`MixedNB`.
+
+    gaussian_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the attributes to treat as Gaussian.
+        See :class:`MixedNB`.
+
+    var_prior_weight : float, default=1.0
+        Pseudo-observations shrinking each Gaussian child variance towards the
+        pooled variance of the feature (see :class:`MixedNB`). It applies to
+        the SPnDEs with super-parents and to the class-level back-off model;
+        ``0`` gives the variances of :class:`~sklearn.naive_bayes.GaussianNB`.
+
+    min_parent_count : int, default=1
+        Minimum training frequency of a parent instantiation for its SPnDE to
+        take part in the prediction of an instance. Values below 1 behave as 1.
+
+    unseen_state : {"laplace", "backoff"}, default="laplace"
+        Child conditionals used for an augmented state never seen in training.
+        ``"laplace"`` is the standard smoothed estimate of an empty cell
+        (uniform for discrete children, the pooled Gaussian of the attribute
+        for continuous ones); ``"backoff"`` reuses the class-level
+        conditionals. An ablation over the benchmark found no practical
+        difference between them.
 
     mean : {"arithmetic", "geometric"}, default="arithmetic"
         Pooling of the components' joint probabilities.
+
+    Attributes
+    ----------
+    classes_ : ndarray of shape (n_classes,)
+        Class labels.
+
+    class_count_ : ndarray of shape (n_classes,)
+        Number of training samples of each class.
+
+    n_features_in_ : int
+        Number of features seen during :term:`fit`.
+
+    feature_names_in_ : ndarray of shape (`n_features_in_`,)
+        Names of features seen during :term:`fit`. Defined only when `X`
+        has feature names that are all strings.
+
+    ensemble_ : list of dict
+        The fitted SPnDEs, one per set of ``n_dependence`` super-parents (a
+        single one for ``n_dependence=0``). Each dict holds the
+        ``"parent_indices"`` and ``"child_indices"`` of the component, its
+        ``"estimator"`` (a :class:`MixedNB` fitted on the augmented class
+        :math:`Y^*`) and the counts used for the minimum-frequency rule.
+
+    backoff_ : MixedNB
+        Naive Bayes on the original class, used for the class-level
+        conditionals, to resolve the type of every attribute and as the
+        fallback when no SPnDE qualifies.
+
+    See Also
+    --------
+    WeightedAnDE : AnDE with discriminatively learned weights.
+    AnJE : Averaged n-Join Estimators.
+    MixedNB : Naive Bayes classifier for mixed data.
+
+    References
+    ----------
+    .. [1] Webb, G. I., Boughton, J., & Wang, Z. (2005). Not so naive Bayes:
+           Aggregating one-dependence estimators. Machine Learning, 58(1), 5-24.
+    .. [2] Webb, G. I., Boughton, J., Zheng, F., Ting, K. M., & Salem, H. (2011).
+           Learning by extrapolation from marginal to full-multivariate
+           probability distributions: Decreasingly naive Bayesian
+           classification. Machine Learning, 86(2), 233-272.
+    .. [3] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., &
+           Cerquides, J. (2016). ALR^n: Accelerated higher-order logistic
+           regression. Machine Learning, 104(2-3), 151-194.
     """
+
+    _parameter_constraints: dict = {
+        **_BaseAnDE._parameter_constraints,
+        "mean": [StrOptions({"arithmetic", "geometric"})],
+    }
 
     def __init__(
         self,
@@ -641,7 +864,25 @@ class AnDE(_BaseAnDE):
         )
         self.mean = mean
 
+    @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
+        """
+        Fit the ensemble of SPnDEs by counting frequencies.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training vectors, where ``n_samples`` is the number of samples and
+            ``n_features`` is the number of features.
+
+        y : array-like of shape (n_samples,)
+            Target values.
+
+        Returns
+        -------
+        self : object
+            Returns the instance itself.
+        """
         if self.mean not in _POOLS:
             raise ValueError(
                 f"mean must be 'arithmetic' or 'geometric', got {self.mean!r}"
@@ -649,6 +890,21 @@ class AnDE(_BaseAnDE):
         return super().fit(X, y)
 
     def predict_log_proba(self, X):
+        """
+        Return log-probability estimates for the test vector X.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples.
+
+        Returns
+        -------
+        C : ndarray of shape (n_samples, n_classes)
+            Log-probability of the samples for each class, in the order of
+            ``classes_``. The estimates are normalised over the classes and
+            bounded below by the logarithm of the smallest positive float.
+        """
         jll, _, active, nb_jll = self._get_jll_per_model(X)
         return self._normalize(_POOLS[self.mean](jll, active, nb_jll))
 
@@ -726,7 +982,7 @@ class WeightedAnDE(AnDE):
     :math:`P_m = P(y, x_p) \\prod_i P(x_i | y, x_p)`, level 4 is a
     discriminative re-estimation of each component's root table
     :math:`P(y, x_p)`, and the lower levels tie its entries. Level 3 is the
-    per-SPODE, per-class weighting of EODE-CLL [5]_ (without its attribute
+    per-SPODE, per-class weighting of EODE-CLL [2]_ (without its attribute
     weights). With the geometric mean they scale each component's log-joint,
     :math:`s = \\frac{1}{|M|} \\sum_m w_m \\log P_m(y, x)`, with non-negative
     weights. Component weights do not change how a component combines its
@@ -734,7 +990,7 @@ class WeightedAnDE(AnDE):
     by every component (e.g. a duplicated attribute).
 
     **Factor weights** (``weight_scope="factor"``) apply the weighted CCBN of
-    Zaidi et al. [3]_ inside each SPnDE: every factor ``f`` of component ``m``
+    Zaidi et al. [1]_ inside each SPnDE: every factor ``f`` of component ``m``
     gets its own exponent, :math:`P_m^w(y, x) = \\prod_f \\theta_f^{w_f}`, and
     the components are pooled as above. The root factor
     :math:`P(y, x_p)` is weighted as one factor whose value is the parent
@@ -743,14 +999,14 @@ class WeightedAnDE(AnDE):
     With ``modular=True`` the weights of each SPnDE are fitted on that
     component's own conditional log-likelihood, a convex problem. Factor
     weights at level 4, fitted modularly and pooled with
-    ``average="posterior"``, are the AnDE^w of FedAnDE [6]_: one wCCBN per
+    ``average="posterior"``, are the AnDE^w of FedAnDE [3]_: one wCCBN per
     SPnDE, whose posteriors are averaged. The joint fit of an arithmetic
     mixture is non-convex; the geometric mean gives a convex joint problem.
 
     Weight levels (variables indexing each weight, from coarsest to finest):
 
     ===== ======================================= ===================================
-    Level ``weight_scope="component"``            ``weight_scope="factor"`` [3]_
+    Level ``weight_scope="component"``            ``weight_scope="factor"`` [1]_
     ===== ======================================= ===================================
     1     Component                               Factor
     2     Component x parent value                Factor x value
@@ -769,56 +1025,168 @@ class WeightedAnDE(AnDE):
     Parameters
     ----------
     n_dependence : int, default=1
-        The number of parent features conditioned upon (n-dependence).
-        0 corresponds to Naive Bayes topology.
+        Order ``n`` of the dependence, the number of super-parent attributes of
+        each SPnDE. It must satisfy ``0 <= n_dependence <= n_features``; ``0``
+        gives the Naive Bayes topology.
+
     n_bins : int, default=5
-        Maximum number of bins for discretization.
+        Number of bins for discretizing continuous attributes when they act as
+        super-parents (at least 2). Children remain continuous and are modeled
+        by Gaussian distributions.
+
+    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+        Strategy used for the discretization of super-parents.
+
     alpha : float, default=1.0
-        Additive (Laplace/Lidstone) smoothing parameter for probabilities.
+        Non-negative additive (Laplace/Lidstone) smoothing parameter for the
+        probabilities of the generative model.
+
+    n_jobs : int, default=None
+        Number of jobs used to fit the SPnDEs of the generative phase; the
+        weights are optimized in a single process.
+        ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
+        ``-1`` means using all processors.
+
+    categorical_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the attributes to treat as categorical,
+        passed to :class:`MixedNB`, which describes how the undeclared
+        attributes are typed.
+
+    bernoulli_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the attributes to treat as Bernoulli.
+        See :class:`MixedNB`.
+
+    gaussian_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the attributes to treat as Gaussian.
+        See :class:`MixedNB`.
+
+    var_prior_weight : float, default=1.0
+        Pseudo-observations shrinking each Gaussian child variance towards the
+        pooled variance of the feature (see :class:`MixedNB`). It applies to
+        the SPnDEs with super-parents and to the class-level back-off model;
+        ``0`` gives the variances of :class:`~sklearn.naive_bayes.GaussianNB`.
+
+    min_parent_count : int, default=1
+        Minimum training frequency of a parent instantiation for its SPnDE to
+        take part in the prediction of an instance. Values below 1 behave as 1.
+
+    unseen_state : {"laplace", "backoff"}, default="laplace"
+        Child conditionals used for an augmented state never seen in training.
+        ``"laplace"`` is the standard smoothed estimate of an empty cell
+        (uniform for discrete children, the pooled Gaussian of the attribute
+        for continuous ones); ``"backoff"`` reuses the class-level
+        conditionals.
+
     mean : {"arithmetic", "geometric"}, default="arithmetic"
         Pooling of the (weighted) components.
+
     average : {"joint", "posterior"}, default="joint"
         What the arithmetic mean pools: the components' weighted joints
         :math:`P^w_m(y, x)`, as in AnDE, or their posteriors
         :math:`P^w_m(y | x)`. Both give the same geometric mean. With
         ``"posterior"`` a class-independent component weight cancels, so
         arithmetic component weights need a class-specific level (3 or 4).
+
     weight_scope : {"component", "factor"}, default="component"
         Whether a weight multiplies a whole component or one of its factors.
+
     weight_level : int, default=1
-        Granularity of weights (1-4, see the table above).
+        Granularity of the weights, from 1 (coarsest) to 4 (finest); see the
+        table above.
+
     l2_reg : float, default=1.0
-        L2 regularization towards the generative solution (w = 1), added to
-        the summed conditional log-likelihood.
+        Non-negative L2 regularization towards the generative solution
+        (``w = 1``), added to the summed conditional log-likelihood.
+
     max_iter : int, default=100
-        Maximum number of L-BFGS-B iterations.
+        Maximum number of L-BFGS-B iterations (at least 1); with
+        ``modular=True`` it applies to the fit of each component. A
+        :class:`~sklearn.exceptions.ConvergenceWarning` is raised at the end of
+        :meth:`fit` when L-BFGS-B stops at ``max_iter`` before converging;
+        increase ``max_iter`` or ``tol`` in that case.
+
     tol : float or None, default=None
         Stopping tolerance of L-BFGS-B on the relative reduction of the
         objective and on the projected gradient; None uses SciPy's defaults.
+
     modular : bool, default=False
         If True, the weights of each component are fitted independently on
         that component's own conditional log-likelihood, which is convex. With
         arithmetic component weights only the class-specific levels (3 and 4)
-        are identifiable; levels 1 and 2 reduce to the generative AnDE.
-    n_jobs : int, default=None
-        Number of parallel jobs to run during the generative phase.
+        are identifiable; levels 1 and 2 reduce to the generative AnDE, the
+        weights stay at 1 and a :class:`UserWarning` is raised.
 
     Attributes
     ----------
-    coef_theta_ : ndarray of shape (n_weights_,)
-        Optimized parameters (``log w`` for arithmetic component weights).
-    learned_weights_ : ndarray of shape (n_weights_,)
+    classes_ : ndarray of shape (n_classes,)
+        Class labels.
+
+    class_count_ : ndarray of shape (n_classes,)
+        Number of training samples of each class.
+
+    n_features_in_ : int
+        Number of features seen during :term:`fit`.
+
+    feature_names_in_ : ndarray of shape (`n_features_in_`,)
+        Names of features seen during :term:`fit`. Defined only when `X`
+        has feature names that are all strings.
+
+    ensemble_ : list of dict
+        The fitted SPnDEs of the generative phase, one per set of
+        ``n_dependence`` super-parents (a single one for ``n_dependence=0``).
+        Each dict holds the ``"parent_indices"`` and ``"child_indices"`` of the
+        component, its ``"estimator"`` (a :class:`MixedNB` fitted on the
+        augmented class :math:`Y^*`) and the counts used for the
+        minimum-frequency rule.
+
+    backoff_ : MixedNB
+        Naive Bayes on the original class, used for the class-level
+        conditionals, to resolve the type of every attribute and as the
+        fallback when no SPnDE qualifies.
+
+    coef_theta_ : ndarray of shape (n_weights,)
+        Optimized parameters: ``log w`` for arithmetic component weights
+        (``weight_scope="component"`` and ``mean="arithmetic"``), ``w``
+        otherwise.
+
+    learned_weights_ : ndarray of shape (n_weights,)
         Learned weights ``w``.
+
     n_weights_ : int
         Number of weights, including the shared one for unseen combinations.
+
     n_iter_ : int
-        Total number of L-BFGS-B iterations.
+        Total number of L-BFGS-B iterations (summed over the components when
+        ``modular=True``).
+
+    See Also
+    --------
+    AnDE : The generative model.
+    GaussianALR : ALR^n on the factors of the SPnDEs.
 
     References
     ----------
-    .. [6] Torrijos, P., Gamez, J. A., & Puerta, J. M. Federated averaged
-           n-dependence estimators. Manuscript in preparation.
+    .. [1] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., Buntine, W.,
+           Hynes, M., & De Sterck, H. (2017). Efficient parameter learning of
+           Bayesian network classifiers. Machine Learning, 106(9-10), 1289-1329.
+    .. [2] Zheng, X., Lin, Z., Xu, H., Chen, C., & Ye, T. (2015). Efficient
+           learning ensemble SuperParent-one-dependence estimator by maximizing
+           conditional log likelihood. Expert Systems with Applications, 42,
+           7732-7745.
+    .. [3] Torrijos, P., Gámez, J. A., & Puerta, J. M. Federated Averaged
+           n-Dependence Estimators. Manuscript, 2026.
     """
+
+    _parameter_constraints: dict = {
+        **AnDE._parameter_constraints,
+        "average": [StrOptions({"joint", "posterior"})],
+        "weight_scope": [StrOptions({"component", "factor"})],
+        "weight_level": [Interval(Integral, 1, 4, closed="both")],
+        "l2_reg": [Interval(Real, 0, None, closed="left")],
+        "max_iter": [Interval(Integral, 1, None, closed="left")],
+        "tol": [Interval(Real, 0, None, closed="left"), None],
+        "modular": ["boolean"],
+    }
 
     def __init__(
         self,
@@ -888,16 +1256,17 @@ class WeightedAnDE(AnDE):
     def _child_value_codes(self, X):
         """Value code of every attribute as a child: the category of a
         categorical attribute, the bit of a Bernoulli one and 0 for Gaussian
-        (or ignored) attributes, whose values are not discretized."""
+        (or ignored) attributes, whose values are not discretized. A category
+        never seen in training gets code 0; its factor is 0, so its weight
+        does not matter."""
         types = self.backoff_.feature_types_
         codes = np.zeros(X.shape, dtype=np.int64)
         if types["categorical"]:
-            cat = types["categorical"]
-            codes[:, cat] = np.clip(
-                X[:, cat].astype(np.int64), 0, self.backoff_._cat_cardinalities - 1
-            )
+            codes[:, types["categorical"]] = self.backoff_._categorical_codes(X)[0]
         if types["bernoulli"]:
-            codes[:, types["bernoulli"]] = X[:, types["bernoulli"]] > 0
+            codes[:, types["bernoulli"]] = (
+                X[:, types["bernoulli"]] > self.backoff_.bernoulli_thresholds_
+            )
         return codes
 
     def _term_cardinalities(self):
@@ -1074,7 +1443,7 @@ class WeightedAnDE(AnDE):
             if self.weight_scope == "component" and self.mean == "geometric"
             else None
         )
-        theta, n_iter = _fit_weights(
+        theta, n_iter, converged = _fit_weights(
             lambda t: self._nll_and_grad(t, design, Y),
             theta,
             self.l2_reg,
@@ -1084,9 +1453,33 @@ class WeightedAnDE(AnDE):
             tol=self.tol,
         )
         self.n_iter_ += n_iter
+        self._n_problems += 1
+        self._n_failed += not converged
         return theta
 
+    @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
+        """
+        Fit the generative ensemble, then learn the discriminative weights.
+
+        The SPnDEs are fitted by counting frequencies and the weights are
+        optimized with L-BFGS-B on the conditional log-likelihood, starting at
+        the generative model.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training vectors, where ``n_samples`` is the number of samples and
+            ``n_features`` is the number of features.
+
+        y : array-like of shape (n_samples,)
+            Target values.
+
+        Returns
+        -------
+        self : object
+            Returns the instance itself.
+        """
         if self.weight_scope not in _LEVEL_DIMS:
             raise ValueError(
                 "weight_scope must be 'component' or 'factor', got"
@@ -1115,6 +1508,7 @@ class WeightedAnDE(AnDE):
 
         theta = np.zeros(self.n_weights_) if self._offset else np.ones(self.n_weights_)
         self.n_iter_ = 0
+        self._n_problems = self._n_failed = 0
 
         # 3. Discriminative phase
         if not self.modular:
@@ -1141,11 +1535,28 @@ class WeightedAnDE(AnDE):
                         theta[lo:hi], design.component(m_idx, rows, lo, hi), Y[rows]
                     )
 
+        _warn_not_converged(self._n_failed, self._n_problems, self.max_iter)
         self.coef_theta_ = theta
         self.learned_weights_ = self._to_weights(theta)
         return self
 
     def predict_log_proba(self, X):
+        """
+        Return log-probability estimates for the test vector X.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples.
+
+        Returns
+        -------
+        C : ndarray of shape (n_samples, n_classes)
+            Log-probability of the samples for each class, in the order of
+            ``classes_``, from the weighted components. The estimates are
+            normalised over the classes and bounded below by the logarithm of
+            the smallest positive float.
+        """
         check_is_fitted(self, attributes=["classes_", "ensemble_", "coef_theta_"])
         X = validate_data(self, X, reset=False)
         n_classes, n_models = len(self.classes_), len(self.ensemble_)
