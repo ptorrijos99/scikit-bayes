@@ -9958,18 +9958,19 @@ packages:
   timestamp: 1714090270741
 - pypi: ./
   name: scikit-bayes
-  version: 1.2.2.dev2+g4d1c2c826
-  sha256: 3aa63c788c90c5eb04531462cb2590c0922a8aacc79e2d5488104ec5fd01c929
+  version: 1.2.2.dev13+ge21916cee.d20261103
+  sha256: b28d26ed42a1482bfb8ec248df898ad33ffe4c7b16e059bfcafe0c18ee070408
   requires_dist:
-  - numpy
-  - scipy
-  - scikit-learn>=1.4.2
+  - numpy>=1.23.5
+  - scipy>=1.9.3
+  - scikit-learn>=1.6
+  - joblib>=1.2.0
   - pyyaml>=6.0 ; extra == 'experiments'
   - liac-arff>=2.5 ; extra == 'experiments'
   - xgboost>=2.0.0 ; extra == 'experiments'
   - lightgbm>=4.0.0 ; extra == 'experiments'
   - py-cpuinfo>=9.0.0 ; extra == 'experiments'
-  requires_python: '>=3.9'
+  requires_python: '>=3.10'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/scikit-learn-1.8.0-np2py311ha15b03d_1.conda
   sha256: 1b28c914e59b0e346fef3574c192ea919c710784a9b5a4eff640fb81825a91a9
