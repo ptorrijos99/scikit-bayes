@@ -562,9 +562,9 @@ Computational Considerations
   conditionals of TAN and KDB run in compiled Numba kernels. They are
   compiled on the first use of each model and cached on disk: after
   installing or upgrading the package, the first fit of a model takes
-  several seconds longer (on a laptop, between 3 and 7 s per model, plus
-  about 10 s to start the compiler the first time), and later sessions load
-  the compiled code in a fraction of a second.
+  several seconds longer (on a laptop, from about 4 s for WeightedAnDE to
+  15 s for AnDE), and later sessions load the compiled code in a fraction of
+  a second.
 * ``n_jobs`` sets the number of threads of those kernels (1 by default,
   ``-1`` for all processors). The threaded version of a kernel is compiled
   the first time it is used, so a model run with several threads for the

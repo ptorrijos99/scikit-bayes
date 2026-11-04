@@ -136,8 +136,34 @@ def _state_index(keys, n_grid):
         for r in range(n):
             index[r] = pos[keys[r]]
         return states, index
-    states = np.unique(keys)
-    return states, np.searchsorted(states, keys)
+    # Larger grids: order the rows by key with a radix sort, 16 bits a pass
+    # (np.unique would compile NumPy's whole sorting machinery)
+    order = np.arange(n)
+    spare = np.empty(n, dtype=np.int64)
+    count = np.empty((1 << 16) + 1, dtype=np.int64)
+    shift = 0
+    while shift < 64 and (n_grid - 1) >> shift > 0:
+        count[:] = 0
+        for r in range(n):
+            count[((keys[order[r]] >> shift) & 0xFFFF) + 1] += 1
+        for b in range(1 << 16):
+            count[b + 1] += count[b]
+        for r in range(n):
+            digit = (keys[order[r]] >> shift) & 0xFFFF
+            spare[count[digit]] = order[r]
+            count[digit] += 1
+        order, spare = spare, order
+        shift += 16
+    states = np.empty(n, dtype=np.int64)
+    index = np.empty(n, dtype=np.int64)
+    n_states = 0
+    for t in range(n):
+        r = order[t]
+        if t == 0 or keys[r] != keys[order[t - 1]]:
+            states[n_states] = keys[r]
+            n_states += 1
+        index[r] = n_states - 1
+    return states[:n_states].copy(), index
 
 
 @_Kernel

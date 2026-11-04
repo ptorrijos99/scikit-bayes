@@ -18,7 +18,7 @@ All notable changes to scikit-bayes are listed here. The project follows [semant
 - `TAN` and `KDB` compute the conditional mutual information of every pair of attributes with a Numba kernel, which keeps the per-cell formula and its exact zeros, instead of a loop of NumPy calls per pair, and keep their conditionals in flat tables evaluated by a kernel instead of one `MixedNB` per attribute. Their cost was dominated by the d²/2 pairs: with 800 attributes TAN fits in 2.4 s instead of 30 s, and with 2,000 attributes and 125 samples (the shape of microarray data) in 4 s instead of 79 s.
 - Categorical values that are integers in a small range are encoded with a lookup table instead of a sorted search, in every model.
 - `n_jobs` sets the number of threads of the kernels; `AnJE`, `ALR`, `TAN` and `KDB` gain the parameter.
-- The kernels are compiled without threads, and their parallel version only the first time a model runs with `n_jobs` other than 1. The compilation that the first use of a model pays after installing the package drops from 12-29 s to 3-17 s per model on a laptop; the compiled code is cached on disk.
+- The kernels are compiled without threads, and their parallel version only the first time a model runs with `n_jobs` other than 1. The compilation that the first use of a model pays after installing the package drops from 12-29 s to 4-15 s per model on a laptop; the compiled code is cached on disk. Large state grids are indexed with a radix sort instead of `np.unique`, whose compilation alone took 5 s.
 - Numba is a new dependency.
 
 ### Changed behaviour

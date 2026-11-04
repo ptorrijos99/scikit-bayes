@@ -6,7 +6,7 @@
 import numba as nb
 import numpy as np
 
-from skbn._kernels import _Kernel, _threads
+from skbn._kernels import _Kernel, _state_index, _threads
 
 
 def _row_sums(x):
@@ -39,3 +39,16 @@ def test_threads_restores_the_previous_setting():
             assert nb.get_num_threads() == 1
         assert nb.get_num_threads() == min(2, nb.config.NUMBA_NUM_THREADS)
     assert nb.get_num_threads() == previous
+
+
+def test_state_index_of_large_grids_matches_unique():
+    """Grids too large for a dense index are sorted by a radix sort, up to the
+    largest key a 64-bit index allows."""
+    rng = np.random.RandomState(0)
+    for n_grid in (10**5, 2**40, 2**62):
+        for high in (50, n_grid):
+            keys = rng.randint(0, high, size=2000, dtype=np.int64)
+            keys[:3] = n_grid - 1
+            states, index = _state_index(keys, n_grid)
+            np.testing.assert_array_equal(states, np.unique(keys))
+            np.testing.assert_array_equal(index, np.searchsorted(states, keys))
