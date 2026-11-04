@@ -138,3 +138,40 @@ def test_equivalence_with_sklearn_naive_bayes(reference, make_X):
     expected = reference(**params).fit(X, y).predict_proba(X)
     got = MixedNB(**params).fit(X, y).predict_proba(X)
     np.testing.assert_allclose(got, expected, rtol=1e-7, atol=1e-9)
+
+
+def _searchsorted_codes(col, categories):
+    pos = np.minimum(np.searchsorted(categories, col), len(categories) - 1)
+    known = categories[pos] == col
+    return np.where(known, pos, 0), ~known
+
+
+@pytest.mark.parametrize(
+    "make_col",
+    [
+        lambda rng, n: rng.randint(-5, 8, n),  # small integer range: table
+        lambda rng, n: rng.randint(0, 4, n).astype(float),  # integral floats
+        lambda rng, n: rng.randint(0, 6, n).astype(np.uint8),
+        lambda rng, n: rng.randint(0, 10**9, n),  # wide range: sorted search
+        lambda rng, n: rng.randint(-3, 3, n) * 0.5,  # non-integral values
+        lambda rng, n: rng.normal(size=n),
+    ],
+)
+def test_category_encoding_matches_unique_and_searchsorted(make_col):
+    from skbn._core import _encode_values, _unique_values
+
+    rng = np.random.RandomState(0)
+    for n in (1, 7, 300):
+        col = make_col(rng, n)
+        categories = _unique_values(col)
+        reference = np.unique(col)
+        assert categories.dtype == reference.dtype
+        np.testing.assert_array_equal(categories, reference)
+        unseen = np.array([-100, 250, 10**9 + 1])
+        if col.dtype.kind == "f":
+            unseen = np.array([0.25, -1e300, np.inf, np.nan])
+        test = np.concatenate([col, unseen.astype(col.dtype), make_col(rng, 50)])
+        codes, mask = _encode_values(test, categories)
+        expected_codes, expected_mask = _searchsorted_codes(test, reference)
+        np.testing.assert_array_equal(codes, expected_codes)
+        np.testing.assert_array_equal(mask, expected_mask)

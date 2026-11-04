@@ -20,6 +20,9 @@ seen in training, which contributes nothing.
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
+import functools
+import threading
+import types
 from contextlib import contextmanager
 
 import numba as nb
@@ -42,17 +45,50 @@ _DENSE_CELLS_PER_ROW = 4
 _BLOCK_ROWS = 256
 
 
+# Whether the kernels called from this Python thread run their parallel
+# version (set by _threads)
+_state = threading.local()
+
+
 @contextmanager
 def _threads(n_jobs):
     """Run the kernels with the number of threads that ``n_jobs`` asks for
     (``None`` is 1, negative values count back from the number of CPUs)."""
     n = max(1, min(effective_n_jobs(n_jobs), nb.config.NUMBA_NUM_THREADS))
-    previous = nb.get_num_threads()
+    previous = nb.get_num_threads(), getattr(_state, "parallel", False)
     nb.set_num_threads(n)
+    _state.parallel = n > 1
     try:
         yield
     finally:
-        nb.set_num_threads(previous)
+        nb.set_num_threads(previous[0])
+        _state.parallel = previous[1]
+
+
+class _Kernel:
+    """A kernel compiled serially, and with ``parallel=True`` only the first
+    time it runs with more than one thread: the parallel version takes two to
+    five times longer to compile, a cost single-threaded use does not pay.
+    Both versions are cached on disk."""
+
+    def __init__(self, func):
+        functools.update_wrapper(self, func)
+        self._func = func
+        self._serial = nb.njit(cache=True)(func)
+        self._parallel = None
+
+    def __call__(self, *args):
+        if not getattr(_state, "parallel", False):
+            return self._serial(*args)
+        if self._parallel is None:
+            func = self._func
+            # A copy under another name, so that the cache keeps both versions
+            twin = types.FunctionType(
+                func.__code__, func.__globals__, func.__name__ + "_parallel"
+            )
+            twin.__qualname__ = func.__qualname__ + "_parallel"
+            self._parallel = nb.njit(parallel=True, cache=True)(twin)
+        return self._parallel(*args)
 
 
 @nb.njit(cache=True, inline="always")
@@ -104,7 +140,7 @@ def _state_index(keys, n_grid):
     return states, np.searchsorted(states, keys)
 
 
-@nb.njit(parallel=True, cache=True)
+@_Kernel
 def count_states(y, pcodes, parents, strides, n_combos, n_classes):
     """Number of augmented states observed in training by each component."""
     n_models = parents.shape[0]
@@ -115,7 +151,7 @@ def count_states(y, pcodes, parents, strides, n_combos, n_classes):
     return n_states
 
 
-@nb.njit(parallel=True, cache=True)
+@_Kernel
 def count_tables(
     y,
     pcodes,
@@ -210,6 +246,11 @@ def _log_likelihood(s, j, r, codes, xg, disc, mean, var, kind, voff, gidx):
     return 0.0
 
 
+# The same function called rather than inlined, on the back-off paths that
+# few samples take: it keeps the evaluation kernels faster to compile
+_log_likelihood_call = nb.njit(cache=True)(_log_likelihood.py_func)
+
+
 @nb.njit(cache=True, inline="always")
 def _parent_state(r, m, pcodes, punseen, parents, strides, pk_off, pk_keys, pk_count):
     """Parent key of component ``m`` for row ``r`` and the training frequency
@@ -225,7 +266,7 @@ def _parent_state(r, m, pcodes, punseen, parents, strides, pk_off, pk_keys, pk_c
     return key, freq
 
 
-@nb.njit(parallel=True, cache=True)
+@_Kernel
 def component_scores(
     codes,
     xg,
@@ -300,7 +341,7 @@ def component_scores(
                                 s, j, r, codes, xg, disc, mean, var, kind, voff, gidx
                             )
                         elif backoff:
-                            ll = _log_likelihood(
+                            ll = _log_likelihood_call(
                                 c,
                                 j,
                                 r,
@@ -327,14 +368,14 @@ def component_scores(
             for c in range(n_classes):
                 total = b_root[c]
                 for j in range(n_features):
-                    total += _log_likelihood(
+                    total += _log_likelihood_call(
                         c, j, r, codes, xg, b_disc, b_mean, b_var, kind, voff, gidx
                     )
                 nb_jll[r, c] = total
     return out, active, nb_jll
 
 
-@nb.njit(parallel=True, cache=True)
+@_Kernel
 def pooled_scores(
     codes,
     xg,
@@ -406,7 +447,7 @@ def pooled_scores(
                                 s, j, r, codes, xg, disc, mean, var, kind, voff, gidx
                             )
                         elif backoff:
-                            total += _log_likelihood(
+                            total += _log_likelihood_call(
                                 c,
                                 j,
                                 r,
@@ -435,7 +476,7 @@ def pooled_scores(
                 if n_active[i] == 0:
                     total = b_root[c]
                     for j in range(n_features):
-                        total += _log_likelihood(
+                        total += _log_likelihood_call(
                             c, j, r, codes, xg, b_disc, b_mean, b_var, kind, voff, gidx
                         )
                     scores[r, c] = total
@@ -477,7 +518,7 @@ def _join_row(key, j, row_of_cell, cell_keys):
     return row if row >= 0 else cell_keys.shape[0] + j
 
 
-@nb.njit(parallel=True, cache=True)
+@_Kernel
 def join_cells_seen(codes_t, joins, strides, join_off, n_keys):
     """Mask of the keys that occur in ``codes_t`` (key 0 always does)."""
     seen = np.zeros(n_keys, dtype=np.bool_)
@@ -489,7 +530,7 @@ def join_cells_seen(codes_t, joins, strides, join_off, n_keys):
     return seen
 
 
-@nb.njit(parallel=True, cache=True)
+@_Kernel
 def join_keys(codes_t, joins, strides, join_off):
     """Key of every sample and join, shape (n, n_joins)."""
     n = codes_t.shape[1]
@@ -500,7 +541,7 @@ def join_keys(codes_t, joins, strides, join_off):
     return keys
 
 
-@nb.njit(parallel=True, cache=True)
+@_Kernel
 def join_counts(
     codes_t, y, joins, strides, join_off, row_of_cell, cell_keys, n_classes
 ):
@@ -556,7 +597,7 @@ def _block_scores(rows, off, m, table):
     return scores
 
 
-@nb.njit(parallel=True, cache=True)
+@_Kernel
 def join_rows(codes_t, joins, strides, join_off, row_of_cell, cell_keys):
     """Table row of every join and sample, shape (n_joins, n)."""
     n = codes_t.shape[1]
@@ -572,7 +613,7 @@ def join_rows(codes_t, joins, strides, join_off, row_of_cell, cell_keys):
     return rows
 
 
-@nb.njit(parallel=True, cache=True)
+@_Kernel
 def join_scores(codes_t, joins, strides, join_off, row_of_cell, cell_keys, table):
     """Score of every sample and class: the sum of the table rows of its
     cells, shape (n, n_classes)."""
@@ -589,7 +630,7 @@ def join_scores(codes_t, joins, strides, join_off, row_of_cell, cell_keys, table
     return scores
 
 
-@nb.njit(parallel=True, cache=True)
+@_Kernel
 def join_objective(
     codes_t,
     y,
@@ -657,3 +698,179 @@ def join_objective(
                     for c in range(n_classes):
                         grad[t, row, c] += resid[i, c]
     return nll.sum(), grad.sum(axis=0)
+
+
+# =============================================================================
+# Attribute-conditional networks (TAN and KDB)
+# =============================================================================
+#
+# Factor ``m`` is ``P(x_j | y, x_pa)`` of child ``j = children[m]`` with the
+# ``n_parents[m]`` parents in ``parents[m]`` (the rest of the row is padding
+# with stride 0). Its augmented states are stored as those of an SPnDE
+# (``state_off``, ``state_keys``); a discrete child keeps
+# ``disc[disc_off[m] + t * cards[j] + v]`` for its local state ``t``, and a
+# Gaussian child ``mean[s]`` and ``var[s]``.
+
+
+@_Kernel
+def conditional_mutual_info(codes_t, y, cards, n_classes):
+    """Empirical ``I(A_i; A_j | C)`` of every pair of attributes, in nats.
+
+    ``codes_t`` holds the attribute codes transposed, shape (n_features, n).
+    The (c, a) counts of every attribute are computed once; every pair counts
+    its joint table and sums ``n_cab log(n_cab n_c / (n_ca n_cb))`` over its
+    non-empty cells, which is exactly 0 for a constant attribute.
+    """
+    d, n = codes_t.shape
+    max_card = 1
+    for j in range(d):
+        max_card = max(max_card, cards[j])
+    n_c = np.zeros(n_classes)
+    for r in range(n):
+        n_c[y[r]] += 1.0
+    marg = np.zeros((d, n_classes, max_card))
+    for j in nb.prange(d):
+        for r in range(n):
+            marg[j, y[r], codes_t[j, r]] += 1.0
+    cmi = np.zeros((d, d))
+    for i in nb.prange(d):
+        ci = cards[i]
+        key = np.empty(n, dtype=np.int64)
+        for r in range(n):
+            key[r] = (y[r] * ci + codes_t[i, r]) * max_card
+        table = np.zeros(n_classes * ci * max_card)
+        for j in range(i + 1, d):
+            cj = cards[j]
+            table[:] = 0.0
+            for r in range(n):
+                table[key[r] + codes_t[j, r]] += 1.0
+            total = 0.0
+            for c in range(n_classes):
+                for a in range(ci):
+                    row = (c * ci + a) * max_card
+                    for b in range(cj):
+                        n_cab = table[row + b]
+                        if n_cab > 0.0:
+                            ratio = n_cab * n_c[c] / (marg[i, c, a] * marg[j, c, b])
+                            total += n_cab * np.log(ratio)
+            cmi[i, j] = cmi[j, i] = max(total / n, 0.0)
+    return cmi
+
+
+@_Kernel
+def count_conditionals(
+    y,
+    pcodes,
+    codes,
+    xg,
+    parents,
+    strides,
+    children,
+    n_combos,
+    n_classes,
+    state_off,
+    disc_off,
+    kind,
+    gidx,
+    cards,
+):
+    """Sufficient statistics of every factor: the state keys, the training
+    rows of every state, the value counts of a discrete child and the mean
+    and (biased) variance of a Gaussian one."""
+    n = y.shape[0]
+    n_factors = parents.shape[0]
+    n_total = state_off[n_factors]
+    keys_out = np.empty(n_total, dtype=np.int64)
+    count = np.zeros(n_total)
+    disc = np.zeros(disc_off[n_factors])
+    mean = np.zeros(n_total)
+    var = np.zeros(n_total)
+    for m in nb.prange(n_factors):
+        keys = _augmented_keys(y, pcodes, parents[m], strides[m], n_combos[m])
+        states, index = _state_index(keys, n_classes * n_combos[m])
+        o = state_off[m]
+        keys_out[o : o + states.shape[0]] = states
+        j = children[m]
+        for r in range(n):
+            s = o + index[r]
+            count[s] += 1.0
+            if kind[j] == DISCRETE:
+                disc[disc_off[m] + index[r] * cards[j] + codes[r, j]] += 1.0
+            elif kind[j] == GAUSSIAN:
+                mean[s] += xg[r, gidx[j]]
+        if kind[j] != GAUSSIAN:
+            continue
+        for s in range(o, o + states.shape[0]):
+            mean[s] /= count[s]
+        for r in range(n):
+            s = o + index[r]
+            diff = xg[r, gidx[j]] - mean[s]
+            var[s] += diff * diff
+        for s in range(o, o + states.shape[0]):
+            var[s] /= count[s]
+    return keys_out, count, disc, mean, var
+
+
+@_Kernel
+def conditional_scores(
+    codes,
+    xg,
+    uninf,
+    pcodes,
+    punseen,
+    parents,
+    strides,
+    n_parents,
+    children,
+    n_combos,
+    state_off,
+    state_keys,
+    disc_off,
+    disc,
+    mean,
+    var,
+    kind,
+    gidx,
+    cards,
+    n_classes,
+):
+    """Sum over the factors of ``log P(x_j | y, x_pa)``, shape (n, n_classes).
+
+    A state never seen in training, or a parent value never seen, gives the
+    uninformed estimate ``uninf[r, j]``.
+    """
+    n = codes.shape[0]
+    n_factors = parents.shape[0]
+    out = np.zeros((n, n_classes))
+    n_blocks = (n + _BLOCK_ROWS - 1) // _BLOCK_ROWS
+    for b in nb.prange(n_blocks):
+        lo, hi = b * _BLOCK_ROWS, min(n, (b + 1) * _BLOCK_ROWS)
+        for m in range(n_factors):
+            j = children[m]
+            o = state_off[m]
+            for r in range(lo, hi):
+                key = 0
+                unseen = False
+                for q in range(n_parents[m]):
+                    p = parents[m, q]
+                    key += pcodes[r, p] * strides[m, q]
+                    unseen |= punseen[r, p]
+                for c in range(n_classes):
+                    s = -1
+                    if not unseen:
+                        s = _find(
+                            state_keys, o, state_off[m + 1], c * n_combos[m] + key
+                        )
+                    if s < 0:
+                        out[r, c] += uninf[r, j]
+                    elif kind[j] == DISCRETE:
+                        code = codes[r, j]
+                        if code >= 0:
+                            out[r, c] += disc[disc_off[m] + (s - o) * cards[j] + code]
+                    elif kind[j] == GAUSSIAN:
+                        v = var[s]
+                        diff = xg[r, gidx[j]] - mean[s]
+                        out[r, c] += _clamp(
+                            -0.5 * (diff * diff / v + np.log(2.0 * np.pi * v))
+                        )
+    return out

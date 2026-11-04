@@ -12,7 +12,7 @@ from sklearn.utils._param_validation import Interval
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted, validate_data
 
-from ._core import _auto_type, _feature_indices
+from ._core import _auto_type, _encode_values, _feature_indices, _unique_values
 
 
 def _fit_gaussian_nb(X, y_idx, classes, var_smoothing):
@@ -92,14 +92,6 @@ def _bernoulli_thresholds(X):
         return np.zeros(0)
     lo, hi = X.min(axis=0), X.max(axis=0)
     return np.where((lo <= 0) & (hi > 0), 0.0, (lo + hi) / 2.0)
-
-
-def _encode_categories(col, categories):
-    """Codes of ``col`` in the sorted array ``categories`` and a mask of the
-    values that are not in it (their code is 0)."""
-    pos = np.minimum(np.searchsorted(categories, col), len(categories) - 1)
-    known = categories[pos] == col
-    return np.where(known, pos, 0), ~known
 
 
 def _fit_bernoulli_nb(X_bool, y_idx, classes, alpha):
@@ -389,12 +381,9 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         if self.feature_types_["categorical"]:
             g = cols(self.feature_types_["categorical"])
             if categories is None:
-                self.categories_ = [np.unique(X[:, j]) for j in g]
+                self.categories_ = [_unique_values(X[:, j]) for j in g]
                 X_cat = np.column_stack(
-                    [
-                        _encode_categories(X[:, j], c)[0]
-                        for j, c in zip(g, self.categories_)
-                    ]
+                    [_encode_values(X[:, j], c)[0] for j, c in zip(g, self.categories_)]
                 )
             else:
                 self.categories_ = [categories[j] for j in g]
@@ -426,7 +415,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         codes = np.zeros((X.shape[0], len(indices)), dtype=np.int64)
         unseen = np.zeros(codes.shape, dtype=bool)
         for k, (j, cats) in enumerate(zip(indices, self.categories_)):
-            codes[:, k], unseen[:, k] = _encode_categories(X[:, j], cats)
+            codes[:, k], unseen[:, k] = _encode_values(X[:, j], cats)
         return codes, unseen
 
     def _shared_encoding(self, X):

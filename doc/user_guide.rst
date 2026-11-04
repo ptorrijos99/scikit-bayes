@@ -435,8 +435,9 @@ TAN uses the same strategy as the AnDE family. Continuous attributes are
 discretized (``n_bins``, ``strategy``) to compute the mutual information and
 when they act as parents; as children they remain continuous and are modeled
 by Gaussian distributions. Every conditional :math:`P(x_i | y, x_{\pi(i)})` is
-a :class:`skbn.MixedNB` fitted on the augmented class :math:`(y, x_{\pi(i)})`,
-so discrete children use Laplace smoothing (``alpha``).
+Naive Bayes on the augmented class :math:`(y, x_{\pi(i)})`, with the
+estimates of :class:`skbn.MixedNB`, so discrete children use Laplace
+smoothing (``alpha``).
 
 **Key Parameters:**
 
@@ -489,9 +490,8 @@ The structure is learned greedily [8]_:
 
 Mixed data is handled as in TAN: continuous attributes are discretized
 (``n_bins``, ``strategy``) for the structure and when they act as parents,
-and every conditional :math:`P(x_i | y, \mathbf{x}_{\Pi(i)})` is a
-:class:`skbn.MixedNB` fitted on the augmented class
-:math:`(y, \mathbf{x}_{\Pi(i)})`.
+and every conditional :math:`P(x_i | y, \mathbf{x}_{\Pi(i)})` is Naive Bayes
+on the augmented class :math:`(y, \mathbf{x}_{\Pi(i)})`.
 
 Choosing k
 ----------
@@ -558,14 +558,23 @@ and overfit small datasets with a weak penalty, so for them values between
 Computational Considerations
 ----------------------------
 
-* The counting and the evaluation of the SPnDEs and of the n-joins run in
-  compiled Numba kernels. They are compiled on the first use and cached on
-  disk, so the first fit after installing the package takes a few seconds
-  longer.
+* The counting and the evaluation of the SPnDEs, of the n-joins and of the
+  conditionals of TAN and KDB run in compiled Numba kernels. They are
+  compiled on the first use of each model and cached on disk: after
+  installing or upgrading the package, the first fit of a model takes
+  several seconds longer (on a laptop, between 3 and 7 s per model, plus
+  about 10 s to start the compiler the first time), and later sessions load
+  the compiled code in a fraction of a second.
 * ``n_jobs`` sets the number of threads of those kernels (1 by default,
-  ``-1`` for all processors); the weights of the hybrid models are optimized
-  in a single thread, with the objective of ALR evaluated in ``n_jobs``
-  threads.
+  ``-1`` for all processors). The threaded version of a kernel is compiled
+  the first time it is used, so a model run with several threads for the
+  first time pays that compilation once more. The weights of the hybrid
+  models are optimized in a single thread, with the objective of ALR
+  evaluated in ``n_jobs`` threads.
+* TAN and KDB compute the conditional mutual information of every pair of
+  attributes: the time grows with :math:`n d^2` and the matrix
+  ``conditional_mutual_info_`` holds :math:`d^2` values (800 MB for 10,000
+  attributes).
 * The parameters are stored only for the augmented states and the cells seen
   in training, so the memory of a model is bounded by the data rather than by
   the cardinalities of the attributes.

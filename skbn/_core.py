@@ -9,7 +9,7 @@ import numpy as np
 import sklearn
 from scipy.optimize import minimize
 from sklearn.exceptions import ConvergenceWarning
-from sklearn.preprocessing import KBinsDiscretizer, LabelEncoder
+from sklearn.preprocessing import KBinsDiscretizer
 
 # Number of elements a temporary array of a chunked computation may hold.
 _CHUNK_ELEMENTS = 1 << 22
@@ -19,12 +19,66 @@ _CHUNK_ELEMENTS = 1 << 22
 _MAX_AUTO_CATEGORIES = 20
 
 
+def _integer_range(values):
+    """``(lo, hi)`` when ``values`` are integers spanning at most
+    ``4 * len(values) + 1024`` consecutive values (so that they can index a
+    table), else None."""
+    if values.size == 0:
+        return None
+    if np.issubdtype(values.dtype, np.integer):
+        lo, hi = values.min(), values.max()
+    elif np.issubdtype(values.dtype, np.floating):
+        lo, hi = values.min(), values.max()
+        if not (np.isfinite(lo) and np.isfinite(hi)) or np.any(values % 1):
+            return None
+    else:
+        return None
+    lo, hi = int(lo), int(hi)
+    if hi - lo > 4 * values.size + 1024:
+        return None
+    return lo, hi
+
+
+def _unique_values(col):
+    """``np.unique(col)``, counted with a table when ``col`` holds integers in
+    a small range."""
+    span = _integer_range(col)
+    if span is None:
+        return np.unique(col)
+    lo, hi = span
+    present = np.bincount((col - lo).astype(np.int64), minlength=hi - lo + 1)
+    return (np.flatnonzero(present) + lo).astype(col.dtype)
+
+
+def _encode_values(col, categories):
+    """Codes of ``col`` in the sorted array ``categories`` and a mask of the
+    values that are not in it (their code is 0)."""
+    span = _integer_range(categories)
+    if span is None or not (
+        np.issubdtype(col.dtype, np.integer) or np.issubdtype(col.dtype, np.floating)
+    ):
+        pos = np.minimum(np.searchsorted(categories, col), len(categories) - 1)
+        known = categories[pos] == col
+        return np.where(known, pos, 0), ~known
+    lo, hi = span
+    table = np.full(hi - lo + 2, -1, dtype=np.int64)
+    table[(categories - lo).astype(np.int64)] = np.arange(len(categories))
+    # Values outside [lo, hi] or not integers go to the last, empty, entry
+    offset = col - lo
+    inside = (offset >= 0) & (offset <= hi - lo)
+    if np.issubdtype(col.dtype, np.floating):
+        inside[inside] = offset[inside] % 1 == 0
+    codes = table[np.where(inside, offset, hi - lo + 1).astype(np.int64)]
+    known = codes >= 0
+    return np.where(known, codes, 0), ~known
+
+
 def _auto_type(col):
     """Type inferred for an undeclared attribute from its training values:
     None for a constant, then "bernoulli" (two values), "categorical"
     (non-negative integer values, at most ``_MAX_AUTO_CATEGORIES`` of them) or
     "gaussian" (anything else)."""
-    n_unique = len(np.unique(col))
+    n_unique = len(_unique_values(col))
     if n_unique == 1:
         return None
     if n_unique == 2:
@@ -117,8 +171,9 @@ class _AttributeEncoder:
                 )
                 codes[:, i] = enc.fit_transform(col.reshape(-1, 1)).ravel()
             else:
-                enc = LabelEncoder()
-                codes[:, i] = enc.fit_transform(col)
+                # The sorted values of a discrete attribute
+                enc = _unique_values(col)
+                codes[:, i] = _encode_values(col, enc)[0]
             self.encoders_.append(enc)
         self.cards_ = codes.max(axis=0) + 1
         return codes
@@ -133,10 +188,8 @@ class _AttributeEncoder:
         unseen = np.zeros(X.shape, dtype=bool)
         for i, enc in enumerate(self.encoders_):
             col = X[:, i]
-            if isinstance(enc, LabelEncoder):
-                known = np.isin(col, enc.classes_)
-                unseen[:, i] = ~known
-                codes[:, i] = enc.transform(np.where(known, col, enc.classes_[0]))
+            if isinstance(enc, np.ndarray):
+                codes[:, i], unseen[:, i] = _encode_values(col, enc)
             else:
                 codes[:, i] = enc.transform(col.reshape(-1, 1)).ravel()
         np.clip(codes, 0, self.cards_ - 1, out=codes)

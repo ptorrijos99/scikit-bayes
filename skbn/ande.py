@@ -110,7 +110,93 @@ def _parent_frequencies(keys, count, n_combos, state_off):
     return offsets.astype(np.int64), pkeys[starts], freq
 
 
-class _BaseAnDE(ClassifierMixin, BaseEstimator):
+class _ChildEncodingMixin:
+    """Encoding of the attributes as children, shared by the models that keep
+    their conditionals in the tables of :mod:`skbn._kernels` (the AnDE family,
+    TAN and KDB). Needs the fitted ``backoff_``, ``_encoder``, ``_pooled_mean``
+    and ``_pooled_var``."""
+
+    def _layout(self):
+        """Type, offset in the rows of the discrete tables and Gaussian column
+        of every attribute, and the number of values of every discrete one."""
+        types = self.backoff_.feature_types_
+        d = self.n_features_in_
+        kind = np.zeros(d, dtype=np.int64)
+        cards = np.zeros(d, dtype=np.int64)
+        cards[types["categorical"]] = getattr(self.backoff_, "_cat_cardinalities", [])
+        cards[types["bernoulli"]] = 2
+        discrete = np.flatnonzero(cards)
+        kind[discrete] = DISCRETE
+        kind[types["gaussian"]] = GAUSSIAN
+        voff = np.zeros(d, dtype=np.int64)
+        voff[discrete] = np.cumsum(cards[discrete]) - cards[discrete]
+        gidx = np.zeros(d, dtype=np.int64)
+        gidx[types["gaussian"]] = np.arange(len(types["gaussian"]))
+        return kind, voff, gidx, cards
+
+    def _value_codes(self, X):
+        """Value of every discrete attribute as a child (the category of a
+        categorical attribute, the bit of a Bernoulli one), -1 for categories
+        never seen in training and 0 for the other attributes."""
+        types = self.backoff_.feature_types_
+        codes = np.zeros(X.shape, dtype=np.int64)
+        if types["categorical"]:
+            cat, unseen = self.backoff_._categorical_codes(X)
+            codes[:, types["categorical"]] = np.where(unseen, -1, cat)
+        if types["bernoulli"]:
+            codes[:, types["bernoulli"]] = (
+                X[:, types["bernoulli"]] > self.backoff_.bernoulli_thresholds_
+            )
+        return codes
+
+    def _backoff_tables(self, kind, voff, cards, n_values):
+        """The class-level Naive Bayes in the layout of the component tables:
+        its log prior, discrete log-conditionals and Gaussian parameters."""
+        types = self.backoff_.feature_types_
+        est = self.backoff_.estimators_
+        n_classes = len(self.classes_)
+        disc = np.zeros((n_classes, n_values))
+        for i, j in enumerate(types["categorical"]):
+            disc[:, voff[j] : voff[j] + cards[j]] = est[
+                "categorical"
+            ].feature_log_prob_[i]
+        for i, j in enumerate(types["bernoulli"]):
+            log_p = est["bernoulli"].feature_log_prob_[:, i]
+            disc[:, voff[j]] = np.log1p(-np.exp(log_p))
+            disc[:, voff[j] + 1] = log_p
+        disc = np.nan_to_num(disc, nan=LOG_ZERO, neginf=LOG_ZERO)
+        if types["gaussian"]:
+            mean, var = est["gaussian"].theta_, est["gaussian"].var_
+        else:
+            mean = var = np.zeros((n_classes, 0))
+        return self.backoff_.class_log_prior_, disc, mean, var
+
+    def _evaluation_inputs(self, X):
+        """Per-sample inputs of the evaluation kernels for a validated ``X``:
+        the child value codes, the Gaussian attributes, the uninformed
+        log-likelihood of every attribute (the Laplace estimate of an empty
+        cell: uniform for a discrete child, the pooled Gaussian of the
+        attribute for a continuous one, 0 for an unseen category) and the
+        parent codes with their unseen mask."""
+        types = self.backoff_.feature_types_
+        codes = self._value_codes(X)
+        xg = np.ascontiguousarray(X[:, types["gaussian"]], dtype=np.float64)
+        uninf = np.zeros(X.shape)
+        if types["gaussian"]:
+            diff = xg - self._pooled_mean
+            uninf[:, types["gaussian"]] = -0.5 * (
+                diff**2 / self._pooled_var + np.log(2.0 * np.pi * self._pooled_var)
+            )
+        kind, _, _, cards = self._layout()
+        discrete = np.flatnonzero(kind == DISCRETE)
+        uninf[:, discrete] = np.where(
+            codes[:, discrete] < 0, 0.0, -np.log(cards[discrete].astype(float))
+        )
+        parent_codes, unseen = self._encoder.transform(X)
+        return codes, xg, uninf, parent_codes, unseen
+
+
+class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
     """
     Base class for the AnDE family of algorithms.
 
@@ -341,39 +427,6 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
         self._fit_components(X, y_int, parent_codes)
         return self
 
-    def _layout(self):
-        """Type, offset in the rows of the discrete tables and Gaussian column
-        of every attribute, and the number of values of every discrete one."""
-        types = self.backoff_.feature_types_
-        d = self.n_features_in_
-        kind = np.zeros(d, dtype=np.int64)
-        cards = np.zeros(d, dtype=np.int64)
-        cards[types["categorical"]] = getattr(self.backoff_, "_cat_cardinalities", [])
-        cards[types["bernoulli"]] = 2
-        discrete = np.flatnonzero(cards)
-        kind[discrete] = DISCRETE
-        kind[types["gaussian"]] = GAUSSIAN
-        voff = np.zeros(d, dtype=np.int64)
-        voff[discrete] = np.cumsum(cards[discrete]) - cards[discrete]
-        gidx = np.zeros(d, dtype=np.int64)
-        gidx[types["gaussian"]] = np.arange(len(types["gaussian"]))
-        return kind, voff, gidx, cards
-
-    def _value_codes(self, X):
-        """Value of every discrete attribute as a child (the category of a
-        categorical attribute, the bit of a Bernoulli one), -1 for categories
-        never seen in training and 0 for the other attributes."""
-        types = self.backoff_.feature_types_
-        codes = np.zeros(X.shape, dtype=np.int64)
-        if types["categorical"]:
-            cat, unseen = self.backoff_._categorical_codes(X)
-            codes[:, types["categorical"]] = np.where(unseen, -1, cat)
-        if types["bernoulli"]:
-            codes[:, types["bernoulli"]] = (
-                X[:, types["bernoulli"]] > self.backoff_.bernoulli_thresholds_
-            )
-        return codes
-
     def _fit_components(self, X, y_int, parent_codes):
         """Count every SPnDE and store its log-probabilities in flat tables
         (see :mod:`skbn._kernels`), one row per augmented state seen in
@@ -498,28 +551,6 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
             for m in range(n_models)
         ]
 
-    def _backoff_tables(self, kind, voff, cards, n_values):
-        """The class-level Naive Bayes in the layout of the component tables:
-        its log prior, discrete log-conditionals and Gaussian parameters."""
-        types = self.backoff_.feature_types_
-        est = self.backoff_.estimators_
-        n_classes = len(self.classes_)
-        disc = np.zeros((n_classes, n_values))
-        for i, j in enumerate(types["categorical"]):
-            disc[:, voff[j] : voff[j] + cards[j]] = est[
-                "categorical"
-            ].feature_log_prob_[i]
-        for i, j in enumerate(types["bernoulli"]):
-            log_p = est["bernoulli"].feature_log_prob_[:, i]
-            disc[:, voff[j]] = np.log1p(-np.exp(log_p))
-            disc[:, voff[j] + 1] = log_p
-        disc = np.nan_to_num(disc, nan=LOG_ZERO, neginf=LOG_ZERO)
-        if types["gaussian"]:
-            mean, var = est["gaussian"].theta_, est["gaussian"].var_
-        else:
-            mean = var = np.zeros((n_classes, 0))
-        return self.backoff_.class_log_prior_, disc, mean, var
-
     def _parent_keys(self, X_parents_disc):
         """Linear index of the parent instantiation of every component,
         shape (n_samples, n_models); 0 for components without parents."""
@@ -530,30 +561,6 @@ class _BaseAnDE(ClassifierMixin, BaseEstimator):
                     X_parents_disc[:, info["parent_indices"]] @ info["parent_strides"]
                 )
         return keys
-
-    def _evaluation_inputs(self, X):
-        """Per-sample inputs of the evaluation kernels for a validated ``X``:
-        the child value codes, the Gaussian attributes, the uninformed
-        log-likelihood of every attribute (the Laplace estimate of an empty
-        cell: uniform for a discrete child, the pooled Gaussian of the
-        attribute for a continuous one, 0 for an unseen category) and the
-        parent codes with their unseen mask."""
-        types = self.backoff_.feature_types_
-        codes = self._value_codes(X)
-        xg = np.ascontiguousarray(X[:, types["gaussian"]], dtype=np.float64)
-        uninf = np.zeros(X.shape)
-        if types["gaussian"]:
-            diff = xg - self._pooled_mean
-            uninf[:, types["gaussian"]] = -0.5 * (
-                diff**2 / self._pooled_var + np.log(2.0 * np.pi * self._pooled_var)
-            )
-        kind, _, _, cards = self._layout()
-        discrete = np.flatnonzero(kind == DISCRETE)
-        uninf[:, discrete] = np.where(
-            codes[:, discrete] < 0, 0.0, -np.log(cards[discrete].astype(float))
-        )
-        parent_codes, unseen = self._encoder.transform(X)
-        return codes, xg, uninf, parent_codes, unseen
 
     def _get_jll_per_model(self, X, per_factor=False):
         """
