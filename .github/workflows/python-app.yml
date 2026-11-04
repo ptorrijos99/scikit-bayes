@@ -47,7 +47,7 @@ jobs:
           - name: minimum versions (Python 3.10)
             os: ubuntu-latest
             python: "3.10"
-            pins: numpy==1.23.5 scipy==1.9.3 scikit-learn==1.6.0 joblib==1.2.0
+            pins: numpy==1.23.5 scipy==1.9.3 scikit-learn==1.6.0 joblib==1.2.0 numba==0.58.1
           - name: latest versions (Python 3.12)
             os: ubuntu-latest
             python: "3.12"

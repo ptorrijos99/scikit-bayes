@@ -17,6 +17,7 @@ dependencies = [
   "scipy>=1.9.3",
   "scikit-learn>=1.6",
   "joblib>=1.2.0",
+  "numba>=0.58.1",
 ]
 keywords = [
   "bayesian network classifiers", "naive bayes", "aode", "ande", "tan", "kdb",
@@ -70,6 +71,7 @@ platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
 [tool.pixi.dependencies]
 python = ">=3.10"
 scikit-learn = ">=1.6"
+numba = ">=0.58.1"
 
 [tool.pixi.feature.experiments.dependencies]
 xgboost = "*"

@@ -29,16 +29,13 @@ References
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-# Authors: scikit-bayes developers
-# SPDX-License-Identifier: BSD-3-Clause
-
 import numbers
 from itertools import combinations
 from math import comb
 from numbers import Integral, Real
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from numba import get_num_threads
 from scipy.special import logsumexp
 from sklearn.base import BaseEstimator, ClassifierMixin, _fit_context
 from sklearn.utils._param_validation import Interval, StrOptions
@@ -52,7 +49,31 @@ from ._core import (
     _row_chunks,
     _warn_not_converged,
 )
+from ._kernels import (
+    _threads,
+    join_cells_seen,
+    join_counts,
+    join_keys,
+    join_objective,
+    join_rows,
+    join_scores,
+)
 from .ande import WeightedAnDE, _BaseAnDE, _geometric_scores
+
+# Key spaces of the n-joins up to this size map keys to table rows with a
+# dense array (4 bytes per key); larger ones use a binary search
+_MAX_DENSE_KEYS = 1 << 26
+
+# ALR keeps the table rows of the training samples (8 bytes per sample and
+# join) when there are at most this many of them
+_MAX_CACHED_ROWS = 1 << 27
+
+# L-BFGS-B settings of the code of the ALR experiments (Zaidi et al., 2016):
+# factr = 1e7 (a relative reduction of the objective of 1e7 machine epsilons),
+# a projected-gradient tolerance of 1e-33 and 5 corrections
+_ZAIDI_FTOL = 1e7 * np.finfo(float).eps
+_ZAIDI_GTOL = 1e-33
+_ZAIDI_MAXCOR = 5
 
 
 class AnJE(ClassifierMixin, BaseEstimator):
@@ -109,6 +130,11 @@ class AnJE(ClassifierMixin, BaseEstimator):
         training values with the rules of :class:`MixedNB`, and only those
         typed as Gaussian are binned.
 
+    n_jobs : int, default=None
+        Number of threads used to count and evaluate the n-joins.
+        ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
+        ``-1`` means using all processors.
+
     Attributes
     ----------
     classes_ : ndarray of shape (n_classes,)
@@ -146,6 +172,7 @@ class AnJE(ClassifierMixin, BaseEstimator):
         "categorical_features": ["array-like", None],
         "bernoulli_features": ["array-like", None],
         "gaussian_features": ["array-like", None],
+        "n_jobs": [Integral, None],
     }
 
     def __init__(
@@ -157,6 +184,7 @@ class AnJE(ClassifierMixin, BaseEstimator):
         categorical_features=None,
         bernoulli_features=None,
         gaussian_features=None,
+        n_jobs=None,
     ):
         self.n_join = n_join
         self.n_bins = n_bins
@@ -165,6 +193,7 @@ class AnJE(ClassifierMixin, BaseEstimator):
         self.categorical_features = categorical_features
         self.bernoulli_features = bernoulli_features
         self.gaussian_features = gaussian_features
+        self.n_jobs = n_jobs
 
     @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
@@ -189,7 +218,8 @@ class AnJE(ClassifierMixin, BaseEstimator):
         return self
 
     def _fit_generative(self, X, y):
-        """Fit the tables and return the training cells and class indices."""
+        """Fit the tables and return the transposed training codes and the
+        class indices."""
         X, y = validate_data(self, X, y)
         if not isinstance(self.n_join, numbers.Integral) or self.n_join < 1:
             raise ValueError(f"n_join must be a positive integer, got {self.n_join!r}")
@@ -227,20 +257,41 @@ class AnJE(ClassifierMixin, BaseEstimator):
 
         # --- Table rows: the cells seen in training, then one empty cell per
         # join that stands for all its unseen cells (they share its estimate) ---
-        keys = self._cell_keys_of(codes)
-        self._cell_keys = np.unique(keys)
+        if slots.astype(float).prod(axis=1).sum() >= 2**62:
+            raise ValueError(
+                "The cells of the n-joins exceed a 64-bit index; reduce n_join or"
+                " n_bins."
+            )
+        n_keys = 1 + int(sizes.sum())
+        codes_t = np.ascontiguousarray(codes.T, dtype=np.int32)
+        joins = (self.joins_, self._join_strides, self._join_offsets)
         n_joins = len(self.joins_)
-        self._n_rows = len(self._cell_keys) + n_joins
-        self._row_join = np.concatenate(  # -1 for the prior
-            [
-                np.searchsorted(self._join_offsets, self._cell_keys, side="right") - 1,
-                np.arange(n_joins),
-            ]
-        )
+        with _threads(self.n_jobs):
+            # A dense map from keys to rows when it fits, else a binary search
+            if n_keys <= _MAX_DENSE_KEYS:
+                self._cell_keys = np.flatnonzero(
+                    join_cells_seen(codes_t, *joins, n_keys)
+                )
+                n_seen = len(self._cell_keys)
+                self._row_of_cell = np.concatenate(
+                    [[0], np.repeat(n_seen + np.arange(n_joins), sizes)]
+                ).astype(np.int32)
+                self._row_of_cell[self._cell_keys] = np.arange(n_seen)
+            else:
+                keys = join_keys(codes_t, *joins)
+                self._cell_keys = np.unique(np.append(keys, 0))
+                self._row_of_cell = np.zeros(0, dtype=np.int32)
+            self._n_rows = len(self._cell_keys) + n_joins
+            self._row_join = np.concatenate(  # -1 for the prior
+                [
+                    np.searchsorted(self._join_offsets, self._cell_keys, side="right")
+                    - 1,
+                    np.arange(n_joins),
+                ]
+            )
 
-        # --- m-estimates (row 0 counts the classes: every sample falls in it) ---
-        incidence = self._incidence(keys)
-        counts = incidence.T @ np.eye(n_classes)[y_idx]
+            # --- m-estimates (row 0 counts the classes: every sample is in it) ---
+            counts = join_counts(codes_t, y_idx, *self._cell_args(), n_classes)
         class_counts = counts[0]
         m = self.alpha
         n_cells = self._encoder.cards_[self.joins_].prod(axis=1)  # |X_alpha|
@@ -252,41 +303,25 @@ class AnJE(ClassifierMixin, BaseEstimator):
                     np.log(counts[1:] + cell_prior) - np.log(class_counts + m),
                 ]
             )
-        return incidence, y_idx
+        return codes_t, y_idx
 
-    def _cell_keys_of(self, codes):
-        """Key of the cell of every term, shape (n_samples, 1 + n_joins):
-        column 0 is the class prior and column ``1 + j`` the cell of join ``j``."""
-        keys = np.zeros((codes.shape[0], 1 + len(self.joins_)), dtype=np.int64)
-        for rows in _row_chunks(codes.shape[0], self.joins_.size):
-            keys[rows, 1:] = self._join_offsets + np.einsum(
-                "ijk,jk->ij", codes[rows][:, self.joins_], self._join_strides
-            )
-        return keys
-
-    def _incidence(self, keys):
-        """Sparse 0/1 matrix of shape (n_samples, n_rows) marking the table
-        row of every term; a cell unseen in training maps to the empty row of
-        its join."""
-        n_seen = len(self._cell_keys)
-        pos = np.minimum(np.searchsorted(self._cell_keys, keys), n_seen - 1)
-        empty = np.concatenate([[0], n_seen + np.arange(len(self.joins_))])
-        rows = np.where(self._cell_keys[pos] == keys, pos, empty)
-        return csr_matrix(
-            (
-                np.ones(rows.size),
-                rows.ravel(),
-                np.arange(0, rows.size + 1, keys.shape[1]),
-            ),
-            shape=(keys.shape[0], self._n_rows),
+    def _cell_args(self):
+        """How the kernels of :mod:`skbn._kernels` find the table row of a
+        cell: the joins, their strides and key offsets, and the row map."""
+        return (
+            self.joins_,
+            self._join_strides,
+            self._join_offsets,
+            self._row_of_cell,
+            self._cell_keys,
         )
 
-    def _transform_incidence(self, X):
-        """Incidence matrix of a validated ``X``; an unseen value takes the
-        extra code of its attribute."""
+    def _transform_codes(self, X):
+        """Transposed codes of a validated ``X``, shape (n_features,
+        n_samples); an unseen value takes the extra code of its attribute."""
         codes, unseen = self._encoder.transform(X)
         codes = np.where(unseen, self._encoder.cards_, codes)
-        return self._incidence(self._cell_keys_of(codes))
+        return np.ascontiguousarray(codes.T, dtype=np.int32)
 
     def _table(self):
         """Log-table weighted as in the AnJE: the joins by Eq. 10, the prior by 1."""
@@ -311,7 +346,10 @@ class AnJE(ClassifierMixin, BaseEstimator):
         """
         check_is_fitted(self, attributes=["classes_", "joins_"])
         X = validate_data(self, X, reset=False)
-        scores = self._transform_incidence(X) @ self._table()
+        with _threads(self.n_jobs):
+            scores = join_scores(
+                self._transform_codes(X), *self._cell_args(), self._table()
+            )
         log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
         return np.nan_to_num(log_prob, nan=-np.log(scores.shape[1]))
 
@@ -362,11 +400,13 @@ class ALR(AnJE):
         w_{y, \\alpha, x_\\alpha} \\log P(x_\\alpha | y) - \\log Z(x).
 
     The objective is convex. Weights start at 1 and are optimized with
-    L-BFGS-B. The defaults reproduce the protocol of the original experiments
-    [1]_ [2]_: no penalty, and the optimizer stops when the relative reduction
-    of the objective falls below 1e-32 or after 10^4 iterations. ``l2_reg``
-    adds the penalty towards 1 (the generative estimates) that [1]_ suggests
-    for small datasets but does not evaluate.
+    L-BFGS-B. The defaults reproduce the settings of the code of the original
+    experiments [1]_ [2]_: no penalty, 5 L-BFGS-B corrections, no stopping test
+    on the projected gradient (its tolerance is 1e-33), and the optimizer
+    stops when the relative reduction of the objective falls below 1e7
+    machine epsilons (L-BFGS-B's ``factr = 1e7``) or after 10^4 iterations.
+    ``l2_reg`` adds the penalty towards 1 (the generative estimates) that [1]_
+    suggests for small datasets but does not evaluate.
 
     ``weight_level=3`` is the ALR^n of the paper. Levels 1 and 2 tie the
     weights across classes and values, following the nested
@@ -430,9 +470,17 @@ class ALR(AnJE):
         :meth:`fit` when L-BFGS-B stops at ``max_iter`` before converging;
         increase ``max_iter`` or ``tol`` in that case.
 
-    tol : float or None, default=1e-32
-        Stopping tolerance on the relative reduction of the objective and on
-        the projected gradient; None uses SciPy's defaults.
+    tol : float or None, default=2.22e-9
+        Stopping tolerance on the relative reduction of the objective,
+        ``(f_k - f_{k+1}) / max(|f_k|, |f_{k+1}|, 1) <= tol``; the default is
+        1e7 machine epsilons, as in the original code, and None uses SciPy's
+        default (the same value).
+
+    n_jobs : int, default=None
+        Number of threads used to count the n-joins and to evaluate the
+        objective. ``None`` means 1 unless in a
+        :obj:`joblib.parallel_backend` context. ``-1`` means using all
+        processors.
 
     Attributes
     ----------
@@ -496,7 +544,8 @@ class ALR(AnJE):
         weight_level=3,
         l2_reg=0.0,
         max_iter=10000,
-        tol=1e-32,
+        tol=_ZAIDI_FTOL,
+        n_jobs=None,
     ):
         super().__init__(
             n_join,
@@ -506,6 +555,7 @@ class ALR(AnJE):
             categorical_features,
             bernoulli_features,
             gaussian_features,
+            n_jobs,
         )
         self.weight_level = weight_level
         self.l2_reg = l2_reg
@@ -537,7 +587,7 @@ class ALR(AnJE):
             raise ValueError(
                 "ALR needs alpha > 0: an empty cell would have log-probability -inf"
             )
-        incidence, y_idx = self._fit_generative(X, y)
+        codes_t, y_idx = self._fit_generative(X, y)
         n_classes = len(self.classes_)
 
         # Weight group of every table row
@@ -548,26 +598,43 @@ class ALR(AnJE):
         self._n_columns = n_classes if self.weight_level == 3 else 1
         self.n_weights_ = (int(self._groups.max()) + 1) * self._n_columns
 
-        Y = np.eye(n_classes)[y_idx]
-        self.learned_weights_, self.n_iter_, converged = _fit_weights(
-            lambda theta: self._nll_and_grad(theta, incidence, Y),
-            np.ones(self.n_weights_),
-            self.l2_reg,
-            self.max_iter,
-            tol=self.tol,
-        )
+        with _threads(self.n_jobs):
+            # The table rows of the training samples, computed once when they fit
+            # in the budget (the objective is evaluated thousands of times)
+            if codes_t.shape[1] * len(self.joins_) <= _MAX_CACHED_ROWS:
+                rows = join_rows(codes_t, *self._cell_args())
+            else:
+                rows = np.zeros((0, 0), dtype=np.int64)
+            self.learned_weights_, self.n_iter_, converged = _fit_weights(
+                lambda theta: self._nll_and_grad(theta, codes_t, y_idx, rows),
+                np.ones(self.n_weights_),
+                self.l2_reg,
+                self.max_iter,
+                tol=self.tol,
+                gtol=_ZAIDI_GTOL,
+                maxcor=_ZAIDI_MAXCOR,
+            )
         _warn_not_converged(not converged, 1, self.max_iter)
         return self
 
-    def _nll_and_grad(self, theta, incidence, Y):
-        """Conditional negative log-likelihood and its gradient."""
+    def _nll_and_grad(self, theta, codes_t, y_idx, rows=None):
+        """Conditional negative log-likelihood and its gradient, on the
+        transposed codes of the samples and their class indices (``rows``
+        optionally holds their table rows, from :func:`join_rows`)."""
+        if rows is None:
+            rows = np.zeros((0, 0), dtype=np.int64)
         weights = theta.reshape(-1, self._n_columns)
-        scores = incidence @ (weights[self._groups] * self._log_table)
-        log_norm = logsumexp(scores, axis=1, keepdims=True)
-        nll = -np.sum((scores - log_norm) * Y)
+        nll, dtable = join_objective(
+            codes_t,
+            y_idx,
+            *self._cell_args(),
+            rows,
+            weights[self._groups] * self._log_table,
+            get_num_threads(),
+        )
         # dNLL/dweight of a row: its log-probability times the residuals of
         # the samples that fall in it
-        drow = (incidence.T @ (np.exp(scores - log_norm) - Y)) * self._log_table
+        drow = dtable * self._log_table
         if self._n_columns == 1:
             drow = drow.sum(axis=1, keepdims=True)
         grad = np.column_stack(
@@ -634,7 +701,7 @@ def _root_log_marginals(model):
     class prior itself, and dividing by it leaves ``P(x_P | y) = 1``.
     """
     if model.n_dependence == 0:
-        return model.ensemble_[0]["estimator"].class_log_prior_[:, None]
+        return model.backoff_.class_log_prior_[:, None]
     counts = model.class_count_[:, None]
     combos = np.array([info["n_parent_combos"] for info in model.ensemble_])
     return np.log(counts + model.alpha * combos) - np.log(
@@ -689,7 +756,7 @@ class GaussianAnJE(_BaseAnDE):
         augmented-state prior.
 
     n_jobs : int, default=None
-        Number of jobs used to fit the SPnDEs.
+        Number of threads used to count and evaluate the SPnDEs.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors.
 
@@ -734,11 +801,13 @@ class GaussianAnJE(_BaseAnDE):
         has feature names that are all strings.
 
     ensemble_ : list of dict
-        The fitted SPnDEs, one per set of ``n_dependence`` super-parents (a
-        single one for ``n_dependence=0``). Each dict holds the
-        ``"parent_indices"`` and ``"child_indices"`` of the component, its
-        ``"estimator"`` (a :class:`MixedNB` fitted on the augmented class) and
-        the counts used for the minimum-frequency rule.
+        The fitted SPnDEs, one per set of ``n_dependence`` super-parents
+        (a single one for ``n_dependence=0``). Each dict holds the
+        ``"parent_indices"`` and ``"child_indices"`` of the component and the
+        numbers of its parent instantiations (``"n_parent_combos"``) and of
+        the augmented states :math:`Y^*` seen in training (``"n_states"``);
+        the estimates of all the components are stored together in flat
+        tables.
 
     backoff_ : MixedNB
         Naive Bayes on the original class, used for the class prior, the
@@ -808,10 +877,12 @@ class GaussianALR(WeightedAnDE):
     On discrete data the model spans the same family as :class:`ALR` with
     ``n_join=n_dependence + 1``, logistic regression with (n+1)-way
     interactions, with a different parameterization of the weights. The
-    defaults reproduce the protocol of the ALR^n experiments [1]_: no penalty,
-    and the optimizer stops when the relative reduction of the objective falls
-    below 1e-32 or after 10^4 iterations. Only the combinations that occur in
-    training get their own weight, as in :class:`WeightedAnDE`.
+    defaults reproduce the L-BFGS-B settings of the code of the ALR^n
+    experiments [1]_, as in :class:`ALR`: no penalty, 5 corrections, no
+    stopping test on the projected gradient, and a stop when the relative
+    reduction of the objective falls below 1e7 machine epsilons or after 10^4
+    iterations. Only the combinations that occur in training get their own
+    weight, as in :class:`WeightedAnDE`.
 
     Parameters
     ----------
@@ -830,8 +901,8 @@ class GaussianALR(WeightedAnDE):
         prior; must be positive.
 
     n_jobs : int, default=None
-        Number of jobs used to fit the SPnDEs of the generative phase; the
-        weights are optimized in a single process.
+        Number of threads used to count and evaluate the SPnDEs; the
+        weights are optimized in a single thread.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors.
 
@@ -870,9 +941,11 @@ class GaussianALR(WeightedAnDE):
         :meth:`fit` when L-BFGS-B stops at ``max_iter`` before converging;
         increase ``max_iter`` or ``tol`` in that case.
 
-    tol : float or None, default=1e-32
-        Stopping tolerance on the relative reduction of the objective and on
-        the projected gradient; None uses SciPy's defaults.
+    tol : float or None, default=2.22e-9
+        Stopping tolerance on the relative reduction of the objective,
+        ``(f_k - f_{k+1}) / max(|f_k|, |f_{k+1}|, 1) <= tol``; the default is
+        1e7 machine epsilons, as in the original code, and None uses SciPy's
+        default (the same value).
 
     Attributes
     ----------
@@ -893,8 +966,10 @@ class GaussianALR(WeightedAnDE):
         The fitted SPnDEs of the generative phase, one per set of
         ``n_dependence`` super-parents (a single one for ``n_dependence=0``).
         Each dict holds the ``"parent_indices"`` and ``"child_indices"`` of the
-        component, its ``"estimator"`` (a :class:`MixedNB` fitted on the
-        augmented class) and the counts used for the minimum-frequency rule.
+        component and the numbers of its parent instantiations
+        (``"n_parent_combos"``) and of the augmented states :math:`Y^*` seen in
+        training (``"n_states"``); the estimates of all the components are
+        stored together in flat tables.
 
     backoff_ : MixedNB
         Naive Bayes on the original class, used for the class prior, the
@@ -931,6 +1006,8 @@ class GaussianALR(WeightedAnDE):
     weight_scope = "factor"
     weight_level = 4
     modular = False
+    _gtol = _ZAIDI_GTOL
+    _maxcor = _ZAIDI_MAXCOR
 
     _parameter_constraints: dict = {
         **_BaseAnDE._parameter_constraints,
@@ -954,7 +1031,7 @@ class GaussianALR(WeightedAnDE):
         unseen_state="laplace",
         l2_reg=0.0,
         max_iter=10000,
-        tol=1e-32,
+        tol=_ZAIDI_FTOL,
     ):
         _BaseAnDE.__init__(
             self,

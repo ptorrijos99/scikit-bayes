@@ -306,14 +306,14 @@ class MixedNB(ClassifierMixin, BaseEstimator):
     ):
         """Fit on a validated ``X`` with labels given as indices into ``classes``.
 
-        AnDE fits one MixedNB per component on data it has already validated and
-        encoded; this entry point skips the repeated validation and label
-        encoding. When ``columns`` is given, the model is fitted on
+        TAN and KDB fit one MixedNB per attribute on data they have already
+        validated and encoded; this entry point skips the repeated validation
+        and label encoding. When ``columns`` is given, the model is fitted on
         ``X[:, columns]`` (feature indices refer to positions in ``columns``)
         without materialising that submatrix. ``categories`` optionally gives,
         for every column of ``X``, the sorted categories of a categorical
         attribute (None for the others), and ``X_int`` the codes of those
-        columns in them; the ensembles compute both once for all components.
+        columns in them; those models compute both once for all attributes.
         """
         if columns is None:
             columns = np.arange(X.shape[1])

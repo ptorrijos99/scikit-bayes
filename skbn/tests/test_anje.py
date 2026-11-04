@@ -12,10 +12,12 @@ import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from scipy.optimize import approx_fprime
 from scipy.special import logsumexp
+from sklearn.base import clone
 from sklearn.datasets import load_iris
 from sklearn.naive_bayes import GaussianNB
 
 from skbn import ALR, AnJE, GaussianALR, GaussianAnJE
+from skbn import anje as anje_module
 
 
 @pytest.fixture
@@ -155,12 +157,11 @@ def test_alr_weight_counts(discrete_data):
 def test_alr_gradient_matches_finite_differences(discrete_data, level):
     X, y = discrete_data
     model = ALR(n_join=2, weight_level=level, max_iter=1).fit(X, y)
-    incidence = model._transform_incidence(X)
-    Y = np.eye(3)[y]
+    codes_t = model._transform_codes(X)
     theta = np.random.RandomState(1).uniform(0.5, 1.5, size=model.n_weights_)
-    _, grad = model._nll_and_grad(theta, incidence, Y)
+    _, grad = model._nll_and_grad(theta, codes_t, y)
     numeric = approx_fprime(
-        theta, lambda t: model._nll_and_grad(t, incidence, Y)[0], 1e-6
+        theta, lambda t: model._nll_and_grad(t, codes_t, y)[0], 1e-6
     )
     assert_allclose(grad, numeric, rtol=1e-4, atol=1e-3)
 
@@ -179,7 +180,8 @@ def test_alr_learns_and_beats_anje_on_training_likelihood(discrete_data):
 def test_alr_unseen_cells_keep_unit_weight(discrete_data):
     X, y = discrete_data
     model = ALR(n_join=2, weight_level=3, l2_reg=1e-2, max_iter=50).fit(X, y)
-    seen = model._transform_incidence(X).sum(axis=0).A1 > 0
+    # Rows of the cells seen in training first, then the empty row of every join
+    seen = np.arange(model._n_rows) < len(model._cell_keys)
     weights = model.learned_weights_.reshape(-1, 3)
     assert (~seen).sum() == len(model.joins_)  # the empty cell of every join
     assert_allclose(weights[~seen], 1.0)
@@ -218,6 +220,42 @@ def test_alr_invalid_parameters_raise(discrete_data):
         ALR(weight_level=4).fit(X, y)
     with pytest.raises(ValueError, match="alpha"):
         ALR(alpha=0.0).fit(X, y)
+
+
+def test_alr_default_stopping_is_that_of_the_original_code():
+    # factr = 1e7 of L-BFGS-B, i.e. a relative reduction of 1e7 epsilons
+    assert ALR().tol == pytest.approx(1e7 * np.finfo(float).eps)
+    assert GaussianALR().tol == ALR().tol
+
+
+def test_binary_search_of_cells_matches_the_dense_map(discrete_data, monkeypatch):
+    # Key spaces too large for the dense map fall back to a binary search
+    X, y = discrete_data
+    X_new = np.vstack([X[:20], [[9, 0, 1, 2], [0, 7, 7, 1]]])  # unseen values
+    dense = [AnJE(n_join=2).fit(X, y), ALR(n_join=2, max_iter=20).fit(X, y)]
+    monkeypatch.setattr(anje_module, "_MAX_DENSE_KEYS", 0)
+    for model in dense:
+        sparse = clone(model).fit(X, y)
+        assert sparse._row_of_cell.size == 0
+        assert_allclose(sparse.predict_log_proba(X_new), model.predict_log_proba(X_new))
+
+
+def test_alr_objective_without_cached_rows(discrete_data, monkeypatch):
+    X, y = discrete_data
+    cached = ALR(n_join=2, max_iter=20).fit(X, y)
+    monkeypatch.setattr(anje_module, "_MAX_CACHED_ROWS", 0)
+    computed = ALR(n_join=2, max_iter=20).fit(X, y)
+    assert_allclose(computed.learned_weights_, cached.learned_weights_)
+
+
+@pytest.mark.parametrize(
+    "model", [AnJE(n_join=2), ALR(n_join=2, max_iter=20)], ids=repr
+)
+def test_threads_give_the_same_model(discrete_data, model):
+    X, y = discrete_data
+    single = clone(model).fit(X, y).predict_proba(X)
+    threaded = clone(model).set_params(n_jobs=2).fit(X, y).predict_proba(X)
+    assert_allclose(threaded, single, atol=1e-8)
 
 
 # --- AnJE and ALR on the factors of the SPnDEs --------------------------------

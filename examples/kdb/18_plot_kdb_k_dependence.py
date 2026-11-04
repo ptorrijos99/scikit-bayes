@@ -28,9 +28,6 @@ groups, but its conditional probability tables have many more cells and need
 more data: it loses with small training sets and catches up as they grow.
 """
 
-# Authors: scikit-bayes developers
-# SPDX-License-Identifier: BSD-3-Clause
-
 # Author: The scikit-bayes Developers
 # SPDX-License-Identifier: BSD-3-Clause
 

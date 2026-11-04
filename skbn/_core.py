@@ -144,7 +144,15 @@ class _AttributeEncoder:
 
 
 def _fit_weights(
-    nll_and_grad, theta0, l2_reg, max_iter, log_space=False, bounds=None, tol=None
+    nll_and_grad,
+    theta0,
+    l2_reg,
+    max_iter,
+    log_space=False,
+    bounds=None,
+    tol=None,
+    gtol=None,
+    maxcor=10,
 ):
     """Minimise a conditional negative log-likelihood over discriminative weights.
 
@@ -153,7 +161,8 @@ def _fit_weights(
     towards the generative model (``w = 1``). Solved with L-BFGS-B using the
     analytic gradient returned by ``nll_and_grad``. ``tol`` sets both the
     relative-reduction and the projected-gradient stopping tolerances (SciPy's
-    defaults when None).
+    defaults when None), ``gtol`` overrides the second one and ``maxcor`` is
+    the number of corrections kept by L-BFGS-B.
 
     Returns
     -------
@@ -173,9 +182,11 @@ def _fit_weights(
             dreg *= w
         return nll + l2_reg * np.sum((w - 1.0) ** 2), grad + dreg
 
-    options = {"maxiter": max_iter}
+    options = {"maxiter": max_iter, "maxcor": maxcor}
     if tol is not None:
         options.update(ftol=tol, gtol=tol)
+    if gtol is not None:
+        options["gtol"] = gtol
     res = minimize(
         objective, theta0, jac=True, method="L-BFGS-B", bounds=bounds, options=options
     )

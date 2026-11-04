@@ -41,7 +41,7 @@ def _data(seed=42, n=150, n_test=300):
     return X, y, X_test
 
 
-def _reference_ande(X, y, X_test, n_dependence, mean, min_count):
+def _reference_ande(X, y, X_test, n_dependence, mean, min_count, cards=CARDS):
     classes = np.unique(y)
     n, n_features = X.shape
     out = np.zeros((len(X_test), len(classes)))
@@ -52,7 +52,7 @@ def _reference_ande(X, y, X_test, n_dependence, mean, min_count):
             match_p = np.all(X[:, parents] == x[parents], axis=1)
             if n_dependence and match_p.sum() < min_count:
                 continue
-            n_states = len(classes) * np.prod(CARDS[parents])
+            n_states = len(classes) * np.prod(cards[parents])
             row = np.zeros(len(classes))
             for c in classes:
                 match_pc = match_p & (y == c)
@@ -63,7 +63,7 @@ def _reference_ande(X, y, X_test, n_dependence, mean, min_count):
                 for j in range(n_features):
                     if j not in parents:
                         hits = (X[match_pc, j] == x[j]).sum()
-                        row[c] += np.log((hits + 1) / (match_pc.sum() + CARDS[j]))
+                        row[c] += np.log((hits + 1) / (match_pc.sum() + cards[j]))
             joints.append(row)
         assert joints, "every test instance keeps a component with these data"
         joints = np.array(joints)
@@ -84,6 +84,25 @@ def test_ande_matches_brute_force_reference(n_dependence, mean, min_count):
         categorical_features=list(range(X.shape[1])),
     ).fit(X, y)
     expected = _reference_ande(X, y, X_test, n_dependence, mean, min_count)
+    assert_allclose(model.predict_log_proba(X_test), expected, atol=1e-10)
+
+
+@pytest.mark.parametrize("mean", ["arithmetic", "geometric"])
+def test_large_state_grids_match_brute_force_reference(mean):
+    # Grids of augmented states with more than 4 cells per training sample
+    # are indexed by sorting instead of with a dense array
+    rng = np.random.RandomState(3)
+    cards = [40, 35, 30, 3, 4]
+    X = np.column_stack([rng.randint(0, c, 150) for c in cards])
+    y = (X[:, 3] + X[:, 4] + rng.randint(0, 2, 150)) % 3
+    seen = [np.unique(X[:, j]) for j in range(X.shape[1])]
+    X_test = np.column_stack([rng.choice(values, 200) for values in seen])
+    observed = np.array([len(values) for values in seen])
+    assert 3 * observed[0] * observed[1] > 4 * len(X) + 1024
+    model = AnDE(
+        n_dependence=2, mean=mean, categorical_features=list(range(X.shape[1]))
+    ).fit(X, y)
+    expected = _reference_ande(X, y, X_test, 2, mean, 1, cards=observed)
     assert_allclose(model.predict_log_proba(X_test), expected, atol=1e-10)
 
 
