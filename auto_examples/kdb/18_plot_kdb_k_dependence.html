@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Choosing k: KDB with Increasing Dependence &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
+    <title>Choosing k: KDB with Increasing Dependence &#8212; scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=3fad9bd4"></script>
+    <script src="../../_static/documentation_options.js?v=426729a5"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
@@ -122,8 +122,8 @@
       
     
     
-    <img src="../../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
-    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="../../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
+    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
   
   
 </a></div>
@@ -437,15 +437,16 @@ to download the full example code.</p>
 <p><a class="reference internal" href="../../generated/skbn.KDB.html#skbn.KDB" title="skbn.KDB"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.KDB</span></code></a> (K-Dependence Bayesian classifier) lets every attribute
 depend on the class and on at most <code class="docutils literal notranslate"><span class="pre">k</span></code> other attributes. The attributes are
 added to the network in decreasing order of their mutual information with the
-class $I(A_i; C)$, and each one takes as parents the <code class="docutils literal notranslate"><span class="pre">k</span></code> attributes already
-in the network with the highest conditional mutual information
+class $I(A_i; C)$, and each one takes as parents the <code class="docutils literal notranslate"><span class="pre">min(k,</span> <span class="pre">t)</span></code>
+attributes, among the <code class="docutils literal notranslate"><span class="pre">t</span></code> already in the network, with the highest
+conditional mutual information
 $I(A_i; A_j mid C)$.</p>
 <p><strong>The Scenario:</strong>
 Seven categorical attributes in two groups of three and a noise attribute.
 In each group, $a$ is uniform, $b$ is a noisy copy of $a$, and
 $s = a + b + y$ (with some noise). On its own, $a$ or $b$ says nothing about
-the class; the class is recovered exactly only from the three attributes of a
-group together.</p>
+the class; only the three attributes of a group together determine it, up to
+that noise.</p>
 <p><strong>What Happens:</strong>
 The sums $s$ are the attributes most informative about the class, so they
 are placed first. With <code class="docutils literal notranslate"><span class="pre">k=2</span></code> the last attribute of each group takes the
@@ -584,7 +585,7 @@ k=3: [0.711 0.784 0.857 0.911 0.952 0.972 0.976 0.981]
 <a href="https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.show.html#matplotlib.pyplot.show" title="matplotlib.pyplot.show" class="sphx-glr-backref-module-matplotlib-pyplot sphx-glr-backref-type-py-function"><span class="n">plt</span><span class="o">.</span><span class="n">show</span></a><span class="p">()</span>
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 0.970 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 0.313 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-kdb-18-plot-kdb-k-dependence-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/5a398bb800de6bb48e511efebeea5a1e/18_plot_kdb_k_dependence.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">18_plot_kdb_k_dependence.ipynb</span></code></a></p>

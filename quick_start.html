@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Getting Started &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
+    <title>Getting Started &#8212; scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/documentation_options.js?v=3fad9bd4"></script>
+    <script src="_static/documentation_options.js?v=426729a5"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/design-tabs.js?v=f930bc37"></script>
@@ -122,8 +122,8 @@
       
     
     
-    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
-    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
   
   
 </a></div>
@@ -377,7 +377,8 @@
 <h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
 <section id="from-pypi-recommended">
 <h3>From PyPI (Recommended)<a class="headerlink" href="#from-pypi-recommended" title="Link to this heading">#</a></h3>
-<p>Once available on PyPI, install scikit-bayes with pip:</p>
+<p>scikit-bayes needs Python 3.10 or later, NumPy, SciPy, Numba and
+scikit-learn 1.6 or later. Install it from PyPI with pip:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><style type="text/css">
 span.prompt1:before {
   content: "$ ";
@@ -394,7 +395,7 @@ span.prompt1:before {
 <h2>Quick Examples<a class="headerlink" href="#quick-examples" title="Link to this heading">#</a></h2>
 <section id="mixednb-handling-mixed-data-types">
 <h3>MixedNB: Handling Mixed Data Types<a class="headerlink" href="#mixednb-handling-mixed-data-types" title="Link to this heading">#</a></h3>
-<p><code class="xref py py-class docutils literal notranslate"><span class="pre">skbayes.MixedNB</span></code> automatically detects and handles datasets with
+<p><a class="reference internal" href="generated/skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.MixedNB</span></code></a> automatically detects and handles datasets with
 Gaussian (continuous), Categorical, and Bernoulli (binary) features:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <span class="n">MixedNB</span>
@@ -416,10 +417,10 @@ Gaussian (continuous), Categorical, and Bernoulli (binary) features:</p>
 </section>
 <section id="ande-solving-problems-naive-bayes-cannot">
 <h3>AnDE: Solving Problems Naive Bayes Cannot<a class="headerlink" href="#ande-solving-problems-naive-bayes-cannot" title="Link to this heading">#</a></h3>
-<p><code class="xref py py-class docutils literal notranslate"><span class="pre">skbayes.AnDE</span></code> relaxes the independence assumption of Naive Bayes,
+<p><a class="reference internal" href="generated/skbn.AnDE.html#skbn.AnDE" title="skbn.AnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.AnDE</span></code></a> relaxes the independence assumption of Naive Bayes,
 allowing it to capture feature dependencies like the XOR problem:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">skbayes</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnDE</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnDE</span>
 
 <span class="c1"># XOR problem: class depends on interaction of features</span>
 <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]])</span>

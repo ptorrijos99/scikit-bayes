@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>MixedNB &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
+    <title>MixedNB &#8212; scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=3fad9bd4"></script>
+    <script src="../_static/documentation_options.js?v=426729a5"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
@@ -122,8 +122,8 @@
       
     
     
-    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
-    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
   
   
 </a></div>
@@ -334,6 +334,8 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.AnJE.html">AnJE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="skbn.ALR.html">ALR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.GaussianAnJE.html">GaussianAnJE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.GaussianALR.html">GaussianALR</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.TAN.html">TAN</a></li>
@@ -415,49 +417,52 @@
 (Gaussian), categorical, and binary (Bernoulli) features. It internally
 uses scikit-learn’s GaussianNB, CategoricalNB, and BernoulliNB on the
 respective feature subsets.</p>
-<p>Features are classified and handled as follows:
-1.  User-defined: The user can explicitly specify which features are</p>
-<blockquote>
-<div><p>categorical or Bernoulli using the constructor parameters.</p>
-</div></blockquote>
-<ol class="arabic" start="2">
-<li><p>Auto-detection: For features not specified by the user, the classifier
-will attempt to infer the type during <code class="docutils literal notranslate"><span class="pre">fit</span></code>:
--   Features with exactly two unique values are treated as Bernoulli.
--   Integer features with more than two unique values are treated as</p>
-<blockquote>
-<div><p>Categorical. Note: These features must be encoded as non-negative
-integers (0, 1, 2, …).</p>
-</div></blockquote>
+<p>Features are classified and handled as follows:</p>
+<ol class="arabic">
+<li><p>User-defined: the constructor parameters fix the type of any feature.
+The three sets of features must be disjoint.</p></li>
+<li><p>Auto-detection: the remaining features are typed during <code class="docutils literal notranslate"><span class="pre">fit</span></code>:</p>
 <ul class="simple">
-<li><p>Floating-point features are treated as Gaussian.</p></li>
+<li><p>Constant features carry no information and are ignored.</p></li>
+<li><p>Features with exactly two unique values are Bernoulli.</p></li>
+<li><p>Integer-valued features (integer dtype, or floats without
+fractional part) that are non-negative and have from 3 to
+<code class="docutils literal notranslate"><span class="pre">_MAX_AUTO_CATEGORIES</span></code> (20) unique values are categorical.</p></li>
+<li><p>The rest (fractional or negative values, or integer values with
+more distinct values, such as ages or amounts) are Gaussian.</p></li>
 </ul>
+<p>The detection only looks at the values, so declaring the types is
+the safe choice whenever they are known.</p>
 </li>
 </ol>
+<p>Categorical features may hold any numeric codes: they are label-encoded
+on the values seen in training, so a category is a value, not a position.
+A value never seen in training contributes nothing to the prediction, as a
+missing value would (the feature is marginalised for that sample).</p>
+<p>Bernoulli features are binarised as <code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">&gt;</span> <span class="pre">t</span></code>, with <code class="docutils literal notranslate"><span class="pre">t</span> <span class="pre">=</span> <span class="pre">0</span></code> (the
+convention of <code class="docutils literal notranslate"><span class="pre">BernoulliNB</span></code>) when the training values lie on both sides of
+0, and the midpoint of their range otherwise, so that a two-valued
+attribute such as {1, 2} keeps its two values apart.</p>
+<p>Gaussian features whose training variance is zero are ignored, since
+their density would be degenerate and the same for every class.</p>
 <p>Read more in the <a class="reference internal" href="../user_guide.html#mixed-naive-bayes"><span class="std std-ref">User Guide</span></a>.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><dl>
-<dt><strong>categorical_features</strong><span class="classifier">array-like of shape (n_categorical_features,), default=None</span></dt><dd><p>A list of indices for the features that should be treated as
-categorical. If None, categorical features are inferred from data
-where dtype is integer and the number of unique values is greater
-than 2.
-.. warning:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Categorical</span> <span class="n">features</span> <span class="n">must</span> <span class="n">be</span> <span class="n">encoded</span> <span class="k">as</span> <span class="n">non</span><span class="o">-</span><span class="n">negative</span> <span class="n">integers</span><span class="o">.</span>
-</pre></div>
-</div>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>categorical_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the features to treat as categorical.</p>
 </dd>
-<dt><strong>bernoulli_features</strong><span class="classifier">array-like of shape (n_bernoulli_features,), default=None</span></dt><dd><p>A list of indices for the features that should be treated as Bernoulli.
-If None, Bernoulli features are inferred from data where the number
-of unique values is exactly 2.</p>
+<dt><strong>bernoulli_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the features to treat as Bernoulli.</p>
 </dd>
-<dt><strong>var_smoothing</strong><span class="classifier">float, default=1e-9</span></dt><dd><p>Portion of the largest variance of all Gaussian features that is added
-to variances for calculation stability. Passed to <code class="docutils literal notranslate"><span class="pre">GaussianNB</span></code>.</p>
+<dt><strong>gaussian_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the features to treat as Gaussian.</p>
 </dd>
-<dt><strong>alpha</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Additive (Laplace/Lidstone) smoothing parameter. Passed to
+<dt><strong>var_smoothing</strong><span class="classifier">float, default=1e-9</span></dt><dd><p>Non-negative portion of the largest variance of all Gaussian features
+that is added to variances for calculation stability. Passed to
+<code class="docutils literal notranslate"><span class="pre">GaussianNB</span></code>.</p>
+</dd>
+<dt><strong>alpha</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Non-negative additive (Laplace/Lidstone) smoothing parameter. Passed to
 <code class="docutils literal notranslate"><span class="pre">CategoricalNB</span></code> and <code class="docutils literal notranslate"><span class="pre">BernoulliNB</span></code>.</p>
 </dd>
-<dt><strong>var_prior_weight</strong><span class="classifier">float, default=0.0</span></dt><dd><p>Number of pseudo-observations used to shrink each class-conditional
+<dt><strong>var_prior_weight</strong><span class="classifier">float, default=0.0</span></dt><dd><p>Non-negative number of pseudo-observations used to shrink each class-conditional
 variance towards the pooled (class-independent) variance of the
 feature: <code class="docutils literal notranslate"><span class="pre">var_c</span> <span class="pre">=</span> <span class="pre">(n_c</span> <span class="pre">*</span> <span class="pre">var_c</span> <span class="pre">+</span> <span class="pre">nu</span> <span class="pre">*</span> <span class="pre">var_pooled)</span> <span class="pre">/</span> <span class="pre">(n_c</span> <span class="pre">+</span> <span class="pre">nu)</span></code>.
 It plays for Gaussian features the role that <code class="docutils literal notranslate"><span class="pre">alpha</span></code> plays for
@@ -470,7 +475,7 @@ few samples. <code class="docutils literal notranslate"><span class="pre">0</spa
 <dd class="field-even"><dl>
 <dt><strong>classes_</strong><span class="classifier">ndarray of shape (n_classes,)</span></dt><dd><p>Class labels known to the classifier.</p>
 </dd>
-<dt><strong>class_log_prior_</strong><span class="classifier">ndarray of shape (n_classes,)</span></dt><dd><p>Log probability of each class (smoothed).</p>
+<dt><strong>class_log_prior_</strong><span class="classifier">ndarray of shape (n_classes,)</span></dt><dd><p>Log of the empirical frequency of each class.</p>
 </dd>
 <dt><strong>n_features_in_</strong><span class="classifier">int</span></dt><dd><p>Number of features seen during <a class="reference external" href="https://scikit-learn.org/stable/glossary.html#term-fit" title="(in scikit-learn v1.9)"><span class="xref std std-term">fit</span></a>.</p>
 </dd>
@@ -478,10 +483,17 @@ few samples. <code class="docutils literal notranslate"><span class="pre">0</spa
 has feature names that are all strings.</p>
 </dd>
 <dt><strong>feature_types_</strong><span class="classifier">dict</span></dt><dd><p>A dictionary mapping feature type (‘gaussian’, ‘categorical’,
-‘bernoulli’) to the indices of the features of that type.</p>
+‘bernoulli’) to the indices of the features of that type. Undeclared
+constant features and Gaussian features with zero variance are in none
+of the lists.</p>
 </dd>
 <dt><strong>estimators_</strong><span class="classifier">dict</span></dt><dd><p>A dictionary containing the fitted Naive Bayes estimators for each
 feature type.</p>
+</dd>
+<dt><strong>categories_</strong><span class="classifier">list of ndarray</span></dt><dd><p>Sorted training values of each categorical feature, in the order of
+<code class="docutils literal notranslate"><span class="pre">feature_types_[&quot;categorical&quot;]</span></code>.</p>
+</dd>
+<dt><strong>bernoulli_thresholds_</strong><span class="classifier">ndarray of shape (n_bernoulli_features,)</span></dt><dd><p>Threshold <code class="docutils literal notranslate"><span class="pre">t</span></code> that binarises each Bernoulli feature as <code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">&gt;</span> <span class="pre">t</span></code>.</p>
 </dd>
 </dl>
 </dd>

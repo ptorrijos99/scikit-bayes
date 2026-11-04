@@ -67,13 +67,20 @@ MixedNB does this automatically.
 Feature Type Detection
 ----------------------
 
-MixedNB auto-detects feature types during ``fit()``:
+MixedNB types every feature not declared by the user during ``fit()``, from
+its training values. Every other estimator of the library uses the same rule
+through its class-level :class:`~skbn.MixedNB`, so a feature has the same type
+as a child and as a parent:
 
-* **Gaussian**: Float features with non-integer values
-* **Bernoulli**: Features with exactly 2 unique values
-* **Categorical**: Integer features with >2 unique values
+* **Ignored**: constant features, which carry no information.
+* **Bernoulli**: features with exactly 2 unique values.
+* **Categorical**: non-negative integer-valued features with 3 to 20 unique
+  values.
+* **Gaussian**: everything else, that is, fractional or negative values and
+  integer values with more than 20 distinct values (ages, counts, amounts).
 
-You can also specify types manually:
+The rule only looks at the values, so declaring the types is the safe choice
+whenever they are known, either as indices or as a boolean mask:
 
 .. code-block:: python
 
@@ -84,6 +91,21 @@ You can also specify types manually:
 
     # Force feature 1 to be Bernoulli
     clf = MixedNB(bernoulli_features=[1])
+
+    # The same as the first one, with a boolean mask
+    clf = MixedNB(categorical_features=[False, False, True, True])
+
+Each type is estimated as follows:
+
+* **Categorical** features are label-encoded on the values seen in training,
+  so the codes may be any numbers (negative, sparse or non-integer). A value
+  never seen in training contributes nothing to the prediction, as a missing
+  value would.
+* **Bernoulli** features are binarised as ``x > t``. When the training values
+  lie on both sides of 0, ``t = 0`` as in
+  :class:`~sklearn.naive_bayes.BernoulliNB`; otherwise ``t`` is the midpoint of
+  their range, so that two values such as {1, 2} stay apart.
+* **Gaussian** features with zero variance in training are ignored.
 
 Usage Example
 -------------
@@ -178,7 +200,7 @@ AnDE averages over all possible parent combinations.
 AnDE (Arithmetic Mean)
 ----------------------
 
-:class:`skbn.AnDE` is the standard generative model described by Webb et al. [1]_.
+:class:`skbn.AnDE` is the standard generative model described by Webb et al. [1]_ [2]_.
 
 .. math::
 
@@ -320,10 +342,12 @@ defined on discrete attributes: continuous attributes are discretized into
 
 ``weight_level=3`` (the default) is the model of the paper. Levels 1 (one
 weight per n-join) and 2 (per n-join and value) tie the weights following the
-nesting of [3]_. The other defaults reproduce the protocol of the paper's
-experiments: weights start at ``w = 1``, there is no penalty, and L-BFGS-B
-runs until the relative reduction of the objective falls below 1e-32 or for
-10\ :sup:`4` iterations. The starting point is not the AnJE but the unaveraged
+nesting of [3]_. The other defaults reproduce the settings of the code
+released with the paper: weights start at ``w = 1``, there is no penalty, and
+L-BFGS-B keeps 5 corrections and runs until the relative reduction of the
+objective falls below 1e7 machine epsilons (its ``factr = 1e7``) or for
+10\ :sup:`4` iterations, with the test on the projected gradient disabled.
+The starting point is not the AnJE but the unaveraged
 product of all n-joins, so on small samples the unpenalized model overfits.
 ``l2_reg`` adds the penalty towards ``w = 1`` that the paper suggests for
 small datasets, and ``max_iter`` and ``tol`` stop the optimizer earlier.
@@ -334,6 +358,42 @@ small datasets, and ``max_iter`` and ``tol`` stop the optimizer earlier.
 
     clf = AnJE(n_join=2)
     clf = ALR(n_join=2)  # as in Zaidi et al. (2016)
+    clf.fit(X, y)
+
+Gaussian children
+-----------------
+
+By the chain rule every (n+1)-join is a product of the factors of an SPnDE,
+:math:`P(x_\alpha | y) = P(x_P | y)\, P(x_j | y, x_P)` for each
+:math:`j \in \alpha` and :math:`P = \alpha \setminus \{j\}`. Averaging these
+orders and weighting the joins as in AnJE gives a log-linear pool of the
+factors of the SPnDEs of order ``n``,
+
+.. math::
+
+    \log P(y|\mathbf{x}) \propto \log P(y) + \frac{1}{|M|} \sum_{P}
+    \Big[ \tfrac{d}{n+1} \log P(\mathbf{x}_P | y)
+    + \tfrac{d}{(n+1)(d-n)} \sum_{j \notin P} \log P(x_j | y, \mathbf{x}_P) \Big].
+
+:class:`skbn.GaussianAnJE` builds AnJE on these factors, and
+:class:`skbn.GaussianALR` puts one weight per factor, value, class and parent
+instantiation on them, as ALR\ :sup:`n` does on the n-joins. Since the factors
+are those of :class:`skbn.AnDE`, both models handle mixed data as HAODE does:
+only the super-parents are discretized, and continuous children keep their
+Gaussian conditionals. ``n_dependence`` is the order of the SPnDEs, so
+``GaussianAnJE(n_dependence=1)`` is the counterpart of ``AnJE(n_join=2)``.
+Probabilities are Laplace estimates on the augmented states, and the
+super-parent factor is divided by its total within the class so that every
+factor is conditional on the class. On discrete data the two versions
+coincide as the smoothing vanishes, and ``GaussianALR`` at ``w = 1`` is
+``GaussianAnJE``.
+
+.. code-block:: python
+
+    from skbn import GaussianALR, GaussianAnJE
+
+    clf = GaussianAnJE(n_dependence=1)  # A2JE with Gaussian children
+    clf = GaussianALR(n_dependence=1)  # ALR^2 with Gaussian children
     clf.fit(X, y)
 
 
@@ -375,8 +435,9 @@ TAN uses the same strategy as the AnDE family. Continuous attributes are
 discretized (``n_bins``, ``strategy``) to compute the mutual information and
 when they act as parents; as children they remain continuous and are modeled
 by Gaussian distributions. Every conditional :math:`P(x_i | y, x_{\pi(i)})` is
-a :class:`skbn.MixedNB` fitted on the augmented class :math:`(y, x_{\pi(i)})`,
-so discrete children use Laplace smoothing (``alpha``).
+Naive Bayes on the augmented class :math:`(y, x_{\pi(i)})`, with the
+estimates of :class:`skbn.MixedNB`, so discrete children use Laplace
+smoothing (``alpha``).
 
 **Key Parameters:**
 
@@ -429,9 +490,8 @@ The structure is learned greedily [8]_:
 
 Mixed data is handled as in TAN: continuous attributes are discretized
 (``n_bins``, ``strategy``) for the structure and when they act as parents,
-and every conditional :math:`P(x_i | y, \mathbf{x}_{\Pi(i)})` is a
-:class:`skbn.MixedNB` fitted on the augmented class
-:math:`(y, \mathbf{x}_{\Pi(i)})`.
+and every conditional :math:`P(x_i | y, \mathbf{x}_{\Pi(i)})` is Naive Bayes
+on the augmented class :math:`(y, \mathbf{x}_{\Pi(i)})`.
 
 Choosing k
 ----------
@@ -498,7 +558,26 @@ and overfit small datasets with a weak penalty, so for them values between
 Computational Considerations
 ----------------------------
 
-* Use ``n_jobs=-1`` to parallelize SPODE fitting
+* The counting and the evaluation of the SPnDEs, of the n-joins and of the
+  conditionals of TAN and KDB run in compiled Numba kernels. They are
+  compiled on the first use of each model and cached on disk: after
+  installing or upgrading the package, the first fit of a model takes
+  several seconds longer (on a laptop, from about 4 s for WeightedAnDE to
+  15 s for AnDE), and later sessions load the compiled code in a fraction of
+  a second.
+* ``n_jobs`` sets the number of threads of those kernels (1 by default,
+  ``-1`` for all processors). The threaded version of a kernel is compiled
+  the first time it is used, so a model run with several threads for the
+  first time pays that compilation once more. The weights of the hybrid
+  models are optimized in a single thread, with the objective of ALR
+  evaluated in ``n_jobs`` threads.
+* TAN and KDB compute the conditional mutual information of every pair of
+  attributes: the time grows with :math:`n d^2` and the matrix
+  ``conditional_mutual_info_`` holds :math:`d^2` values (800 MB for 10,000
+  attributes).
+* The parameters are stored only for the augmented states and the cells seen
+  in training, so the memory of a model is bounded by the data rather than by
+  the cardinalities of the attributes.
 * The cost of an optimization step grows with the number of weights each
   sample touches: one per component with component weights, one per factor
   with factor weights and one per n-join in ALR

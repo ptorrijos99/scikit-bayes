@@ -1,0 +1,50 @@
+﻿GaussianALR
+==============================
+
+.. currentmodule:: skbn
+
+.. autoclass:: GaussianALR
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      
+      
+        ~GaussianALR.fit
+      
+      
+        ~GaussianALR.get_metadata_routing
+      
+      
+        ~GaussianALR.get_params
+      
+      
+        ~GaussianALR.predict
+      
+      
+        ~GaussianALR.predict_log_proba
+      
+      
+        ~GaussianALR.predict_proba
+      
+      
+        ~GaussianALR.score
+      
+      
+        ~GaussianALR.set_params
+      
+      
+        ~GaussianALR.set_score_request
+      
+   
+   
+
+.. include:: skbn.GaussianALR.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>KDB &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
+    <title>KDB &#8212; scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=3fad9bd4"></script>
+    <script src="../_static/documentation_options.js?v=426729a5"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
-    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
   
   
 </a></div>
@@ -335,6 +335,8 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.AnJE.html">AnJE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="skbn.ALR.html">ALR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.GaussianAnJE.html">GaussianAnJE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.GaussianALR.html">GaussianALR</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.TAN.html">TAN</a></li>
@@ -410,7 +412,7 @@
 <h1>KDB<a class="headerlink" href="#kdb" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="skbn.KDB">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">skbn.</span></span><span class="sig-name descname"><span class="pre">KDB</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'quantile'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">categorical_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bernoulli_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_prior_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.KDB" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">skbn.</span></span><span class="sig-name descname"><span class="pre">KDB</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'quantile'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">categorical_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bernoulli_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_prior_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.KDB" title="Link to this definition">#</a></dt>
 <dd><p>K-Dependence Bayesian (KDB) classifier.</p>
 <p>KDB <a class="reference internal" href="#rdb39207f3cf9-1" id="id1">[1]</a> extends Naive Bayes with dependencies between the attributes:
 each attribute has the class and at most <code class="docutils literal notranslate"><span class="pre">k</span></code> other attributes as
@@ -429,7 +431,7 @@ attributes are discretized (<code class="docutils literal notranslate"><span cla
 quantities.</p>
 <p><strong>Parameters.</strong> Every conditional
 <span class="math notranslate nohighlight">\(P(x_i \mid y, \mathbf{x}_{\Pi(i)})\)</span> with at least one attribute
-parent is estimated by a <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a> fitted on the augmented class
+parent is estimated as Naive Bayes on the augmented class
 <span class="math notranslate nohighlight">\(Y^* = (y, \mathbf{x}_{\Pi(i)})\)</span>, the strategy used by the AnDE
 family and <a class="reference internal" href="skbn.TAN.html#skbn.TAN" title="skbn.TAN"><code class="xref py py-class docutils literal notranslate"><span class="pre">TAN</span></code></a>: discrete children use Laplace smoothing with
 <code class="docutils literal notranslate"><span class="pre">alpha</span></code>, continuous children are Gaussian (shrunk towards the pooled
@@ -447,7 +449,9 @@ fitted on the original class.</p>
 <dt><strong>k</strong><span class="classifier">int, default=1</span></dt><dd><p>Maximum number of attribute parents of every attribute, in addition
 to the class. An attribute placed when fewer than <code class="docutils literal notranslate"><span class="pre">k</span></code> attributes are
 in the network takes all of them as parents. <code class="docutils literal notranslate"><span class="pre">k=0</span></code> gives Naive
-Bayes.</p>
+Bayes. <a class="reference internal" href="#skbn.KDB.fit" title="skbn.KDB.fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">fit()</span></code></a> raises a <a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></a> when the joint states
+of the class and the parents of an attribute exceed a 64-bit index,
+which calls for a smaller <code class="docutils literal notranslate"><span class="pre">k</span></code> or fewer bins.</p>
 </dd>
 <dt><strong>n_bins</strong><span class="classifier">int, default=5</span></dt><dd><p>Number of bins used to discretize continuous attributes for the
 structure learning and when they act as parents. Continuous children
@@ -455,17 +459,26 @@ remain continuous.</p>
 </dd>
 <dt><strong>strategy</strong><span class="classifier">{‘uniform’, ‘quantile’, ‘kmeans’}, default=’quantile’</span></dt><dd><p>Strategy used for the discretization of continuous attributes.</p>
 </dd>
-<dt><strong>alpha</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Additive (Laplace/Lidstone) smoothing parameter for the discrete
-conditional probability tables.</p>
+<dt><strong>alpha</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Non-negative additive (Laplace/Lidstone) smoothing parameter for the
+discrete conditional probability tables.</p>
 </dd>
-<dt><strong>categorical_features</strong><span class="classifier">array-like of int, default=None</span></dt><dd><p>Indices of the features to treat as categorical. See <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>.</p>
+<dt><strong>categorical_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the features to treat as categorical,
+passed to <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>, which describes how the undeclared
+features are typed.</p>
 </dd>
-<dt><strong>bernoulli_features</strong><span class="classifier">array-like of int, default=None</span></dt><dd><p>Indices of the features to treat as Bernoulli. See <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>.</p>
+<dt><strong>bernoulli_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the features to treat as Bernoulli.
+See <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>.</p>
 </dd>
-<dt><strong>gaussian_features</strong><span class="classifier">array-like of int, default=None</span></dt><dd><p>Indices of the features to treat as Gaussian. See <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>.</p>
+<dt><strong>gaussian_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the features to treat as Gaussian.
+See <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>.</p>
 </dd>
-<dt><strong>var_prior_weight</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Pseudo-observations shrinking each Gaussian variance towards the
-pooled variance of the feature (see <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>).</p>
+<dt><strong>var_prior_weight</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Non-negative number of pseudo-observations shrinking each Gaussian
+variance towards the pooled variance of the feature (see
+<a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>).</p>
+</dd>
+<dt><strong>n_jobs</strong><span class="classifier">int, default=None</span></dt><dd><p>Number of threads used to compute the conditional mutual information
+and to count and evaluate the conditionals. <code class="docutils literal notranslate"><span class="pre">None</span></code> means 1 and
+<code class="docutils literal notranslate"><span class="pre">-1</span></code> all the processors.</p>
 </dd>
 </dl>
 </dd>
@@ -494,12 +507,6 @@ attributes that depend only on the class.</p>
 <dt><strong>backoff_</strong><span class="classifier">MixedNB</span></dt><dd><p>Naive Bayes on the original class. Provides the class prior, the
 conditionals of the attributes without attribute parents and the
 detected feature types (<code class="docutils literal notranslate"><span class="pre">feature_types_</span></code>).</p>
-</dd>
-<dt><strong>cpts_</strong><span class="classifier">dict</span></dt><dd><p>Maps every attribute <code class="docutils literal notranslate"><span class="pre">i</span></code> with attribute parents to the
-<a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a> that models
-<span class="math notranslate nohighlight">\(P(x_i \mid y, \mathbf{x}_{\Pi(i)})\)</span>. Its classes are the
-observed keys of the augmented class, the mixed-radix index of
-<code class="docutils literal notranslate"><span class="pre">(class_index,</span> <span class="pre">*parent_values)</span></code>.</p>
 </dd>
 </dl>
 </dd>
@@ -792,7 +799,7 @@ parameters and not others.</p>
 
 <section id="examples-using-skbn-kdb">
 <h2>Examples using <code class="docutils literal notranslate"><span class="pre">skbn.KDB</span></code><a class="headerlink" href="#examples-using-skbn-kdb" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="skbn.KDB (K-Dependence Bayesian classifier) lets every attribute depend on the class and on at most k other attributes. The attributes are added to the network in decreasing order of their mutual information with the class $I(A_i; C)$, and each one takes as parents the k attributes already in the network with the highest conditional mutual information $I(A_i; A_j \mid C)$."><img alt="" src="../_images/sphx_glr_18_plot_kdb_k_dependence_thumb.png" />
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="skbn.KDB (K-Dependence Bayesian classifier) lets every attribute depend on the class and on at most k other attributes. The attributes are added to the network in decreasing order of their mutual information with the class $I(A_i; C)$, and each one takes as parents the min(k, t) attributes, among the t already in the network, with the highest conditional mutual information $I(A_i; A_j \mid C)$."><img alt="" src="../_images/sphx_glr_18_plot_kdb_k_dependence_thumb.png" />
 <p><a class="reference internal" href="../auto_examples/kdb/18_plot_kdb_k_dependence.html"><span class="doc">Choosing k: KDB with Increasing Dependence</span></a></p>
   <div class="sphx-glr-thumbnail-title">Choosing k: KDB with Increasing Dependence</div>
 </div></div><div style='clear:both'></div></section>

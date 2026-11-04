@@ -1,0 +1,50 @@
+﻿GaussianAnJE
+===============================
+
+.. currentmodule:: skbn
+
+.. autoclass:: GaussianAnJE
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      
+      
+        ~GaussianAnJE.fit
+      
+      
+        ~GaussianAnJE.get_metadata_routing
+      
+      
+        ~GaussianAnJE.get_params
+      
+      
+        ~GaussianAnJE.predict
+      
+      
+        ~GaussianAnJE.predict_log_proba
+      
+      
+        ~GaussianAnJE.predict_proba
+      
+      
+        ~GaussianAnJE.score
+      
+      
+        ~GaussianAnJE.set_params
+      
+      
+        ~GaussianAnJE.set_score_request
+      
+   
+   
+
+.. include:: skbn.GaussianAnJE.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

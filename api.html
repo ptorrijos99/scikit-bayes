@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>API Reference &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
+    <title>API Reference &#8212; scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/documentation_options.js?v=3fad9bd4"></script>
+    <script src="_static/documentation_options.js?v=426729a5"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/design-tabs.js?v=f930bc37"></script>
@@ -122,8 +122,8 @@
       
     
     
-    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
-    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
   
   
 </a></div>
@@ -334,6 +334,8 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="generated/skbn.AnJE.html">AnJE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="generated/skbn.ALR.html">ALR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="generated/skbn.GaussianAnJE.html">GaussianAnJE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="generated/skbn.GaussianALR.html">GaussianALR</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="generated/skbn.TAN.html">TAN</a></li>
@@ -435,7 +437,9 @@
 </section>
 <section id="anje-family">
 <h3>AnJE Family<a class="headerlink" href="#anje-family" title="Link to this heading">#</a></h3>
-<p>Averaged n-Join Estimators and Accelerated Logistic Regression.</p>
+<p>Averaged n-Join Estimators and Accelerated Logistic Regression, on
+discretized attributes or, with Gaussian children, on the factors of the
+SPnDEs.</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/skbn.AnJE.html#skbn.AnJE" title="skbn.AnJE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnJE</span></code></a>([n_join, n_bins, strategy, alpha, ...])</p></td>
@@ -443,6 +447,12 @@
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ALR</span></code></a>([n_join, n_bins, strategy, alpha, ...])</p></td>
 <td><p>Accelerated Higher-Order Logistic Regression (ALR^n) [Hybrid].</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/skbn.GaussianAnJE.html#skbn.GaussianAnJE" title="skbn.GaussianAnJE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GaussianAnJE</span></code></a>([n_dependence, n_bins, ...])</p></td>
+<td><p>Averaged (n+1)-Join Estimator on the factors of the SPnDEs [Generative].</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/skbn.GaussianALR.html#skbn.GaussianALR" title="skbn.GaussianALR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GaussianALR</span></code></a>([n_dependence, n_bins, ...])</p></td>
+<td><p>ALR^n on the factors of the SPnDEs [Hybrid].</p></td>
 </tr>
 </tbody>
 </table>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>WeightedAnDE &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
+    <title>WeightedAnDE &#8212; scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=3fad9bd4"></script>
+    <script src="../_static/documentation_options.js?v=426729a5"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
-    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
   
   
 </a></div>
@@ -335,6 +335,8 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.AnJE.html">AnJE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="skbn.ALR.html">ALR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.GaussianAnJE.html">GaussianAnJE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.GaussianALR.html">GaussianALR</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.TAN.html">TAN</a></li>
@@ -425,14 +427,14 @@ whole. With the arithmetic mean they are mixture coefficients,</p>
 <span class="math notranslate nohighlight">\(P_m = P(y, x_p) \prod_i P(x_i | y, x_p)\)</span>, level 4 is a
 discriminative re-estimation of each component’s root table
 <span class="math notranslate nohighlight">\(P(y, x_p)\)</span>, and the lower levels tie its entries. Level 3 is the
-per-SPODE, per-class weighting of EODE-CLL <a href="#id6"><span class="problematic" id="id1">[5]_</span></a> (without its attribute
+per-SPODE, per-class weighting of EODE-CLL <a class="reference internal" href="#r3bff78d0efa5-2" id="id1">[2]</a> (without its attribute
 weights). With the geometric mean they scale each component’s log-joint,
 <span class="math notranslate nohighlight">\(s = \frac{1}{|M|} \sum_m w_m \log P_m(y, x)\)</span>, with non-negative
 weights. Component weights do not change how a component combines its
 attributes, so they cannot correct a dependence between children shared
 by every component (e.g. a duplicated attribute).</p>
 <p><strong>Factor weights</strong> (<code class="docutils literal notranslate"><span class="pre">weight_scope=&quot;factor&quot;</span></code>) apply the weighted CCBN of
-Zaidi et al. <a href="#id7"><span class="problematic" id="id2">[3]_</span></a> inside each SPnDE: every factor <code class="docutils literal notranslate"><span class="pre">f</span></code> of component <code class="docutils literal notranslate"><span class="pre">m</span></code>
+Zaidi et al. <a class="reference internal" href="#r3bff78d0efa5-1" id="id2">[1]</a> inside each SPnDE: every factor <code class="docutils literal notranslate"><span class="pre">f</span></code> of component <code class="docutils literal notranslate"><span class="pre">m</span></code>
 gets its own exponent, <span class="math notranslate nohighlight">\(P_m^w(y, x) = \prod_f \theta_f^{w_f}\)</span>, and
 the components are pooled as above. The root factor
 <span class="math notranslate nohighlight">\(P(y, x_p)\)</span> is weighted as one factor whose value is the parent
@@ -440,7 +442,7 @@ instantiation.</p>
 <p>With <code class="docutils literal notranslate"><span class="pre">modular=True</span></code> the weights of each SPnDE are fitted on that
 component’s own conditional log-likelihood, a convex problem. Factor
 weights at level 4, fitted modularly and pooled with
-<code class="docutils literal notranslate"><span class="pre">average=&quot;posterior&quot;</span></code>, are the AnDE^w of FedAnDE <a class="reference internal" href="#r3bff78d0efa5-6" id="id3">[6]</a>: one wCCBN per
+<code class="docutils literal notranslate"><span class="pre">average=&quot;posterior&quot;</span></code>, are the AnDE^w of FedAnDE <a class="reference internal" href="#r3bff78d0efa5-3" id="id3">[3]</a>: one wCCBN per
 SPnDE, whose posteriors are averaged. The joint fit of an arithmetic
 mixture is non-convex; the geometric mean gives a convex joint problem.</p>
 <p>Weight levels (variables indexing each weight, from coarsest to finest):</p>
@@ -448,7 +450,7 @@ mixture is non-convex; the geometric mean gives a convex joint problem.</p>
 <thead>
 <tr class="row-odd"><th class="head"><p>Level</p></th>
 <th class="head"><p><code class="docutils literal notranslate"><span class="pre">weight_scope=&quot;component&quot;</span></code></p></th>
-<th class="head"><p><code class="docutils literal notranslate"><span class="pre">weight_scope=&quot;factor&quot;</span></code> <a href="#id8"><span class="problematic" id="id4">[3]_</span></a></p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">weight_scope=&quot;factor&quot;</span></code> <a class="reference internal" href="#r3bff78d0efa5-1" id="id4">[1]</a></p></th>
 </tr>
 </thead>
 <tbody>
@@ -481,12 +483,47 @@ the training set in memory, about <code class="docutils literal notranslate"><sp
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl class="simple">
-<dt><strong>n_dependence</strong><span class="classifier">int, default=1</span></dt><dd><p>The number of parent features conditioned upon (n-dependence).
-0 corresponds to Naive Bayes topology.</p>
+<dt><strong>n_dependence</strong><span class="classifier">int, default=1</span></dt><dd><p>Order <code class="docutils literal notranslate"><span class="pre">n</span></code> of the dependence, the number of super-parent attributes of
+each SPnDE. It must satisfy <code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">&lt;=</span> <span class="pre">n_dependence</span> <span class="pre">&lt;=</span> <span class="pre">n_features</span></code>; <code class="docutils literal notranslate"><span class="pre">0</span></code>
+gives the Naive Bayes topology.</p>
 </dd>
-<dt><strong>n_bins</strong><span class="classifier">int, default=5</span></dt><dd><p>Maximum number of bins for discretization.</p>
+<dt><strong>n_bins</strong><span class="classifier">int, default=5</span></dt><dd><p>Number of bins for discretizing continuous attributes when they act as
+super-parents (at least 2). Children remain continuous and are modeled
+by Gaussian distributions.</p>
 </dd>
-<dt><strong>alpha</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Additive (Laplace/Lidstone) smoothing parameter for probabilities.</p>
+<dt><strong>strategy</strong><span class="classifier">{‘uniform’, ‘quantile’, ‘kmeans’}, default=’quantile’</span></dt><dd><p>Strategy used for the discretization of super-parents.</p>
+</dd>
+<dt><strong>alpha</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Non-negative additive (Laplace/Lidstone) smoothing parameter for the
+probabilities of the generative model.</p>
+</dd>
+<dt><strong>n_jobs</strong><span class="classifier">int, default=None</span></dt><dd><p>Number of threads used to count and evaluate the SPnDEs; the
+weights are optimized in a single thread.
+<code class="docutils literal notranslate"><span class="pre">None</span></code> means 1 unless in a <a class="reference external" href="https://joblib.readthedocs.io/en/latest/generated/joblib.parallel_backend.html#joblib.parallel_backend" title="(in joblib v1.7)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">joblib.parallel_backend</span></code></a> context.
+<code class="docutils literal notranslate"><span class="pre">-1</span></code> means using all processors.</p>
+</dd>
+<dt><strong>categorical_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the attributes to treat as categorical,
+passed to <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>, which describes how the undeclared
+attributes are typed.</p>
+</dd>
+<dt><strong>bernoulli_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the attributes to treat as Bernoulli.
+See <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>.</p>
+</dd>
+<dt><strong>gaussian_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the attributes to treat as Gaussian.
+See <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>.</p>
+</dd>
+<dt><strong>var_prior_weight</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Pseudo-observations shrinking each Gaussian child variance towards the
+pooled variance of the feature (see <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>). It applies to
+the SPnDEs with super-parents and to the class-level back-off model;
+<code class="docutils literal notranslate"><span class="pre">0</span></code> gives the variances of <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.naive_bayes.GaussianNB.html#sklearn.naive_bayes.GaussianNB" title="(in scikit-learn v1.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianNB</span></code></a>.</p>
+</dd>
+<dt><strong>min_parent_count</strong><span class="classifier">int, default=1</span></dt><dd><p>Minimum training frequency of a parent instantiation for its SPnDE to
+take part in the prediction of an instance. Values below 1 behave as 1.</p>
+</dd>
+<dt><strong>unseen_state</strong><span class="classifier">{“laplace”, “backoff”}, default=”laplace”</span></dt><dd><p>Child conditionals used for an augmented state never seen in training.
+<code class="docutils literal notranslate"><span class="pre">&quot;laplace&quot;</span></code> is the standard smoothed estimate of an empty cell
+(uniform for discrete children, the pooled Gaussian of the attribute
+for continuous ones); <code class="docutils literal notranslate"><span class="pre">&quot;backoff&quot;</span></code> reuses the class-level
+conditionals.</p>
 </dd>
 <dt><strong>mean</strong><span class="classifier">{“arithmetic”, “geometric”}, default=”arithmetic”</span></dt><dd><p>Pooling of the (weighted) components.</p>
 </dd>
@@ -498,12 +535,17 @@ arithmetic component weights need a class-specific level (3 or 4).</p>
 </dd>
 <dt><strong>weight_scope</strong><span class="classifier">{“component”, “factor”}, default=”component”</span></dt><dd><p>Whether a weight multiplies a whole component or one of its factors.</p>
 </dd>
-<dt><strong>weight_level</strong><span class="classifier">int, default=1</span></dt><dd><p>Granularity of weights (1-4, see the table above).</p>
+<dt><strong>weight_level</strong><span class="classifier">int, default=1</span></dt><dd><p>Granularity of the weights, from 1 (coarsest) to 4 (finest); see the
+table above.</p>
 </dd>
-<dt><strong>l2_reg</strong><span class="classifier">float, default=1.0</span></dt><dd><p>L2 regularization towards the generative solution (w = 1), added to
-the summed conditional log-likelihood.</p>
+<dt><strong>l2_reg</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Non-negative L2 regularization towards the generative solution
+(<code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">1</span></code>), added to the summed conditional log-likelihood.</p>
 </dd>
-<dt><strong>max_iter</strong><span class="classifier">int, default=100</span></dt><dd><p>Maximum number of L-BFGS-B iterations.</p>
+<dt><strong>max_iter</strong><span class="classifier">int, default=100</span></dt><dd><p>Maximum number of L-BFGS-B iterations (at least 1); with
+<code class="docutils literal notranslate"><span class="pre">modular=True</span></code> it applies to the fit of each component. A
+<a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.exceptions.ConvergenceWarning.html#sklearn.exceptions.ConvergenceWarning" title="(in scikit-learn v1.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConvergenceWarning</span></code></a> is raised at the end of
+<a class="reference internal" href="#skbn.WeightedAnDE.fit" title="skbn.WeightedAnDE.fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">fit()</span></code></a> when L-BFGS-B stops at <code class="docutils literal notranslate"><span class="pre">max_iter</span></code> before converging;
+increase <code class="docutils literal notranslate"><span class="pre">max_iter</span></code> or <code class="docutils literal notranslate"><span class="pre">tol</span></code> in that case.</p>
 </dd>
 <dt><strong>tol</strong><span class="classifier">float or None, default=None</span></dt><dd><p>Stopping tolerance of L-BFGS-B on the relative reduction of the
 objective and on the projected gradient; None uses SciPy’s defaults.</p>
@@ -511,38 +553,84 @@ objective and on the projected gradient; None uses SciPy’s defaults.</p>
 <dt><strong>modular</strong><span class="classifier">bool, default=False</span></dt><dd><p>If True, the weights of each component are fitted independently on
 that component’s own conditional log-likelihood, which is convex. With
 arithmetic component weights only the class-specific levels (3 and 4)
-are identifiable; levels 1 and 2 reduce to the generative AnDE.</p>
-</dd>
-<dt><strong>n_jobs</strong><span class="classifier">int, default=None</span></dt><dd><p>Number of parallel jobs to run during the generative phase.</p>
+are identifiable; levels 1 and 2 reduce to the generative AnDE, the
+weights stay at 1 and a <a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#UserWarning" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">UserWarning</span></code></a> is raised.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Attributes<span class="colon">:</span></dt>
 <dd class="field-even"><dl>
-<dt><strong>coef_theta_</strong><span class="classifier">ndarray of shape (<a href="#id9"><span class="problematic" id="id10">n_weights_</span></a>,)</span></dt><dd><p>Optimized parameters (<code class="docutils literal notranslate"><span class="pre">log</span> <span class="pre">w</span></code> for arithmetic component weights).</p>
+<dt><strong>classes_</strong><span class="classifier">ndarray of shape (n_classes,)</span></dt><dd><p>Class labels.</p>
 </dd>
-<dt><strong>learned_weights_</strong><span class="classifier">ndarray of shape (<a href="#id11"><span class="problematic" id="id12">n_weights_</span></a>,)</span></dt><dd><p>Learned weights <code class="docutils literal notranslate"><span class="pre">w</span></code>.</p>
+<dt><strong>class_count_</strong><span class="classifier">ndarray of shape (n_classes,)</span></dt><dd><p>Number of training samples of each class.</p>
+</dd>
+<dt><strong>n_features_in_</strong><span class="classifier">int</span></dt><dd><p>Number of features seen during <a class="reference external" href="https://scikit-learn.org/stable/glossary.html#term-fit" title="(in scikit-learn v1.9)"><span class="xref std std-term">fit</span></a>.</p>
+</dd>
+<dt><strong>feature_names_in_</strong><span class="classifier">ndarray of shape (<code class="docutils literal notranslate"><span class="pre">n_features_in_</span></code>,)</span></dt><dd><p>Names of features seen during <a class="reference external" href="https://scikit-learn.org/stable/glossary.html#term-fit" title="(in scikit-learn v1.9)"><span class="xref std std-term">fit</span></a>. Defined only when <code class="docutils literal notranslate"><span class="pre">X</span></code>
+has feature names that are all strings.</p>
+</dd>
+<dt><strong>ensemble_</strong><span class="classifier">list of dict</span></dt><dd><p>The fitted SPnDEs of the generative phase, one per set of
+<code class="docutils literal notranslate"><span class="pre">n_dependence</span></code> super-parents (a single one for <code class="docutils literal notranslate"><span class="pre">n_dependence=0</span></code>).
+Each dict holds the <code class="docutils literal notranslate"><span class="pre">&quot;parent_indices&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;child_indices&quot;</span></code> of the
+component and the numbers of its parent instantiations
+(<code class="docutils literal notranslate"><span class="pre">&quot;n_parent_combos&quot;</span></code>) and of the augmented states <span class="math notranslate nohighlight">\(Y^*\)</span> seen in
+training (<code class="docutils literal notranslate"><span class="pre">&quot;n_states&quot;</span></code>); the estimates of all the components are
+stored together in flat tables.</p>
+</dd>
+<dt><strong>backoff_</strong><span class="classifier">MixedNB</span></dt><dd><p>Naive Bayes on the original class, used for the class-level
+conditionals, to resolve the type of every attribute and as the
+fallback when no SPnDE qualifies.</p>
+</dd>
+<dt><strong>coef_theta_</strong><span class="classifier">ndarray of shape (n_weights,)</span></dt><dd><p>Optimized parameters: <code class="docutils literal notranslate"><span class="pre">log</span> <span class="pre">w</span></code> for arithmetic component weights
+(<code class="docutils literal notranslate"><span class="pre">weight_scope=&quot;component&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">mean=&quot;arithmetic&quot;</span></code>), <code class="docutils literal notranslate"><span class="pre">w</span></code>
+otherwise.</p>
+</dd>
+<dt><strong>learned_weights_</strong><span class="classifier">ndarray of shape (n_weights,)</span></dt><dd><p>Learned weights <code class="docutils literal notranslate"><span class="pre">w</span></code>.</p>
 </dd>
 <dt><strong>n_weights_</strong><span class="classifier">int</span></dt><dd><p>Number of weights, including the shared one for unseen combinations.</p>
 </dd>
-<dt><strong>n_iter_</strong><span class="classifier">int</span></dt><dd><p>Total number of L-BFGS-B iterations.</p>
+<dt><strong>n_iter_</strong><span class="classifier">int</span></dt><dd><p>Total number of L-BFGS-B iterations (summed over the components when
+<code class="docutils literal notranslate"><span class="pre">modular=True</span></code>).</p>
 </dd>
 </dl>
 </dd>
 </dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="skbn.AnDE.html#skbn.AnDE" title="skbn.AnDE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnDE</span></code></a></dt><dd><p>The generative model.</p>
+</dd>
+<dt><a class="reference internal" href="skbn.GaussianALR.html#skbn.GaussianALR" title="skbn.GaussianALR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GaussianALR</span></code></a></dt><dd><p>ALR^n on the factors of the SPnDEs.</p>
+</dd>
+</dl>
+</div>
 <p class="rubric">References</p>
 <div role="list" class="citation-list">
-<div class="citation" id="r3bff78d0efa5-6" role="doc-biblioentry">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">6</a><span class="fn-bracket">]</span></span>
-<p>Torrijos, P., Gamez, J. A., &amp; Puerta, J. M. Federated averaged
-n-dependence estimators. Manuscript in preparation.</p>
+<div class="citation" id="r3bff78d0efa5-1" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
+<span class="backrefs">(<a role="doc-backlink" href="#id2">1</a>,<a role="doc-backlink" href="#id4">2</a>)</span>
+<p>Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., Buntine, W.,
+Hynes, M., &amp; De Sterck, H. (2017). Efficient parameter learning of
+Bayesian network classifiers. Machine Learning, 106(9-10), 1289-1329.</p>
+</div>
+<div class="citation" id="r3bff78d0efa5-2" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">2</a><span class="fn-bracket">]</span></span>
+<p>Zheng, X., Lin, Z., Xu, H., Chen, C., &amp; Ye, T. (2015). Efficient
+learning ensemble SuperParent-one-dependence estimator by maximizing
+conditional log likelihood. Expert Systems with Applications, 42,
+7732-7745.</p>
+</div>
+<div class="citation" id="r3bff78d0efa5-3" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">3</a><span class="fn-bracket">]</span></span>
+<p>Torrijos, P., Gámez, J. A., &amp; Puerta, J. M. Federated Averaged
+n-Dependence Estimators. Manuscript, 2026.</p>
 </div>
 </div>
 <p class="rubric">Methods</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="#skbn.WeightedAnDE.fit" title="skbn.WeightedAnDE.fit"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fit</span></code></a>(X, y)</p></td>
-<td><p>Generative fitting.</p></td>
+<td><p>Fit the generative ensemble, then learn the discriminative weights.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#skbn.WeightedAnDE.get_metadata_routing" title="skbn.WeightedAnDE.get_metadata_routing"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_metadata_routing</span></code></a>()</p></td>
 <td><p>Get metadata routing of this object.</p></td>
@@ -550,14 +638,14 @@ n-dependence estimators. Manuscript in preparation.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="#skbn.WeightedAnDE.get_params" title="skbn.WeightedAnDE.get_params"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_params</span></code></a>([deep])</p></td>
 <td><p>Get parameters for this estimator.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict</span></code>(X)</p></td>
-<td><p></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#skbn.WeightedAnDE.predict" title="skbn.WeightedAnDE.predict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict</span></code></a>(X)</p></td>
+<td><p>Perform classification on an array of test vectors X.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict_log_proba</span></code>(X)</p></td>
-<td><p></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#skbn.WeightedAnDE.predict_log_proba" title="skbn.WeightedAnDE.predict_log_proba"><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict_log_proba</span></code></a>(X)</p></td>
+<td><p>Return log-probability estimates for the test vector X.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict_proba</span></code>(X)</p></td>
-<td><p></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#skbn.WeightedAnDE.predict_proba" title="skbn.WeightedAnDE.predict_proba"><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict_proba</span></code></a>(X)</p></td>
+<td><p>Return probability estimates for the test vector X.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#skbn.WeightedAnDE.score" title="skbn.WeightedAnDE.score"><code class="xref py py-obj docutils literal notranslate"><span class="pre">score</span></code></a>(X, y[, sample_weight])</p></td>
 <td><p>Return <a class="reference external" href="https://scikit-learn.org/stable/modules/model_evaluation.html#accuracy-score" title="(in scikit-learn v1.9)"><span class="xref std std-ref">accuracy</span></a> on provided data and labels.</p></td>
@@ -574,12 +662,15 @@ n-dependence estimators. Manuscript in preparation.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="skbn.WeightedAnDE.fit">
 <span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedAnDE.fit" title="Link to this definition">#</a></dt>
-<dd><p>Generative fitting.
-Learns the joint probability P(y, x) for each subspace (SPODE) by counting frequencies.</p>
+<dd><p>Fit the generative ensemble, then learn the discriminative weights.</p>
+<p>The SPnDEs are fitted by counting frequencies and the weights are
+optimized with L-BFGS-B on the conditional log-likelihood, starting at
+the generative model.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl class="simple">
-<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>Training vectors.</p>
+<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>Training vectors, where <code class="docutils literal notranslate"><span class="pre">n_samples</span></code> is the number of samples and
+<code class="docutils literal notranslate"><span class="pre">n_features</span></code> is the number of features.</p>
 </dd>
 <dt><strong>y</strong><span class="classifier">array-like of shape (n_samples,)</span></dt><dd><p>Target values.</p>
 </dd>
@@ -626,6 +717,70 @@ contained subobjects that are estimators.</p>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><dl class="simple">
 <dt><strong>params</strong><span class="classifier">dict</span></dt><dd><p>Parameter names mapped to their values.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedAnDE.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedAnDE.predict" title="Link to this definition">#</a></dt>
+<dd><p>Perform classification on an array of test vectors X.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>The input samples.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>C</strong><span class="classifier">ndarray of shape (n_samples,)</span></dt><dd><p>Predicted target values for X.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedAnDE.predict_log_proba">
+<span class="sig-name descname"><span class="pre">predict_log_proba</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedAnDE.predict_log_proba" title="Link to this definition">#</a></dt>
+<dd><p>Return log-probability estimates for the test vector X.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>The input samples.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>C</strong><span class="classifier">ndarray of shape (n_samples, n_classes)</span></dt><dd><p>Log-probability of the samples for each class, in the order of
+<code class="docutils literal notranslate"><span class="pre">classes_</span></code>, from the weighted components. The estimates are
+normalised over the classes and bounded below by the logarithm of
+the smallest positive float.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedAnDE.predict_proba">
+<span class="sig-name descname"><span class="pre">predict_proba</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedAnDE.predict_proba" title="Link to this definition">#</a></dt>
+<dd><p>Return probability estimates for the test vector X.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>The input samples.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>C</strong><span class="classifier">ndarray of shape (n_samples, n_classes)</span></dt><dd><p>Probability of the samples for each class, in the order of
+<code class="docutils literal notranslate"><span class="pre">classes_</span></code>.</p>
 </dd>
 </dl>
 </dd>
@@ -788,6 +943,9 @@ parameters and not others.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedAnDE.fit"><code class="docutils literal notranslate"><span class="pre">WeightedAnDE.fit()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedAnDE.get_metadata_routing"><code class="docutils literal notranslate"><span class="pre">WeightedAnDE.get_metadata_routing()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedAnDE.get_params"><code class="docutils literal notranslate"><span class="pre">WeightedAnDE.get_params()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedAnDE.predict"><code class="docutils literal notranslate"><span class="pre">WeightedAnDE.predict()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedAnDE.predict_log_proba"><code class="docutils literal notranslate"><span class="pre">WeightedAnDE.predict_log_proba()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedAnDE.predict_proba"><code class="docutils literal notranslate"><span class="pre">WeightedAnDE.predict_proba()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedAnDE.score"><code class="docutils literal notranslate"><span class="pre">WeightedAnDE.score()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedAnDE.set_params"><code class="docutils literal notranslate"><span class="pre">WeightedAnDE.set_params()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedAnDE.set_score_request"><code class="docutils literal notranslate"><span class="pre">WeightedAnDE.set_score_request()</span></code></a></li>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>AnDE &#8212; scikit-bayes 1.2.2.dev11+g850dc74b0 documentation</title>
+    <title>AnDE &#8212; scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=3fad9bd4"></script>
+    <script src="../_static/documentation_options.js?v=426729a5"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
-    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev11+g850dc74b0 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
   
   
 </a></div>
@@ -335,6 +335,8 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.AnJE.html">AnJE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="skbn.ALR.html">ALR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.GaussianAnJE.html">GaussianAnJE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.GaussianALR.html">GaussianALR</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="skbn.TAN.html">TAN</a></li>
@@ -412,42 +414,140 @@
 <dt class="sig sig-object py" id="skbn.AnDE">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">skbn.</span></span><span class="sig-name descname"><span class="pre">AnDE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_dependence</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'quantile'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">categorical_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bernoulli_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_prior_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_parent_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unseen_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'laplace'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'arithmetic'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.AnDE" title="Link to this definition">#</a></dt>
 <dd><p>Averaged n-Dependence Estimators (AnDE) [Generative].</p>
-<p>This is the generative model described by Webb et al. <a href="#id3"><span class="problematic" id="id1">[1]_</span></a>: an ensemble of
+<p>This is the generative model described by Webb et al. <a class="reference internal" href="#r55b43ea8c5e8-1" id="id1">[1]</a>: an ensemble of
 SPnDEs whose joint probabilities are pooled with the <strong>arithmetic mean</strong>,</p>
 <div class="math notranslate nohighlight">
 \[P(y|x) \propto \frac{1}{|M|} \sum_{m} P_m(y, x).\]</div>
 <p>With <code class="docutils literal notranslate"><span class="pre">mean=&quot;geometric&quot;</span></code> the joints are pooled with the geometric mean
 instead, <span class="math notranslate nohighlight">\(P(y|x) \propto \prod_m P_m(y, x)^{1/|M|}\)</span>. This
-logarithmic pool of SPnDEs is not the AnJE of Zaidi et al. <a href="#id4"><span class="problematic" id="id2">[4]_</span></a>, which
+logarithmic pool of SPnDEs is not the AnJE of Zaidi et al. <a class="reference internal" href="#r55b43ea8c5e8-3" id="id2">[3]</a>, which
 pools n-joins <span class="math notranslate nohighlight">\(P(x_\alpha | y)\)</span> (see <a class="reference internal" href="skbn.AnJE.html#skbn.AnJE" title="skbn.AnJE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.AnJE</span></code></a>); for
 <code class="docutils literal notranslate"><span class="pre">n_dependence=1</span></code> it equals
 <span class="math notranslate nohighlight">\(P(y) \prod_{i&lt;j} P(x_i, x_j | y)^{2/a} \prod_i P(x_i | y)^{-(a-2)/a}\)</span>
 on discrete data.</p>
 <p>This implementation extends the original AnDE by supporting <strong>mixed data types</strong>
 (Gaussian/Categorical) through the Super-Class strategy.</p>
-<dl class="field-list simple">
+<p>When a test instance falls in an augmented state <span class="math notranslate nohighlight">\((y, \mathbf{x}_p)\)</span>
+never seen in training, the child conditionals come from <code class="docutils literal notranslate"><span class="pre">unseen_state</span></code>;
+a SPnDE whose parent instantiation occurred fewer than <code class="docutils literal notranslate"><span class="pre">min_parent_count</span></code>
+times is left out of the pool for that instance, and the prediction falls
+back to Naive Bayes when no SPnDE qualifies.</p>
+<dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl class="simple">
-<dt><strong>n_dependence</strong><span class="classifier">int, default=1</span></dt><dd><p>The order of dependence.
-- n=1: AODE (Averaged One-Dependence Estimators).
-- n=2: A2DE.</p>
+<dt><strong>n_dependence</strong><span class="classifier">int, default=1</span></dt><dd><p>Order <code class="docutils literal notranslate"><span class="pre">n</span></code> of the dependence, the number of super-parent attributes of
+each SPnDE. It must satisfy <code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">&lt;=</span> <span class="pre">n_dependence</span> <span class="pre">&lt;=</span> <span class="pre">n_features</span></code>.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">n=0</span></code>: Naive Bayes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n=1</span></code>: AODE (Averaged One-Dependence Estimators).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n=2</span></code>: A2DE.</p></li>
+</ul>
 </dd>
-<dt><strong>n_bins</strong><span class="classifier">int, default=5</span></dt><dd><p>Bins for discretizing super-parents.</p>
+<dt><strong>n_bins</strong><span class="classifier">int, default=5</span></dt><dd><p>Number of bins for discretizing continuous attributes when they act as
+super-parents (at least 2). Children remain continuous and are modeled
+by Gaussian distributions.</p>
 </dd>
-<dt><strong>strategy</strong><span class="classifier">str, default=’quantile’</span></dt><dd><p>Discretization strategy.</p>
+<dt><strong>strategy</strong><span class="classifier">{‘uniform’, ‘quantile’, ‘kmeans’}, default=’quantile’</span></dt><dd><p>Strategy used for the discretization of super-parents.</p>
 </dd>
-<dt><strong>alpha</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Smoothing parameter.</p>
+<dt><strong>alpha</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Non-negative Laplace smoothing of the estimates of the SPnDEs and of
+the augmented-class prior.</p>
+</dd>
+<dt><strong>n_jobs</strong><span class="classifier">int, default=None</span></dt><dd><p>Number of threads used to count and evaluate the SPnDEs.
+<code class="docutils literal notranslate"><span class="pre">None</span></code> means 1 unless in a <a class="reference external" href="https://joblib.readthedocs.io/en/latest/generated/joblib.parallel_backend.html#joblib.parallel_backend" title="(in joblib v1.7)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">joblib.parallel_backend</span></code></a> context.
+<code class="docutils literal notranslate"><span class="pre">-1</span></code> means using all processors.</p>
+</dd>
+<dt><strong>categorical_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the attributes to treat as categorical,
+passed to <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>, which describes how the undeclared
+attributes are typed.</p>
+</dd>
+<dt><strong>bernoulli_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the attributes to treat as Bernoulli.
+See <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>.</p>
+</dd>
+<dt><strong>gaussian_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the attributes to treat as Gaussian.
+See <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>.</p>
+</dd>
+<dt><strong>var_prior_weight</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Pseudo-observations shrinking each Gaussian child variance towards the
+pooled variance of the feature (see <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>). It applies to
+the SPnDEs with super-parents and to the class-level back-off model;
+<code class="docutils literal notranslate"><span class="pre">0</span></code> gives the variances of <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.naive_bayes.GaussianNB.html#sklearn.naive_bayes.GaussianNB" title="(in scikit-learn v1.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianNB</span></code></a>.</p>
+</dd>
+<dt><strong>min_parent_count</strong><span class="classifier">int, default=1</span></dt><dd><p>Minimum training frequency of a parent instantiation for its SPnDE to
+take part in the prediction of an instance. Values below 1 behave as 1.</p>
+</dd>
+<dt><strong>unseen_state</strong><span class="classifier">{“laplace”, “backoff”}, default=”laplace”</span></dt><dd><p>Child conditionals used for an augmented state never seen in training.
+<code class="docutils literal notranslate"><span class="pre">&quot;laplace&quot;</span></code> is the standard smoothed estimate of an empty cell
+(uniform for discrete children, the pooled Gaussian of the attribute
+for continuous ones); <code class="docutils literal notranslate"><span class="pre">&quot;backoff&quot;</span></code> reuses the class-level
+conditionals. An ablation over the benchmark found no practical
+difference between them.</p>
 </dd>
 <dt><strong>mean</strong><span class="classifier">{“arithmetic”, “geometric”}, default=”arithmetic”</span></dt><dd><p>Pooling of the components’ joint probabilities.</p>
 </dd>
 </dl>
 </dd>
+<dt class="field-even">Attributes<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>classes_</strong><span class="classifier">ndarray of shape (n_classes,)</span></dt><dd><p>Class labels.</p>
+</dd>
+<dt><strong>class_count_</strong><span class="classifier">ndarray of shape (n_classes,)</span></dt><dd><p>Number of training samples of each class.</p>
+</dd>
+<dt><strong>n_features_in_</strong><span class="classifier">int</span></dt><dd><p>Number of features seen during <a class="reference external" href="https://scikit-learn.org/stable/glossary.html#term-fit" title="(in scikit-learn v1.9)"><span class="xref std std-term">fit</span></a>.</p>
+</dd>
+<dt><strong>feature_names_in_</strong><span class="classifier">ndarray of shape (<code class="docutils literal notranslate"><span class="pre">n_features_in_</span></code>,)</span></dt><dd><p>Names of features seen during <a class="reference external" href="https://scikit-learn.org/stable/glossary.html#term-fit" title="(in scikit-learn v1.9)"><span class="xref std std-term">fit</span></a>. Defined only when <code class="docutils literal notranslate"><span class="pre">X</span></code>
+has feature names that are all strings.</p>
+</dd>
+<dt><strong>ensemble_</strong><span class="classifier">list of dict</span></dt><dd><p>The fitted SPnDEs, one per set of <code class="docutils literal notranslate"><span class="pre">n_dependence</span></code> super-parents
+(a single one for <code class="docutils literal notranslate"><span class="pre">n_dependence=0</span></code>). Each dict holds the
+<code class="docutils literal notranslate"><span class="pre">&quot;parent_indices&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;child_indices&quot;</span></code> of the component and the
+numbers of its parent instantiations (<code class="docutils literal notranslate"><span class="pre">&quot;n_parent_combos&quot;</span></code>) and of
+the augmented states <span class="math notranslate nohighlight">\(Y^*\)</span> seen in training (<code class="docutils literal notranslate"><span class="pre">&quot;n_states&quot;</span></code>);
+the estimates of all the components are stored together in flat
+tables.</p>
+</dd>
+<dt><strong>backoff_</strong><span class="classifier">MixedNB</span></dt><dd><p>Naive Bayes on the original class, used for the class-level
+conditionals, to resolve the type of every attribute and as the
+fallback when no SPnDE qualifies.</p>
+</dd>
 </dl>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="skbn.WeightedAnDE.html#skbn.WeightedAnDE" title="skbn.WeightedAnDE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WeightedAnDE</span></code></a></dt><dd><p>AnDE with discriminatively learned weights.</p>
+</dd>
+<dt><a class="reference internal" href="skbn.AnJE.html#skbn.AnJE" title="skbn.AnJE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnJE</span></code></a></dt><dd><p>Averaged n-Join Estimators.</p>
+</dd>
+<dt><a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-obj docutils literal notranslate"><span class="pre">MixedNB</span></code></a></dt><dd><p>Naive Bayes classifier for mixed data.</p>
+</dd>
+</dl>
+</div>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="r55b43ea8c5e8-1" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
+<p>Webb, G. I., Boughton, J., &amp; Wang, Z. (2005). Not so naive Bayes:
+Aggregating one-dependence estimators. Machine Learning, 58(1), 5-24.</p>
+</div>
+<div class="citation" id="r55b43ea8c5e8-2" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
+<p>Webb, G. I., Boughton, J., Zheng, F., Ting, K. M., &amp; Salem, H. (2011).
+Learning by extrapolation from marginal to full-multivariate
+probability distributions: Decreasingly naive Bayesian
+classification. Machine Learning, 86(2), 233-272.</p>
+</div>
+<div class="citation" id="r55b43ea8c5e8-3" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">3</a><span class="fn-bracket">]</span></span>
+<p>Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., &amp;
+Cerquides, J. (2016). ALR^n: Accelerated higher-order logistic
+regression. Machine Learning, 104(2-3), 151-194.</p>
+</div>
+</div>
 <p class="rubric">Methods</p>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="#skbn.AnDE.fit" title="skbn.AnDE.fit"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fit</span></code></a>(X, y)</p></td>
-<td><p>Generative fitting.</p></td>
+<td><p>Fit the ensemble of SPnDEs by counting frequencies.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#skbn.AnDE.get_metadata_routing" title="skbn.AnDE.get_metadata_routing"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_metadata_routing</span></code></a>()</p></td>
 <td><p>Get metadata routing of this object.</p></td>
@@ -455,14 +555,14 @@ on discrete data.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="#skbn.AnDE.get_params" title="skbn.AnDE.get_params"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_params</span></code></a>([deep])</p></td>
 <td><p>Get parameters for this estimator.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict</span></code>(X)</p></td>
-<td><p></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#skbn.AnDE.predict" title="skbn.AnDE.predict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict</span></code></a>(X)</p></td>
+<td><p>Perform classification on an array of test vectors X.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict_log_proba</span></code>(X)</p></td>
-<td><p></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#skbn.AnDE.predict_log_proba" title="skbn.AnDE.predict_log_proba"><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict_log_proba</span></code></a>(X)</p></td>
+<td><p>Return log-probability estimates for the test vector X.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict_proba</span></code>(X)</p></td>
-<td><p></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#skbn.AnDE.predict_proba" title="skbn.AnDE.predict_proba"><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict_proba</span></code></a>(X)</p></td>
+<td><p>Return probability estimates for the test vector X.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#skbn.AnDE.score" title="skbn.AnDE.score"><code class="xref py py-obj docutils literal notranslate"><span class="pre">score</span></code></a>(X, y[, sample_weight])</p></td>
 <td><p>Return <a class="reference external" href="https://scikit-learn.org/stable/modules/model_evaluation.html#accuracy-score" title="(in scikit-learn v1.9)"><span class="xref std std-ref">accuracy</span></a> on provided data and labels.</p></td>
@@ -479,12 +579,12 @@ on discrete data.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="skbn.AnDE.fit">
 <span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.AnDE.fit" title="Link to this definition">#</a></dt>
-<dd><p>Generative fitting.
-Learns the joint probability P(y, x) for each subspace (SPODE) by counting frequencies.</p>
+<dd><p>Fit the ensemble of SPnDEs by counting frequencies.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl class="simple">
-<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>Training vectors.</p>
+<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>Training vectors, where <code class="docutils literal notranslate"><span class="pre">n_samples</span></code> is the number of samples and
+<code class="docutils literal notranslate"><span class="pre">n_features</span></code> is the number of features.</p>
 </dd>
 <dt><strong>y</strong><span class="classifier">array-like of shape (n_samples,)</span></dt><dd><p>Target values.</p>
 </dd>
@@ -531,6 +631,69 @@ contained subobjects that are estimators.</p>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><dl class="simple">
 <dt><strong>params</strong><span class="classifier">dict</span></dt><dd><p>Parameter names mapped to their values.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.AnDE.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.AnDE.predict" title="Link to this definition">#</a></dt>
+<dd><p>Perform classification on an array of test vectors X.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>The input samples.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>C</strong><span class="classifier">ndarray of shape (n_samples,)</span></dt><dd><p>Predicted target values for X.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.AnDE.predict_log_proba">
+<span class="sig-name descname"><span class="pre">predict_log_proba</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.AnDE.predict_log_proba" title="Link to this definition">#</a></dt>
+<dd><p>Return log-probability estimates for the test vector X.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>The input samples.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>C</strong><span class="classifier">ndarray of shape (n_samples, n_classes)</span></dt><dd><p>Log-probability of the samples for each class, in the order of
+<code class="docutils literal notranslate"><span class="pre">classes_</span></code>. The estimates are normalised over the classes and
+bounded below by the logarithm of the smallest positive float.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.AnDE.predict_proba">
+<span class="sig-name descname"><span class="pre">predict_proba</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.AnDE.predict_proba" title="Link to this definition">#</a></dt>
+<dd><p>Return probability estimates for the test vector X.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>The input samples.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>C</strong><span class="classifier">ndarray of shape (n_samples, n_classes)</span></dt><dd><p>Probability of the samples for each class, in the order of
+<code class="docutils literal notranslate"><span class="pre">classes_</span></code>.</p>
 </dd>
 </dl>
 </dd>
@@ -714,6 +877,9 @@ parameters and not others.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.AnDE.fit"><code class="docutils literal notranslate"><span class="pre">AnDE.fit()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.AnDE.get_metadata_routing"><code class="docutils literal notranslate"><span class="pre">AnDE.get_metadata_routing()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.AnDE.get_params"><code class="docutils literal notranslate"><span class="pre">AnDE.get_params()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.AnDE.predict"><code class="docutils literal notranslate"><span class="pre">AnDE.predict()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.AnDE.predict_log_proba"><code class="docutils literal notranslate"><span class="pre">AnDE.predict_log_proba()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.AnDE.predict_proba"><code class="docutils literal notranslate"><span class="pre">AnDE.predict_proba()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.AnDE.score"><code class="docutils literal notranslate"><span class="pre">AnDE.score()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.AnDE.set_params"><code class="docutils literal notranslate"><span class="pre">AnDE.set_params()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.AnDE.set_score_request"><code class="docutils literal notranslate"><span class="pre">AnDE.set_score_request()</span></code></a></li>
