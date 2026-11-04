@@ -228,10 +228,13 @@ def test_alr_default_stopping_is_that_of_the_original_code():
     assert GaussianALR().tol == ALR().tol
 
 
-def test_binary_search_of_cells_matches_the_dense_map(discrete_data, monkeypatch):
-    # Key spaces too large for the dense map fall back to a binary search
-    X, y = discrete_data
-    X_new = np.vstack([X[:20], [[9, 0, 1, 2], [0, 7, 7, 1]]])  # unseen values
+def test_binary_search_of_cells_matches_the_dense_map(monkeypatch):
+    # Key spaces too large for the dense map fall back to a binary search;
+    # attributes of different cardinalities and values unseen in training
+    rng = np.random.RandomState(0)
+    X = np.column_stack([rng.randint(0, c, 300) for c in (2, 3, 4, 6)])
+    y = (X[:, 0] + X[:, 1] * X[:, 2] + rng.randint(0, 2, 300)) % 3
+    X_new = np.vstack([X[:20], [[9, 0, 1, 2], [0, 7, 7, 1], [1, 2, 3, 8]]])
     dense = [AnJE(n_join=2).fit(X, y), ALR(n_join=2, max_iter=20).fit(X, y)]
     monkeypatch.setattr(anje_module, "_MAX_DENSE_KEYS", 0)
     for model in dense:
