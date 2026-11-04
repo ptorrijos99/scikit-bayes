@@ -47,7 +47,17 @@ pixi run lint
 If you are adding a new estimator:
 - It must inherit from `sklearn.base.BaseEstimator`.
 - It must pass `sklearn.utils.estimator_checks.check_estimator`.
-- It must have comprehensive docstrings in numpy style.
+- It must declare its parameters in `_parameter_constraints` and decorate `fit` with `sklearn.base._fit_context`, as the existing estimators do.
+- It must have comprehensive docstrings in numpy style, an entry in `doc/api.rst` and a line in `CHANGELOG.md`.
 - It must not mutate `self` state inside `predict` or `predict_proba` methods.
+- Its tests must check values, not only that the code runs: against a reference implementation, a hand-computed case or an equivalent scikit-learn model.
+- Mixed data should go through `MixedNB` (see `TAN` and `KDB`), so that the attribute types, the encoding of categories and the handling of unseen values stay the same across the library.
+
+Every source file starts with the licence header:
+
+```python
+# Authors: scikit-bayes developers
+# SPDX-License-Identifier: BSD-3-Clause
+```
 
 Thank you for helping us improve `scikit-bayes`!

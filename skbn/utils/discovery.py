@@ -1,11 +1,11 @@
 """
-The :mod:`skbayes.utils.discovery` module includes utilities to discover
+The :mod:`skbn.utils.discovery` module includes utilities to discover
 objects (i.e. estimators, displays, functions) from the `skbn` package.
 """
 
 # Adapted from scikit-learn
 # Authors: scikit-bayes developers
-# License: BSD 3 clause
+# SPDX-License-Identifier: BSD-3-Clause
 
 import inspect
 import pkgutil

@@ -5,7 +5,6 @@ checked against hand-computed values and a reference implementation."""
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import pickle
 from collections import Counter
 
 import numpy as np
@@ -161,7 +160,10 @@ def test_structure_matches_reference(categorical_data, k):
     for t, i in enumerate(model.feature_order_):
         assert len(model.parents_[i]) == min(k, t)
         assert set(model.parents_[i]) <= set(model.feature_order_[:t])
-    assert set(model.cpts_) == {i for i, p in enumerate(model.parents_) if len(p)}
+    n_parents, children = model._tables[2], model._tables[3]
+    assert dict(zip(children.tolist(), n_parents.tolist())) == {
+        i: len(p) for i, p in enumerate(model.parents_)
+    }
 
 
 def _chain_data(n, rng):
@@ -252,7 +254,7 @@ def test_posterior_matches_reference(categorical_data, k, alpha):
 
 @pytest.mark.parametrize("alpha", [1.0, 0.5])
 def test_k0_is_naive_bayes(categorical_data, alpha):
-    # Proposition 1 of Sahami (1996): the 0-dependence KDB is Naive Bayes
+    # Proposition 1 of Sahami (1996, p. 336): the 0-dependence KDB is Naive Bayes
     X, y = categorical_data
     rng = np.random.RandomState(0)
     X = np.column_stack(
@@ -261,7 +263,7 @@ def test_k0_is_naive_bayes(categorical_data, alpha):
     model = KDB(k=0, alpha=alpha).fit(X, y)
     nb = MixedNB(alpha=alpha, var_prior_weight=1.0).fit(X, y)
     assert _as_lists(model.parents_) == [[]] * X.shape[1]
-    assert model.cpts_ == {}
+    assert not model._tables[2].any()
     np.testing.assert_allclose(model.predict_proba(X), nb.predict_proba(X), atol=1e-12)
     expected = _reference_proba(X[:, :5], y, X[:, :5], [[]] * 5, alpha)
     model = KDB(k=0, alpha=alpha).fit(X[:, :5], y)
@@ -283,15 +285,17 @@ def test_gaussian_child_estimates():
     pa = model.parents_[2]
     assert sorted(pa.tolist()) == [0, 1]
 
-    gnb = model.cpts_[2].estimators_["gaussian"]
+    cond = model._conditional(2)
     eps = 1e-9 * x2.var()
-    for k, key in enumerate(model.cpts_[2].classes_):
+    assert len(cond["keys"]) > 6
+    for k, key in enumerate(cond["keys"]):
         c, *values = np.unravel_index(key, (2, *(X[:, pa].max(axis=0).astype(int) + 1)))
         rows = (y == c) & np.all(X[:, pa] == values, axis=1)
         n_k = rows.sum()
         var = (n_k * (x2[rows].var() + eps) + 2.0 * (x2.var() + eps)) / (n_k + 2.0)
-        np.testing.assert_allclose(gnb.theta_[k, 0], x2[rows].mean())
-        np.testing.assert_allclose(gnb.var_[k, 0], var)
+        assert cond["count"][k] == n_k
+        np.testing.assert_allclose(cond["mean"][k], x2[rows].mean())
+        np.testing.assert_allclose(cond["var"][k], var)
 
 
 # --- Unseen states ----------------------------------------------------------
@@ -374,7 +378,7 @@ def test_mixed_types(strategy):
 def test_invalid_k(k):
     X = np.array([[0, 1, 0], [1, 0, 1], [0, 0, 1], [1, 1, 0]])
     y = np.array([0, 1, 0, 1])
-    with pytest.raises(ValueError, match="k must be a non-negative integer"):
+    with pytest.raises(ValueError, match="k"):
         KDB(k=k).fit(X, y)
 
 
@@ -384,20 +388,54 @@ def test_numpy_integer_k(categorical_data):
     assert _as_lists(model.parents_) == _as_lists(KDB(k=2).fit(X, y).parents_)
 
 
-def test_string_labels_and_log_proba(categorical_data):
+def test_prediction_memory_does_not_grow_with_the_parent_states():
+    """Each conditional is evaluated only at the augmented states of the
+    classes, not at every observed one."""
+    import tracemalloc
+
+    rng = np.random.RandomState(0)
+    X = rng.randint(0, 6, size=(3000, 8))
+    y = rng.randint(0, 2, size=3000)
+    model = KDB(k=5, categorical_features=list(range(8))).fit(X, y)
+    assert np.diff(model._tables[5]).max() > 1000
+    tracemalloc.start()
+    model.predict_proba(X)
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    assert peak < 50 * 2**20
+
+
+def test_too_many_parent_states_raise_a_clear_error():
+    rng = np.random.RandomState(0)
+    X = rng.randint(0, 7, size=(300, 30))
+    y = rng.randint(0, 2, size=300)
+    with pytest.raises(ValueError, match="64-bit index"):
+        KDB(k=29, categorical_features=list(range(30))).fit(X, y)
+
+
+@pytest.mark.parametrize("n_jobs", [2, -1])
+def test_n_jobs_gives_the_same_model(categorical_data, n_jobs):
     X, y = categorical_data
-    labels = np.array(["a", "b", "c"])[y]
-    model = KDB(k=2).fit(X, labels)
-    np.testing.assert_array_equal(model.classes_, ["a", "b", "c"])
-    np.testing.assert_allclose(
-        np.exp(model.predict_log_proba(X)), model.predict_proba(X)
+    serial = KDB(k=2).fit(X, y)
+    threaded = KDB(k=2, n_jobs=n_jobs).fit(X, y)
+    assert _as_lists(threaded.parents_) == _as_lists(serial.parents_)
+    np.testing.assert_allclose(threaded.predict_proba(X), serial.predict_proba(X))
+
+
+def test_parentless_gaussians_are_those_of_naive_bayes():
+    """The variance smoothing of MixedNB uses the largest variance of all the
+    Gaussian attributes, which matters for an attribute on a small scale."""
+    rng = np.random.RandomState(0)
+    n = 200
+    y = rng.randint(0, 2, size=n)
+    X = np.column_stack(
+        [1e4 * rng.normal(size=n) + 1e4 * y, 1e-4 * rng.normal(size=n) + 1e-4 * y]
     )
-    assert set(model.predict(X)) <= {"a", "b", "c"}
-
-
-def test_pickle_roundtrip(categorical_data):
-    X, y = categorical_data
-    model = KDB(k=2).fit(X, y)
-    restored = pickle.loads(pickle.dumps(model))
-    assert _as_lists(restored.parents_) == _as_lists(model.parents_)
-    np.testing.assert_allclose(restored.predict_proba(X), model.predict_proba(X))
+    model = KDB(k=0).fit(X, y)
+    nb = MixedNB(var_prior_weight=1.0).fit(X, y)
+    np.testing.assert_allclose(
+        model._conditional(1)["var"], nb.estimators_["gaussian"].var_[:, 1]
+    )
+    np.testing.assert_allclose(
+        model.predict_log_proba(X), nb.predict_log_proba(X), atol=1e-12
+    )

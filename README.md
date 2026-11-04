@@ -16,6 +16,7 @@ The primary goal of this package is to provide robust, `scikit-learn`-compatible
 - **AnDE**: Averaged n-Dependence Estimators (AODE, A2DE) that relax the independence assumption, pooled with the arithmetic or the geometric mean
 - **WeightedAnDE**: AnDE with discriminative weights, one per component or one per factor of each component (weighted CCBN), at four levels of granularity, fitted jointly or one component at a time (the AnDE<sup>w</sup> of FedAnDE)
 - **AnJE and ALR**: Averaged n-Join Estimators and Accelerated Logistic Regression, as defined by Zaidi et al. (2016), with the training protocol of the paper by default
+- **GaussianAnJE and GaussianALR**: AnJE and ALR built on the factors of the SPnDEs, so that continuous attributes keep Gaussian conditionals as in HAODE
 - **TAN**: Tree Augmented Naive Bayes, a tree of attribute dependencies learned with the Chow-Liu procedure
 - **KDB**: K-Dependence Bayesian classifier, in which every attribute has at most k attribute parents chosen by conditional mutual information
 - **Full scikit-learn API**: Compatible with pipelines, cross-validation, and grid search
@@ -85,12 +86,14 @@ If you use scikit-bayes in a scientific publication, please cite:
 
 ```bibtex
 @software{scikit_bayes,
-  author = {Torrijos, Pablo},
+  author = {Torrijos, Pablo and Alcarria Laserna, {\'O}scar and G{\'a}mez, Jos{\'e} A. and Puerta, Jos{\'e} M.},
   title = {scikit-bayes: Bayesian Network Classifiers for Python},
-  year = {2025},
+  year = {2026},
   url = {https://github.com/ptorrijos99/scikit-bayes}
 }
 ```
+
+The same information is in [`CITATION.cff`](CITATION.cff), which GitHub shows as "Cite this repository".
 
 ## References
 

@@ -1,13 +1,22 @@
+"""Supervised discretizers of continuous attributes for scikit-learn pipelines."""
+
+# Authors: scikit-bayes developers
+# SPDX-License-Identifier: BSD-3-Clause
+
+from numbers import Integral, Real
+
 import numpy as np
-from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.base import BaseEstimator, TransformerMixin, _fit_context
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.validation import validate_data
 
 
 class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
-    """Supervised discretizer that uses decision trees to find optimal bin boundaries.
+    """
+    Supervised discretizer that uses decision trees to find bin boundaries.
 
     A decision tree is fitted independently for each feature using the target
     variable ``y``.  The internal split thresholds of each tree are used as
@@ -39,11 +48,13 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
     ----------
     n_bins : int, default=10
         Maximum number of bins (leaves) produced per feature.  Must be >= 2.
-    criterion : {"gini", "entropy"}, default="entropy"
+    criterion : {"gini", "entropy", "log_loss"}, default="entropy"
         Impurity criterion used to evaluate candidate splits.  ``"entropy"``
-        is the closest analogue to the MDL criterion.
-    min_samples_leaf : int, default=5
-        Minimum number of samples required in a leaf node.  Increasing this
+        (equivalent to ``"log_loss"``) is the closest analogue to the MDL
+        criterion.
+    min_samples_leaf : int or float, default=5
+        Minimum number of samples required in a leaf node.  A float in
+        ``(0, 1)`` is a fraction of the training samples.  Increasing this
         value prevents very fine-grained splits on small datasets.
     fallback : {"single", "quantile", "uniform"}, default="single"
         Strategy for features where the decision tree finds no split.
@@ -63,6 +74,9 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
     ----------
     n_features_in_ : int
         Number of features seen during :meth:`fit`.
+    feature_names_in_ : ndarray of shape (`n_features_in_`,)
+        Names of features seen during :meth:`fit`.  Defined only when `X`
+        has feature names that are all strings.
     thresholds_ : list of ndarray of shape (n_thresholds_i,)
         Sorted split thresholds for each feature ``i``.  An empty array
         indicates that the tree found no beneficial split; the ``fallback``
@@ -88,7 +102,16 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
     >>> X_disc_qnt = disc_qnt.fit_transform(X, y)
     """
 
-    _VALID_FALLBACKS = {"single", "quantile", "uniform"}
+    _parameter_constraints: dict = {
+        "n_bins": [Interval(Integral, 2, None, closed="left")],
+        "criterion": [StrOptions({"gini", "entropy", "log_loss"})],
+        "min_samples_leaf": [
+            Interval(Integral, 1, None, closed="left"),
+            Interval(Real, 0, 1, closed="neither"),
+        ],
+        "fallback": [StrOptions({"single", "quantile", "uniform"})],
+        "random_state": ["random_state"],
+    }
 
     def __init__(
         self,
@@ -109,15 +132,14 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
         tags.input_tags.allow_nan = True
         return tags
 
-    def _more_tags(self):
-        return {"allow_nan": True}
-
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
+    @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
-        """Fit one decision tree per feature to determine bin boundaries.
+        """
+        Fit one decision tree per feature to determine bin boundaries.
 
         Parameters
         ----------
@@ -136,8 +158,6 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
         ValueError
             If ``n_bins`` is less than 2 or ``fallback`` is not valid.
         """
-        self._validate_params()
-
         X, y = validate_data(self, X, y, ensure_all_finite="allow-nan")
         self.thresholds_ = []
         self.imputers_ = []
@@ -166,7 +186,8 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
         return self
 
     def transform(self, X):
-        """Discretize ``X`` using the bin boundaries found during :meth:`fit`.
+        """
+        Discretize ``X`` using the bin boundaries found during :meth:`fit`.
 
         Each continuous value is replaced by the integer index of the bin it
         falls into (0-based).  ``NaN`` values are first imputed using the
@@ -180,7 +201,7 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
         Returns
         -------
         X_out : ndarray of shape (n_samples, n_features)
-            Discretized array with integer bin indices.
+            Discretized array with integer bin indices (stored as float).
 
         Raises
         ------
@@ -217,22 +238,6 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
-
-    def _validate_params(self) -> None:
-        """Validate constructor parameters before fitting.
-
-        Raises
-        ------
-        ValueError
-            If any parameter value is outside the accepted range or set.
-        """
-        if self.n_bins < 2:
-            raise ValueError(f"n_bins must be >= 2, got {self.n_bins!r}.")
-        if self.fallback not in self._VALID_FALLBACKS:
-            raise ValueError(
-                f"fallback must be one of {self._VALID_FALLBACKS!r}, "
-                f"got {self.fallback!r}."
-            )
 
     def _fit_fallback(self, xi: np.ndarray, thresholds: np.ndarray):
         """Return a fitted fallback discretizer if needed, or ``None``.
@@ -295,7 +300,8 @@ def _entropy(counts):
 
 
 class MDLPDiscretizer(TransformerMixin, BaseEstimator):
-    r"""Supervised entropy discretization with the MDL stopping rule.
+    r"""
+    Supervised entropy discretization with the MDL stopping rule.
 
     Implements the recursive minimum-entropy partitioning of Fayyad and Irani
     (1993). Each interval is split at the cut-point that minimises the
@@ -318,13 +324,16 @@ class MDLPDiscretizer(TransformerMixin, BaseEstimator):
     Parameters
     ----------
     max_bins : int or None, default=None
-        Optional cap on the number of intervals per feature. ``None`` applies
-        the pure MDL criterion.
+        Optional cap on the number of intervals per feature, at least 2.
+        ``None`` applies the pure MDL criterion.
 
     Attributes
     ----------
     n_features_in_ : int
         Number of features seen during :meth:`fit`.
+    feature_names_in_ : ndarray of shape (`n_features_in_`,)
+        Names of features seen during :meth:`fit`. Defined only when `X`
+        has feature names that are all strings.
     cut_points_ : list of ndarray
         Sorted cut-points of each feature (empty if the feature was collapsed).
     imputers_ : list of SimpleImputer or None
@@ -344,6 +353,10 @@ class MDLPDiscretizer(TransformerMixin, BaseEstimator):
     [2, 2, 2, 2]
     """
 
+    _parameter_constraints: dict = {
+        "max_bins": [Interval(Integral, 2, None, closed="left"), None],
+    }
+
     def __init__(self, max_bins=None):
         self.max_bins = max_bins
 
@@ -352,8 +365,10 @@ class MDLPDiscretizer(TransformerMixin, BaseEstimator):
         tags.input_tags.allow_nan = True
         return tags
 
+    @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
-        """Find the MDL cut-points of every feature.
+        """
+        Find the MDL cut-points of every feature.
 
         Parameters
         ----------
@@ -429,7 +444,8 @@ class MDLPDiscretizer(TransformerMixin, BaseEstimator):
         return np.sort(np.asarray(cuts, dtype=float))
 
     def transform(self, X):
-        """Map each value to the index of its interval (0-based).
+        """
+        Map each value to the index of its interval (0-based).
 
         Parameters
         ----------

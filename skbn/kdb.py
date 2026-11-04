@@ -24,17 +24,13 @@ References
 # SPDX-License-Identifier: BSD-3-Clause
 
 import numbers
+from numbers import Integral, Real
 
 import numpy as np
-from scipy.special import logsumexp
-from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.utils.multiclass import unique_labels
-from sklearn.utils.validation import check_is_fitted, validate_data
+from sklearn.base import _fit_context
+from sklearn.utils._param_validation import Interval, StrOptions
 
-from ._core import _AttributeEncoder
-from .ande import _lookup
-from .mixed_nb import MixedNB
-from .tan import _conditional_mutual_info
+from .tan import _BaseAugmentedNB, _conditional_mutual_info
 
 
 def _mutual_info_with_class(codes, y_idx, cards, n_classes):
@@ -108,15 +104,7 @@ def _kdb_structure(mi, cmi, k):
     return order, parents
 
 
-def _augmented_keys(class_idx, parent_codes, n_classes, parent_cards):
-    """Linear index of the augmented class ``(y, x_pa)`` in mixed radix.
-
-    ``class_idx`` and every array in ``parent_codes`` are broadcast together.
-    """
-    return np.ravel_multi_index((class_idx, *parent_codes), (n_classes, *parent_cards))
-
-
-class KDB(ClassifierMixin, BaseEstimator):
+class KDB(_BaseAugmentedNB):
     """
     K-Dependence Bayesian (KDB) classifier.
 
@@ -141,7 +129,7 @@ class KDB(ClassifierMixin, BaseEstimator):
 
     **Parameters.** Every conditional
     :math:`P(x_i \\mid y, \\mathbf{x}_{\\Pi(i)})` with at least one attribute
-    parent is estimated by a :class:`MixedNB` fitted on the augmented class
+    parent is estimated as Naive Bayes on the augmented class
     :math:`Y^* = (y, \\mathbf{x}_{\\Pi(i)})`, the strategy used by the AnDE
     family and :class:`TAN`: discrete children use Laplace smoothing with
     ``alpha``, continuous children are Gaussian (shrunk towards the pooled
@@ -160,7 +148,9 @@ class KDB(ClassifierMixin, BaseEstimator):
         Maximum number of attribute parents of every attribute, in addition
         to the class. An attribute placed when fewer than ``k`` attributes are
         in the network takes all of them as parents. ``k=0`` gives Naive
-        Bayes.
+        Bayes. :meth:`fit` raises a :class:`ValueError` when the joint states
+        of the class and the parents of an attribute exceed a 64-bit index,
+        which calls for a smaller ``k`` or fewer bins.
 
     n_bins : int, default=5
         Number of bins used to discretize continuous attributes for the
@@ -171,21 +161,31 @@ class KDB(ClassifierMixin, BaseEstimator):
         Strategy used for the discretization of continuous attributes.
 
     alpha : float, default=1.0
-        Additive (Laplace/Lidstone) smoothing parameter for the discrete
-        conditional probability tables.
+        Non-negative additive (Laplace/Lidstone) smoothing parameter for the
+        discrete conditional probability tables.
 
-    categorical_features : array-like of int, default=None
-        Indices of the features to treat as categorical. See :class:`MixedNB`.
+    categorical_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as categorical,
+        passed to :class:`MixedNB`, which describes how the undeclared
+        features are typed.
 
-    bernoulli_features : array-like of int, default=None
-        Indices of the features to treat as Bernoulli. See :class:`MixedNB`.
+    bernoulli_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as Bernoulli.
+        See :class:`MixedNB`.
 
-    gaussian_features : array-like of int, default=None
-        Indices of the features to treat as Gaussian. See :class:`MixedNB`.
+    gaussian_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as Gaussian.
+        See :class:`MixedNB`.
 
     var_prior_weight : float, default=1.0
-        Pseudo-observations shrinking each Gaussian variance towards the
-        pooled variance of the feature (see :class:`MixedNB`).
+        Non-negative number of pseudo-observations shrinking each Gaussian
+        variance towards the pooled variance of the feature (see
+        :class:`MixedNB`).
+
+    n_jobs : int, default=None
+        Number of threads used to compute the conditional mutual information
+        and to count and evaluate the conditionals. ``None`` means 1 and
+        ``-1`` all the processors.
 
     Attributes
     ----------
@@ -221,13 +221,6 @@ class KDB(ClassifierMixin, BaseEstimator):
         conditionals of the attributes without attribute parents and the
         detected feature types (``feature_types_``).
 
-    cpts_ : dict
-        Maps every attribute ``i`` with attribute parents to the
-        :class:`MixedNB` that models
-        :math:`P(x_i \\mid y, \\mathbf{x}_{\\Pi(i)})`. Its classes are the
-        observed keys of the augmented class, the mixed-radix index of
-        ``(class_index, *parent_values)``.
-
     See Also
     --------
     MixedNB : Naive Bayes classifier for mixed data.
@@ -259,6 +252,18 @@ class KDB(ClassifierMixin, BaseEstimator):
     True
     """
 
+    _parameter_constraints: dict = {
+        "k": [Interval(Integral, 0, None, closed="left")],
+        "n_bins": [Interval(Integral, 2, None, closed="left")],
+        "strategy": [StrOptions({"uniform", "quantile", "kmeans"})],
+        "alpha": [Interval(Real, 0, None, closed="left")],
+        "categorical_features": ["array-like", None],
+        "bernoulli_features": ["array-like", None],
+        "gaussian_features": ["array-like", None],
+        "var_prior_weight": [Interval(Real, 0, None, closed="left")],
+        "n_jobs": [Integral, None],
+    }
+
     def __init__(
         self,
         k=1,
@@ -269,6 +274,7 @@ class KDB(ClassifierMixin, BaseEstimator):
         bernoulli_features=None,
         gaussian_features=None,
         var_prior_weight=1.0,
+        n_jobs=None,
     ):
         self.k = k
         self.n_bins = n_bins
@@ -278,7 +284,9 @@ class KDB(ClassifierMixin, BaseEstimator):
         self.bernoulli_features = bernoulli_features
         self.gaussian_features = gaussian_features
         self.var_prior_weight = var_prior_weight
+        self.n_jobs = n_jobs
 
+    @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
         """
         Fit the KDB classifier according to X, y.
@@ -301,11 +309,9 @@ class KDB(ClassifierMixin, BaseEstimator):
         self : object
             Returns the instance itself.
         """
-        X, y = validate_data(self, X, y)
-        self.classes_ = unique_labels(y)
-        n_classes = len(self.classes_)
-        y_idx = np.searchsorted(self.classes_, y)
+        return self._fit(X, y)
 
+    def _check_structure_params(self):
         if (
             not isinstance(self.k, numbers.Integral)
             or isinstance(self.k, bool)
@@ -313,28 +319,8 @@ class KDB(ClassifierMixin, BaseEstimator):
         ):
             raise ValueError(f"k must be a non-negative integer, got {self.k!r}")
 
-        # --- 1. Class-level model: prior, parentless conditionals, types ---
-        self.backoff_ = MixedNB(
-            alpha=self.alpha,
-            categorical_features=self.categorical_features,
-            bernoulli_features=self.bernoulli_features,
-            gaussian_features=self.gaussian_features,
-            var_prior_weight=self.var_prior_weight,
-        ).fit(X, y)
-        types = self.backoff_.feature_types_
-
-        # --- 2. Discretize attributes (structure learning and parents) ---
-        self._encoder = _AttributeEncoder(
-            self.n_bins,
-            self.strategy,
-            gaussian_features=self.gaussian_features,
-            discrete_features=list(self.categorical_features or [])
-            + list(self.bernoulli_features or []),
-        )
-        codes = self._encoder.fit_transform(X)
-        cards = self._encoder.cards_
-
-        # --- 3. Structure: order by I(A_i; C), parents by I(A_i; A_j | C) ---
+    def _learn_structure(self, codes, y_idx, cards, n_classes):
+        """Order by I(A_i; C), parents by I(A_i; A_j | C)."""
         self.mutual_info_ = _mutual_info_with_class(codes, y_idx, cards, n_classes)
         self.conditional_mutual_info_ = _conditional_mutual_info(
             codes, y_idx, cards, n_classes
@@ -342,142 +328,4 @@ class KDB(ClassifierMixin, BaseEstimator):
         self.feature_order_, self.parents_ = _kdb_structure(
             self.mutual_info_, self.conditional_mutual_info_, self.k
         )
-
-        # --- 4. Parameters: P(x_i | y, x_parents) on the augmented class ---
-        X_int = X.astype(np.int64) if types["categorical"] else None
-        n_categories = None if X_int is None else X_int.max(axis=0) + 1
-        self.cpts_ = {}
-        for i, pa in enumerate(self.parents_):
-            if len(pa) == 0:
-                continue
-            y_star = _augmented_keys(y_idx, codes[:, pa].T, n_classes, cards[pa])
-            keys, y_star_idx = np.unique(y_star, return_inverse=True)
-            cpt = MixedNB(
-                alpha=self.alpha,
-                categorical_features=[0] if i in types["categorical"] else None,
-                bernoulli_features=[0] if i in types["bernoulli"] else None,
-                gaussian_features=[0] if i in types["gaussian"] else None,
-                var_prior_weight=self.var_prior_weight,
-            )
-            cpt._fit_encoded(
-                X,
-                y_star_idx,
-                keys,
-                X_int=X_int,
-                columns=[i],
-                n_categories=n_categories,
-            )
-            self.cpts_[i] = cpt
-
-        # --- 5. Pooled Gaussians for the uninformed estimate ---
-        gauss = types["gaussian"]
-        Xg = np.asarray(X[:, gauss], dtype=float) if gauss else np.zeros((len(X), 0))
-        self._pooled_mean = Xg.mean(axis=0) if gauss else np.zeros(0)
-        self._pooled_var = Xg.var(axis=0) + (
-            self.backoff_.estimators_["gaussian"].epsilon_ if gauss else 0.0
-        )
-        return self
-
-    def _uninformed_log_likelihood(self, X):
-        """Class-independent log-likelihood of each feature for an empty cell.
-
-        Laplace smoothing of an empty cell gives a uniform conditional for a
-        discrete child; for a Gaussian child the uninformed estimate is the
-        pooled Gaussian of the attribute. Returns shape (n_samples, n_features).
-        """
-        out = np.zeros((X.shape[0], self.n_features_in_))
-        types = self.backoff_.feature_types_
-        if types["gaussian"]:
-            g = types["gaussian"]
-            diff = np.asarray(X[:, g], dtype=float) - self._pooled_mean
-            out[:, g] = -0.5 * (
-                diff**2 / self._pooled_var + np.log(2.0 * np.pi * self._pooled_var)
-            )
-        if types["categorical"]:
-            out[:, types["categorical"]] = -np.log(self.backoff_._cat_cardinalities)
-        if types["bernoulli"]:
-            out[:, types["bernoulli"]] = -np.log(2.0)
-        return out
-
-    def _joint_log_likelihood(self, X):
-        """Computes log P(y, x) for every sample and class.
-
-        Returns
-        -------
-        jll : ndarray of shape (n_samples, n_classes)
-        """
-        check_is_fitted(self, attributes=["classes_", "parents_", "cpts_"])
-        X = validate_data(self, X, reset=False)
-        n_classes = len(self.classes_)
-        codes, unseen = self._encoder.transform(X)
-        cards = self._encoder.cards_
-
-        parentless = [i for i, pa in enumerate(self.parents_) if len(pa) == 0]
-        nb_ll = self.backoff_._feature_log_likelihood(X)[:, :, parentless]
-        jll = self.backoff_.class_log_prior_ + nb_ll.sum(axis=2)
-        uninformed = self._uninformed_log_likelihood(X)
-        class_offsets = np.arange(n_classes, dtype=np.int64)[np.newaxis, :]
-
-        for i, cpt in self.cpts_.items():
-            pa = self.parents_[i]
-            queries = _augmented_keys(
-                class_offsets, codes[:, pa].T[:, :, np.newaxis], n_classes, cards[pa]
-            )
-            pos, hit = _lookup(cpt.classes_, queries)
-            hit &= ~unseen[:, pa].any(axis=1, keepdims=True)
-            ll = cpt._feature_log_likelihood(X[:, [i]])[:, :, 0]
-            jll += np.where(
-                hit, np.take_along_axis(ll, pos, axis=1), uninformed[:, [i]]
-            )
-        return jll
-
-    def predict_log_proba(self, X):
-        """
-        Return log-probability estimates for the test vector X.
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            The input samples.
-
-        Returns
-        -------
-        C : array-like of shape (n_samples, n_classes)
-            Returns the log-probability of the samples for each class.
-        """
-        jll = self._joint_log_likelihood(X)
-        log_prob = jll - logsumexp(jll, axis=1, keepdims=True)
-        return np.nan_to_num(log_prob, nan=-np.log(jll.shape[1]))
-
-    def predict_proba(self, X):
-        """
-        Return probability estimates for the test vector X.
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            The input samples.
-
-        Returns
-        -------
-        C : array-like of shape (n_samples, n_classes)
-            Returns the probability of the samples for each class.
-        """
-        return np.exp(self.predict_log_proba(X))
-
-    def predict(self, X):
-        """
-        Perform classification on an array of test vectors X.
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            The input samples.
-
-        Returns
-        -------
-        C : ndarray of shape (n_samples,)
-            Predicted target values for X.
-        """
-        check_is_fitted(self, attributes=["classes_", "parents_", "cpts_"])
-        return self.classes_[np.argmax(self.predict_log_proba(X), axis=1)]
+        return self.parents_

@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use scikit-bayes in a scientific publication, please cite it as below."
+title: "scikit-bayes: Bayesian Network Classifiers for Python"
+type: software
+authors:
+  - family-names: Torrijos
+    given-names: Pablo
+    email: pablo.torrijos@uclm.es
+    affiliation: "Universidad de Castilla-La Mancha"
+    orcid: "https://orcid.org/0000-0002-8395-3848"
+  - family-names: Alcarria Laserna
+    given-names: Óscar
+    affiliation: "Universidad de Castilla-La Mancha"
+  - family-names: Gámez
+    given-names: José A.
+    affiliation: "Universidad de Castilla-La Mancha"
+  - family-names: Puerta
+    given-names: José M.
+    affiliation: "Universidad de Castilla-La Mancha"
+repository-code: "https://github.com/ptorrijos99/scikit-bayes"
+url: "https://ptorrijos99.github.io/scikit-bayes/"
+license: BSD-3-Clause
+keywords:
+  - Bayesian network classifiers
+  - AnDE
+  - AODE
+  - Naive Bayes
+  - scikit-learn

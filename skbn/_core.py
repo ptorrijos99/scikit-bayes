@@ -3,13 +3,92 @@
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
+import warnings
+
 import numpy as np
 import sklearn
 from scipy.optimize import minimize
-from sklearn.preprocessing import KBinsDiscretizer, LabelEncoder
+from sklearn.exceptions import ConvergenceWarning
+from sklearn.preprocessing import KBinsDiscretizer
 
 # Number of elements a temporary array of a chunked computation may hold.
 _CHUNK_ELEMENTS = 1 << 22
+
+# Undeclared integer-valued attributes with more distinct values than this are
+# taken as continuous (ages, counts, amounts) rather than categorical.
+_MAX_AUTO_CATEGORIES = 20
+
+
+def _integer_range(values):
+    """``(lo, hi)`` when ``values`` are integers spanning at most
+    ``4 * len(values) + 1024`` consecutive values (so that they can index a
+    table), else None."""
+    if values.size == 0:
+        return None
+    if np.issubdtype(values.dtype, np.integer):
+        lo, hi = values.min(), values.max()
+    elif np.issubdtype(values.dtype, np.floating):
+        lo, hi = values.min(), values.max()
+        if not (np.isfinite(lo) and np.isfinite(hi)) or np.any(values % 1):
+            return None
+    else:
+        return None
+    lo, hi = int(lo), int(hi)
+    if hi - lo > 4 * values.size + 1024:
+        return None
+    return lo, hi
+
+
+def _unique_values(col):
+    """``np.unique(col)``, counted with a table when ``col`` holds integers in
+    a small range."""
+    span = _integer_range(col)
+    if span is None:
+        return np.unique(col)
+    lo, hi = span
+    present = np.bincount((col - lo).astype(np.int64), minlength=hi - lo + 1)
+    return (np.flatnonzero(present) + lo).astype(col.dtype)
+
+
+def _encode_values(col, categories):
+    """Codes of ``col`` in the sorted array ``categories`` and a mask of the
+    values that are not in it (their code is 0)."""
+    span = _integer_range(categories)
+    if span is None or not (
+        np.issubdtype(col.dtype, np.integer) or np.issubdtype(col.dtype, np.floating)
+    ):
+        pos = np.minimum(np.searchsorted(categories, col), len(categories) - 1)
+        known = categories[pos] == col
+        return np.where(known, pos, 0), ~known
+    lo, hi = span
+    table = np.full(hi - lo + 2, -1, dtype=np.int64)
+    table[(categories - lo).astype(np.int64)] = np.arange(len(categories))
+    # Values outside [lo, hi] or not integers go to the last, empty, entry
+    offset = col - lo
+    inside = (offset >= 0) & (offset <= hi - lo)
+    if np.issubdtype(col.dtype, np.floating):
+        inside[inside] = offset[inside] % 1 == 0
+    codes = table[np.where(inside, offset, hi - lo + 1).astype(np.int64)]
+    known = codes >= 0
+    return np.where(known, codes, 0), ~known
+
+
+def _auto_type(col):
+    """Type inferred for an undeclared attribute from its training values:
+    None for a constant, then "bernoulli" (two values), "categorical"
+    (non-negative integer values, at most ``_MAX_AUTO_CATEGORIES`` of them) or
+    "gaussian" (anything else)."""
+    n_unique = len(_unique_values(col))
+    if n_unique == 1:
+        return None
+    if n_unique == 2:
+        return "bernoulli"
+    integer_valued = np.issubdtype(col.dtype, np.integer) or (
+        np.issubdtype(col.dtype, np.floating) and np.all(np.mod(col, 1) == 0)
+    )
+    if integer_valued and np.all(col >= 0) and n_unique <= _MAX_AUTO_CATEGORIES:
+        return "categorical"
+    return "gaussian"
 
 
 def _row_chunks(n_rows, row_size):
@@ -20,14 +99,34 @@ def _row_chunks(n_rows, row_size):
         yield slice(start, min(start + step, n_rows))
 
 
+def _feature_indices(indices, n_features, name):
+    """Feature indices given as integers or as a boolean mask, as a list."""
+    if indices is None:
+        return []
+    indices = np.asarray(indices)
+    if indices.ndim != 1:
+        raise ValueError(f"'{name}' must be a 1D array-like.")
+    if indices.dtype == bool:
+        if len(indices) != n_features:
+            raise ValueError(
+                f"The boolean mask '{name}' must have length {n_features}, got"
+                f" {len(indices)}."
+            )
+        return np.flatnonzero(indices).tolist()
+    if indices.size and not np.issubdtype(indices.dtype, np.integer):
+        raise ValueError(f"'{name}' must hold integer indices or be a boolean mask.")
+    indices = indices.astype(int)
+    if np.any(indices < 0) or np.any(indices >= n_features):
+        raise ValueError(f"All indices in '{name}' must be in [0, {n_features - 1}].")
+    return indices.tolist()
+
+
 class _AttributeEncoder:
     """Integer codes of the attributes, as used for parents and joins.
 
-    Continuous attributes (declared Gaussian, or floating-point with fractional
-    values when undeclared) are binned with :class:`KBinsDiscretizer`; the rest
-    are label-encoded. Declared types take precedence over the dtype heuristic,
-    so integer-valued continuous attributes (ages, amounts, counts) are binned
-    instead of becoming high-cardinality discrete attributes.
+    Continuous attributes (declared Gaussian, or typed Gaussian by
+    :func:`_auto_type` when undeclared, the rule of :class:`MixedNB`) are
+    binned with :class:`KBinsDiscretizer`; the rest are label-encoded.
 
     Attributes
     ----------
@@ -62,9 +161,7 @@ class _AttributeEncoder:
             elif i in declared_discrete:
                 continuous = False
             else:
-                continuous = np.issubdtype(col.dtype, np.floating) and not np.all(
-                    np.mod(col, 1) == 0
-                )
+                continuous = _auto_type(col) == "gaussian"
             if continuous:
                 enc = KBinsDiscretizer(
                     n_bins=self.n_bins,
@@ -74,8 +171,9 @@ class _AttributeEncoder:
                 )
                 codes[:, i] = enc.fit_transform(col.reshape(-1, 1)).ravel()
             else:
-                enc = LabelEncoder()
-                codes[:, i] = enc.fit_transform(col)
+                # The sorted values of a discrete attribute
+                enc = _unique_values(col)
+                codes[:, i] = _encode_values(col, enc)[0]
             self.encoders_.append(enc)
         self.cards_ = codes.max(axis=0) + 1
         return codes
@@ -90,10 +188,8 @@ class _AttributeEncoder:
         unseen = np.zeros(X.shape, dtype=bool)
         for i, enc in enumerate(self.encoders_):
             col = X[:, i]
-            if isinstance(enc, LabelEncoder):
-                known = np.isin(col, enc.classes_)
-                unseen[:, i] = ~known
-                codes[:, i] = enc.transform(np.where(known, col, enc.classes_[0]))
+            if isinstance(enc, np.ndarray):
+                codes[:, i], unseen[:, i] = _encode_values(col, enc)
             else:
                 codes[:, i] = enc.transform(col.reshape(-1, 1)).ravel()
         np.clip(codes, 0, self.cards_ - 1, out=codes)
@@ -101,7 +197,15 @@ class _AttributeEncoder:
 
 
 def _fit_weights(
-    nll_and_grad, theta0, l2_reg, max_iter, log_space=False, bounds=None, tol=None
+    nll_and_grad,
+    theta0,
+    l2_reg,
+    max_iter,
+    log_space=False,
+    bounds=None,
+    tol=None,
+    gtol=None,
+    maxcor=10,
 ):
     """Minimise a conditional negative log-likelihood over discriminative weights.
 
@@ -110,7 +214,8 @@ def _fit_weights(
     towards the generative model (``w = 1``). Solved with L-BFGS-B using the
     analytic gradient returned by ``nll_and_grad``. ``tol`` sets both the
     relative-reduction and the projected-gradient stopping tolerances (SciPy's
-    defaults when None).
+    defaults when None), ``gtol`` overrides the second one and ``maxcor`` is
+    the number of corrections kept by L-BFGS-B.
 
     Returns
     -------
@@ -118,6 +223,8 @@ def _fit_weights(
         Optimal parameters.
     n_iter : int
         Number of L-BFGS-B iterations.
+    converged : bool
+        False when the optimiser stopped at its iteration or evaluation limit.
     """
 
     def objective(theta):
@@ -128,10 +235,27 @@ def _fit_weights(
             dreg *= w
         return nll + l2_reg * np.sum((w - 1.0) ** 2), grad + dreg
 
-    options = {"maxiter": max_iter}
+    options = {"maxiter": max_iter, "maxcor": maxcor}
     if tol is not None:
         options.update(ftol=tol, gtol=tol)
+    if gtol is not None:
+        options["gtol"] = gtol
     res = minimize(
         objective, theta0, jac=True, method="L-BFGS-B", bounds=bounds, options=options
     )
-    return res.x, res.nit
+    return res.x, res.nit, res.status != 1
+
+
+def _warn_not_converged(n_failed, n_problems, max_iter):
+    """One :class:`~sklearn.exceptions.ConvergenceWarning` for the weight
+    problems of a fit that stopped at ``max_iter``."""
+    if not n_failed:
+        return
+    where = "" if n_problems == 1 else f" in {n_failed} of {n_problems} components"
+    warnings.warn(
+        (
+            f"L-BFGS-B reached max_iter={max_iter} before converging{where};"
+            " increase max_iter or tol."
+        ),
+        ConvergenceWarning,
+    )

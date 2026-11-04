@@ -1,5 +1,5 @@
 # Authors: scikit-bayes developers
-# License: BSD 3 clause
+# SPDX-License-Identifier: BSD-3-Clause
 
 
 from skbn.utils.discovery import all_displays, all_estimators, all_functions
@@ -11,14 +11,16 @@ def test_all_estimators():
     skbayes_estimators = [
         (name, cls) for name, cls in estimators if cls.__module__.startswith("skbn")
     ]
-    # Should be 9: MixedNB, AnDE, AnJE, ALR, WeightedAnDE, TAN, KDB,
-    # DecisionTreeDiscretizer, MDLPDiscretizer
-    assert len(skbayes_estimators) == 9
+    # Should be 11: MixedNB, AnDE, AnJE, ALR, GaussianAnJE, GaussianALR,
+    # WeightedAnDE, TAN, KDB, DecisionTreeDiscretizer, MDLPDiscretizer
+    assert len(skbayes_estimators) == 11
     estimator_names = [name for name, _ in skbayes_estimators]
     assert "MixedNB" in estimator_names
     assert "AnDE" in estimator_names
     assert "AnJE" in estimator_names
     assert "ALR" in estimator_names
+    assert "GaussianAnJE" in estimator_names
+    assert "GaussianALR" in estimator_names
     assert "WeightedAnDE" in estimator_names
     assert "TAN" in estimator_names
     assert "KDB" in estimator_names
@@ -31,7 +33,7 @@ def test_all_estimators():
         (name, cls) for name, cls in classifiers if cls.__module__.startswith("skbn")
     ]
     assert (
-        len(skbayes_classifiers) == 7
+        len(skbayes_classifiers) == 9
     )  # DecisionTreeDiscretizer is a transformer, not a classifier
 
 

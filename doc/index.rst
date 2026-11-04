@@ -22,7 +22,7 @@ of higher-order and hybrid Bayesian models that are missing from the core librar
 * **AnDE Family**: Averaged n-Dependence Estimators that relax the independence assumption
 * **TAN**: Tree Augmented Naive Bayes with a Chow-Liu tree of attribute dependencies
 * **KDB**: K-Dependence Bayesian classifier with at most k attribute parents per attribute
-* **Hybrid Models**: ALR and WeightedAnDE for discriminative learning
+* **Hybrid Models**: ALR, GaussianALR and WeightedAnDE for discriminative learning
 
 
 .. grid:: 1 2 2 2
@@ -52,7 +52,7 @@ of higher-order and hybrid Bayesian models that are missing from the core librar
         :class-card: intro-card
         :shadow: md
 
-        Learn how to create your own scikit-learn compatible estimators.
+        How each model is defined and estimated, and how to choose its parameters.
 
         +++
 

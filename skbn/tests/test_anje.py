@@ -1,5 +1,5 @@
-"""Tests for the n-join models (AnJE and ALR) against the formulas of
-Zaidi et al. (2016)."""
+"""Tests for the n-join models (AnJE and ALR, and their versions on the
+factors of the SPnDEs) against the formulas of Zaidi et al. (2016)."""
 
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
@@ -12,8 +12,12 @@ import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from scipy.optimize import approx_fprime
 from scipy.special import logsumexp
+from sklearn.base import clone
+from sklearn.datasets import load_iris
+from sklearn.naive_bayes import GaussianNB
 
-from skbn import ALR, AnJE
+from skbn import ALR, AnJE, GaussianALR, GaussianAnJE
+from skbn import anje as anje_module
 
 
 @pytest.fixture
@@ -153,12 +157,11 @@ def test_alr_weight_counts(discrete_data):
 def test_alr_gradient_matches_finite_differences(discrete_data, level):
     X, y = discrete_data
     model = ALR(n_join=2, weight_level=level, max_iter=1).fit(X, y)
-    incidence = model._transform_incidence(X)
-    Y = np.eye(3)[y]
+    codes_t = model._transform_codes(X)
     theta = np.random.RandomState(1).uniform(0.5, 1.5, size=model.n_weights_)
-    _, grad = model._nll_and_grad(theta, incidence, Y)
+    _, grad = model._nll_and_grad(theta, codes_t, y)
     numeric = approx_fprime(
-        theta, lambda t: model._nll_and_grad(t, incidence, Y)[0], 1e-6
+        theta, lambda t: model._nll_and_grad(t, codes_t, y)[0], 1e-6
     )
     assert_allclose(grad, numeric, rtol=1e-4, atol=1e-3)
 
@@ -177,7 +180,8 @@ def test_alr_learns_and_beats_anje_on_training_likelihood(discrete_data):
 def test_alr_unseen_cells_keep_unit_weight(discrete_data):
     X, y = discrete_data
     model = ALR(n_join=2, weight_level=3, l2_reg=1e-2, max_iter=50).fit(X, y)
-    seen = model._transform_incidence(X).sum(axis=0).A1 > 0
+    # Rows of the cells seen in training first, then the empty row of every join
+    seen = np.arange(model._n_rows) < len(model._cell_keys)
     weights = model.learned_weights_.reshape(-1, 3)
     assert (~seen).sum() == len(model.joins_)  # the empty cell of every join
     assert_allclose(weights[~seen], 1.0)
@@ -216,3 +220,165 @@ def test_alr_invalid_parameters_raise(discrete_data):
         ALR(weight_level=4).fit(X, y)
     with pytest.raises(ValueError, match="alpha"):
         ALR(alpha=0.0).fit(X, y)
+
+
+def test_alr_default_stopping_is_that_of_the_original_code():
+    # factr = 1e7 of L-BFGS-B, i.e. a relative reduction of 1e7 epsilons
+    assert ALR().tol == pytest.approx(1e7 * np.finfo(float).eps)
+    assert GaussianALR().tol == ALR().tol
+
+
+def test_binary_search_of_cells_matches_the_dense_map(monkeypatch):
+    # Key spaces too large for the dense map fall back to a binary search;
+    # attributes of different cardinalities and values unseen in training
+    rng = np.random.RandomState(0)
+    X = np.column_stack([rng.randint(0, c, 300) for c in (2, 3, 4, 6)])
+    y = (X[:, 0] + X[:, 1] * X[:, 2] + rng.randint(0, 2, 300)) % 3
+    X_new = np.vstack([X[:20], [[9, 0, 1, 2], [0, 7, 7, 1], [1, 2, 3, 8]]])
+    dense = [AnJE(n_join=2).fit(X, y), ALR(n_join=2, max_iter=20).fit(X, y)]
+    monkeypatch.setattr(anje_module, "_MAX_DENSE_KEYS", 0)
+    for model in dense:
+        sparse = clone(model).fit(X, y)
+        assert sparse._row_of_cell.size == 0
+        assert_allclose(sparse.predict_log_proba(X_new), model.predict_log_proba(X_new))
+
+
+def test_alr_objective_without_cached_rows(discrete_data, monkeypatch):
+    X, y = discrete_data
+    cached = ALR(n_join=2, max_iter=20).fit(X, y)
+    monkeypatch.setattr(anje_module, "_MAX_CACHED_ROWS", 0)
+    computed = ALR(n_join=2, max_iter=20).fit(X, y)
+    assert_allclose(computed.learned_weights_, cached.learned_weights_)
+
+
+@pytest.mark.parametrize(
+    "model", [AnJE(n_join=2), ALR(n_join=2, max_iter=20)], ids=repr
+)
+def test_threads_give_the_same_model(discrete_data, model):
+    X, y = discrete_data
+    single = clone(model).fit(X, y).predict_proba(X)
+    threaded = clone(model).set_params(n_jobs=2).fit(X, y).predict_proba(X)
+    assert_allclose(threaded, single, atol=1e-8)
+
+
+# --- AnJE and ALR on the factors of the SPnDEs --------------------------------
+
+
+def _spnde_join_scores(X, y, X_eval, n, alpha, card=3, n_classes=3):
+    """log P(y) + mean_P [r log P(x_P | y) + c sum_j log P(x_j | y, x_P)], with
+    the Laplace estimates of the SPnDEs computed from the counts."""
+    d = X.shape[1]
+    r, c = d / (n + 1), d / ((n + 1) * (d - n))
+    parent_sets = [list(P) for P in combinations(range(d), n)]
+    out = np.tile(
+        np.log(np.bincount(y, minlength=n_classes) / len(y)), (len(X_eval), 1)
+    )
+    for P in parent_sets:
+        for cls in range(n_classes):
+            X_c = X[y == cls]
+            same_parents = (X_c[:, P][None] == X_eval[:, P][:, None]).all(axis=2)
+            n_parents = same_parents.sum(axis=1)
+            term = r * np.log((n_parents + alpha) / (len(X_c) + alpha * card**n))
+            for j in sorted(set(range(d)) - set(P)):
+                same_child = X_c[:, j][None] == X_eval[:, j][:, None]
+                n_child = (same_parents & same_child).sum(axis=1)
+                term += c * np.log((n_child + alpha) / (n_parents + alpha * card))
+            out[:, cls] += term / len(parent_sets)
+    return out
+
+
+@pytest.mark.parametrize("n", [1, 2, 3])
+def test_gaussian_anje_matches_the_laplace_join_formula(discrete_data, n):
+    X, y = discrete_data
+    model = GaussianAnJE(
+        n_dependence=n, categorical_features=[0, 1, 2, 3], unseen_state="laplace"
+    ).fit(X, y)
+    expected = _spnde_join_scores(X, y, X, n, 1.0)
+    assert_allclose(model.predict_log_proba(X), _normalize(expected), atol=1e-10)
+
+
+@pytest.mark.parametrize("n", [1, 2])
+def test_gaussian_anje_tends_to_anje_as_smoothing_vanishes(n):
+    # With every cell observed, both reduce to the maximum-likelihood AnJE
+    rng = np.random.RandomState(0)
+    X = rng.randint(0, 3, size=(3000, 4))
+    y = (X[:, 0] + rng.randint(0, 3, 3000)) % 3
+    gaussian = GaussianAnJE(
+        n_dependence=n, alpha=1e-9, categorical_features=[0, 1, 2, 3]
+    ).fit(X, y)
+    anje = AnJE(n_join=n + 1, alpha=1e-9).fit(X, y)
+    assert_allclose(gaussian.predict_proba(X), anje.predict_proba(X), atol=1e-6)
+
+
+def test_gaussian_anje_of_order_zero_is_gaussian_nb():
+    X, y = load_iris(return_X_y=True)
+    model = GaussianAnJE(n_dependence=0).fit(X, y)
+    expected = GaussianNB().fit(X, y).predict_proba(X)
+    assert_allclose(model.predict_proba(X), expected, atol=1e-12)
+
+
+def test_gaussian_anje_is_not_biased_towards_rare_classes():
+    # The smoothed augmented prior gives a rare class far more mass than
+    # P(y); the root factor must be divided by it, or the AnJE exponent
+    # d / (n+1) turns that excess into a bias towards the rare class.
+    rng = np.random.RandomState(0)
+    X = rng.randint(0, 8, size=(605, 20))
+    y = np.repeat([0, 1, 2], [300, 300, 5])
+    model = GaussianAnJE(n_dependence=1, categorical_features=list(range(20)))
+    predicted = model.fit(X, y).predict(X)
+    assert (predicted == 2).mean() < 0.05
+
+
+def test_gaussian_anje_keeps_continuous_children_gaussian():
+    rng = np.random.RandomState(0)
+    X = rng.normal(size=(300, 3))
+    y = (X[:, 0] + X[:, 1] > 0).astype(int)
+    # Two points in the same bin of every attribute
+    pair = np.array([[0.01, 0.01, 0.01], [0.02, 0.02, 0.02]])
+    binned = AnJE(n_join=2).fit(X, y).predict_proba(pair)
+    gaussian = GaussianAnJE(n_dependence=1).fit(X, y).predict_proba(pair)
+    assert_allclose(binned[0], binned[1])
+    assert not np.allclose(gaussian[0], gaussian[1])
+
+
+@pytest.mark.parametrize("n", [0, 1, 2])
+def test_gaussian_alr_with_unit_weights_is_gaussian_anje(n):
+    rng = np.random.RandomState(0)
+    X = np.column_stack([rng.normal(size=200), rng.randint(0, 3, size=(200, 3))])
+    y = (X[:, 0] > 0).astype(int) + (X[:, 1] == 2)
+    kwargs = dict(n_dependence=n, categorical_features=[1, 2, 3])
+    alr = GaussianALR(max_iter=1, **kwargs).fit(X, y)
+    alr.coef_theta_ = np.ones_like(alr.coef_theta_)
+    expected = GaussianAnJE(**kwargs).fit(X, y).predict_log_proba(X)
+    assert_allclose(alr.predict_log_proba(X), expected, atol=1e-10)
+
+
+def test_gaussian_alr_gradient_matches_finite_differences():
+    rng = np.random.RandomState(0)
+    X = np.column_stack([rng.normal(size=60), rng.randint(0, 3, size=(60, 2))])
+    y = (X[:, 0] > 0).astype(int) + (X[:, 1] == 2)
+    model = GaussianALR(categorical_features=[1, 2], max_iter=1).fit(X, y)
+    design, _ = model._design(X)
+    Y = np.eye(3)[y]
+    theta = rng.uniform(0.5, 1.5, size=model.n_weights_)
+    _, grad = model._nll_and_grad(theta, design, Y)
+    numeric = approx_fprime(theta, lambda t: model._nll_and_grad(t, design, Y)[0], 1e-6)
+    assert_allclose(grad, numeric, rtol=1e-4, atol=1e-3)
+
+
+def test_gaussian_alr_beats_gaussian_anje_on_training_likelihood(discrete_data):
+    X, y = discrete_data
+    kwargs = dict(n_dependence=1, categorical_features=[0, 1, 2, 3])
+    alr = GaussianALR(max_iter=200, **kwargs).fit(X, y)
+    anje = GaussianAnJE(**kwargs).fit(X, y)
+    rows = np.arange(len(y))
+    assert (
+        alr.predict_log_proba(X)[rows, y].sum()
+        > anje.predict_log_proba(X)[rows, y].sum()
+    )
+
+
+def test_gaussian_alr_requires_positive_alpha(discrete_data):
+    X, y = discrete_data
+    with pytest.raises(ValueError, match="alpha"):
+        GaussianALR(alpha=0.0).fit(X, y)

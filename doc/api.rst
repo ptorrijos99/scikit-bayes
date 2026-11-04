@@ -37,7 +37,9 @@ Averaged n-Dependence Estimators and their discriminative weighting.
 AnJE Family
 -----------
 
-Averaged n-Join Estimators and Accelerated Logistic Regression.
+Averaged n-Join Estimators and Accelerated Logistic Regression, on
+discretized attributes or, with Gaussian children, on the factors of the
+SPnDEs.
 
 .. autosummary::
    :toctree: generated/
@@ -45,6 +47,8 @@ Averaged n-Join Estimators and Accelerated Logistic Regression.
 
    AnJE
    ALR
+   GaussianAnJE
+   GaussianALR
 
 .. _tan_api:
 

@@ -8,21 +8,31 @@ dynamic = ["version"]
 authors = [
   { name="Pablo Torrijos", email="pablo.torrijos@uclm.es" },
 ]
-description = "A Python package for AnDE classifiers."
+description = "Bayesian network classifiers (AnDE, AnJE, ALR, TAN, KDB, mixed Naive Bayes) for scikit-learn."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
+# Minimum versions are tested in CI (tests job "minimum versions")
 dependencies = [
-  "numpy",
-  "scipy",
-  "scikit-learn>=1.4.2",
+  "numpy>=1.23.5",
+  "scipy>=1.9.3",
+  "scikit-learn>=1.6",
+  "joblib>=1.2.0",
+  "numba>=0.58.1",
+]
+keywords = [
+  "bayesian network classifiers", "naive bayes", "aode", "ande", "tan", "kdb",
+  "scikit-learn", "machine learning",
 ]
 classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: BSD License",
     "Operating System :: POSIX",
     "Operating System :: Unix",
@@ -42,6 +52,8 @@ experiments = [
 
 [project.urls]
 Homepage = "https://github.com/ptorrijos99/scikit-bayes"
+Documentation = "https://ptorrijos99.github.io/scikit-bayes/"
+Changelog = "https://github.com/ptorrijos99/scikit-bayes/blob/main/CHANGELOG.md"
 Issues = "https://github.com/ptorrijos99/scikit-bayes/issues"
 
 [tool.setuptools.packages.find]
@@ -57,8 +69,9 @@ channels = ["conda-forge"]
 platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
 
 [tool.pixi.dependencies]
-python = ">=3.9"
-scikit-learn = ">=1.4.2"
+python = ">=3.10"
+scikit-learn = ">=1.6"
+numba = ">=0.58.1"
 
 [tool.pixi.feature.experiments.dependencies]
 xgboost = "*"
@@ -85,7 +98,9 @@ setuptools-scm = ">=8"
 pandas = "*"
 
 [tool.pixi.feature.test.tasks]
-test = { cmd = "pytest -vsl --cov=skbn --cov-report=xml skbn" }
+test = { cmd = "pytest -vsl skbn" }
+# The kernels run as Python, so that coverage sees inside them
+coverage = { cmd = "pytest -q --cov=skbn --cov-report=xml skbn", env = { NUMBA_DISABLE_JIT = "1" } }
 
 [tool.pixi.feature.doc.dependencies]
 matplotlib = "*"
@@ -113,7 +128,7 @@ experiments = ["experiments"]
 
 [tool.black]
 line-length = 88
-target_version = ['py38', 'py39', 'py310']
+target_version = ['py310', 'py311']
 preview = true
 exclude = '''
 /(
@@ -127,7 +142,7 @@ force-exclude = "skbn/_version.py"
 [tool.ruff]
 # max line length for black
 line-length = 88
-target-version = "py38"
+target-version = "py310"
 exclude=[
     ".git",
     "__pycache__",

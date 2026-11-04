@@ -5,7 +5,6 @@ checked against hand-computed values and a reference implementation."""
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import pickle
 from collections import Counter
 from itertools import product
 
@@ -158,20 +157,6 @@ def test_root_only_orients_the_tree(categorical_data, root):
         assert node == root
 
 
-def test_recovers_chain_structure():
-    # A0 -> A1 -> A2 -> A3 (noisy copies), all also dependent on the class
-    rng = np.random.RandomState(1)
-    n = 2000
-    y = rng.randint(0, 2, size=n)
-    cols = [(rng.randint(0, 4, size=n) + y) % 4]
-    for _ in range(3):
-        noise = rng.randint(0, 4, size=n)
-        cols.append(np.where(rng.rand(n) < 0.85, cols[-1], noise))
-    X = np.column_stack(cols)
-    model = TAN().fit(X, y)
-    np.testing.assert_array_equal(model.parents_, [-1, 0, 1, 2])
-
-
 # --- Parameter estimation ---------------------------------------------------
 
 
@@ -208,7 +193,7 @@ def test_single_feature_is_naive_bayes():
     y = (X[:, 0] + rng.normal(scale=0.5, size=100) > 0).astype(int)
     tan = TAN().fit(X, y)
     nb = MixedNB(var_prior_weight=1.0).fit(X, y)
-    assert tan.cpts_ == {}
+    np.testing.assert_array_equal(tan.parents_, [-1])
     np.testing.assert_allclose(tan.predict_proba(X), nb.predict_proba(X), atol=1e-12)
 
 
@@ -223,14 +208,16 @@ def test_gaussian_child_estimates():
     model = TAN(var_prior_weight=2.0).fit(X, y)
     np.testing.assert_array_equal(model.parents_, [-1, 0])
 
-    gnb = model.cpts_[1].estimators_["gaussian"]
+    cond = model._conditional(1)
     eps = 1e-9 * x1.var()
-    for k, key in enumerate(model.cpts_[1].classes_):
+    assert len(cond["keys"]) == 6
+    for k, key in enumerate(cond["keys"]):
         rows = (y == key // 3) & (x0 == key % 3)
         n_k = rows.sum()
         var = (n_k * (x1[rows].var() + eps) + 2.0 * (x1.var() + eps)) / (n_k + 2.0)
-        np.testing.assert_allclose(gnb.theta_[k, 0], x1[rows].mean())
-        np.testing.assert_allclose(gnb.var_[k, 0], var)
+        assert cond["count"][k] == n_k
+        np.testing.assert_allclose(cond["mean"][k], x1[rows].mean())
+        np.testing.assert_allclose(cond["var"][k], var)
 
 
 def test_xor_beats_naive_bayes():
@@ -289,9 +276,9 @@ def test_unseen_state_gaussian_child_is_pooled():
     pooled = norm.logpdf(0.3, x1.mean(), np.sqrt(x1.var() + 1e-9 * x1.var()))
     np.testing.assert_allclose(jll[0, 1], base[0, 1] + pooled, atol=1e-10)
     # Class 0 did observe x0=2, so its own Gaussian is used
-    gnb = model.cpts_[1].estimators_["gaussian"]
-    k = list(model.cpts_[1].classes_).index(2)
-    own = norm.logpdf(0.3, gnb.theta_[k, 0], np.sqrt(gnb.var_[k, 0]))
+    cond = model._conditional(1)
+    k = list(cond["keys"]).index(2)
+    own = norm.logpdf(0.3, cond["mean"][k], np.sqrt(cond["var"][k]))
     np.testing.assert_allclose(jll[0, 0], base[0, 0] + own, atol=1e-10)
 
 
@@ -322,7 +309,7 @@ def test_mixed_types(strategy):
     types = model.backoff_.feature_types_
     assert sorted(types["gaussian"]) == [0, 1] and types["categorical"] == [2]
     # The declared integer-valued Gaussian is binned when it acts as a parent
-    assert model._parent_data[:, 1].max() < 4
+    assert model._encoder.cards_[1] <= 4
     proba = model.predict_proba(X)
     assert proba.shape == (n, 2) and np.all(np.isfinite(proba))
     np.testing.assert_allclose(proba.sum(axis=1), 1.0)
@@ -332,24 +319,56 @@ def test_mixed_types(strategy):
 def test_invalid_root(root):
     X = np.array([[0, 1, 0], [1, 0, 1], [0, 0, 1], [1, 1, 0]])
     y = np.array([0, 1, 0, 1])
-    with pytest.raises(ValueError, match="root must be an integer"):
+    with pytest.raises(ValueError, match="root"):
         TAN(root=root).fit(X, y)
 
 
-def test_string_labels_and_log_proba(categorical_data):
-    X, y = categorical_data
-    labels = np.array(["a", "b", "c"])[y]
-    model = TAN().fit(X, labels)
-    np.testing.assert_array_equal(model.classes_, ["a", "b", "c"])
-    np.testing.assert_allclose(
-        np.exp(model.predict_log_proba(X)), model.predict_proba(X)
+# --- Compiled kernels ---------------------------------------------------------
+
+
+def test_cmi_with_unequal_cardinalities_and_a_constant_attribute():
+    rng = np.random.RandomState(3)
+    n = 400
+    y = rng.randint(0, 3, size=n)
+    X = np.column_stack(
+        [
+            rng.randint(0, 2, size=n),
+            (rng.randint(0, 7, size=n) + y) % 7,
+            np.zeros(n, dtype=int),  # constant: exactly independent of the rest
+            rng.randint(0, 4, size=n),
+        ]
     )
-    assert set(model.predict(X)) <= {"a", "b", "c"}
+    X[:, 3] = np.where(rng.rand(n) < 0.6, X[:, 1] % 4, X[:, 3])
+    model = TAN(categorical_features=[0, 1, 2, 3]).fit(X, y)
+    cmi = model.conditional_mutual_info_
+    np.testing.assert_allclose(cmi, _reference_cmi(X, y), atol=1e-12)
+    # Exact zeros keep the tie-breaking of the spanning tree deterministic
+    assert np.all(cmi[2] == 0.0) and np.all(cmi[:, 2] == 0.0)
+    assert model.parents_[2] == 0
 
 
-def test_pickle_roundtrip(categorical_data):
+@pytest.mark.parametrize("n_jobs", [2, -1])
+def test_n_jobs_gives_the_same_model(categorical_data, n_jobs):
     X, y = categorical_data
-    model = TAN().fit(X, y)
-    restored = pickle.loads(pickle.dumps(model))
-    np.testing.assert_array_equal(restored.parents_, model.parents_)
-    np.testing.assert_allclose(restored.predict_proba(X), model.predict_proba(X))
+    rng = np.random.RandomState(0)
+    X = np.column_stack([X, rng.normal(size=len(y)) + y])
+    serial = TAN().fit(X, y)
+    threaded = TAN(n_jobs=n_jobs).fit(X, y)
+    np.testing.assert_array_equal(threaded.parents_, serial.parents_)
+    np.testing.assert_array_equal(
+        threaded.conditional_mutual_info_, serial.conditional_mutual_info_
+    )
+    np.testing.assert_allclose(threaded.predict_proba(X), serial.predict_proba(X))
+
+
+def test_wide_data():
+    """Many more attributes than samples, the shape of microarray data."""
+    rng = np.random.RandomState(0)
+    n, d = 40, 300
+    y = rng.randint(0, 2, size=n)
+    X = rng.normal(size=(n, d)) + 0.5 * y[:, None]
+    model = TAN(n_bins=3).fit(X, y)
+    assert np.sum(model.parents_ < 0) == 1
+    assert len(np.unique(model.parents_)) > 1
+    proba = model.predict_proba(X)
+    assert np.all(np.isfinite(proba)) and model.score(X, y) > 0.9

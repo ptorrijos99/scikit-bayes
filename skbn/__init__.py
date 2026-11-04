@@ -1,5 +1,5 @@
 # Authors: scikit-bayes developers
-# License: BSD 3 clause
+# SPDX-License-Identifier: BSD-3-Clause
 
 try:
     from ._version import __version__
@@ -11,7 +11,7 @@ except ImportError:
     except (ImportError, PackageNotFoundError):
         __version__ = "0.0.0"
 from .ande import AnDE, WeightedAnDE
-from .anje import ALR, AnJE
+from .anje import ALR, AnJE, GaussianALR, GaussianAnJE
 from .discretization import DecisionTreeDiscretizer, MDLPDiscretizer
 from .kdb import KDB
 from .mixed_nb import MixedNB
@@ -22,6 +22,8 @@ __all__ = [
     "AnDE",
     "AnJE",
     "ALR",
+    "GaussianAnJE",
+    "GaussianALR",
     "WeightedAnDE",
     "TAN",
     "KDB",
