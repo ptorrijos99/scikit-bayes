@@ -256,9 +256,21 @@ def _find(keys, lo, hi, key):
 
 
 @nb.njit(cache=True, inline="always")
+def _gaussian_ll(x, mean, var):
+    """Gaussian log-density, clamped as ``np.nan_to_num``."""
+    diff = x - mean
+    return _clamp(-0.5 * (diff * diff / var + np.log(2.0 * np.pi * var)))
+
+
+@nb.njit(cache=True)
 def _log_likelihood(s, j, r, codes, xg, disc, mean, var, kind, voff, gidx):
     """``log P(x_rj | state s)``, clamped as ``np.nan_to_num`` (the discrete
-    tables are clamped when they are built)."""
+    tables are clamped when they are built).
+
+    Used on the back-off paths that few samples take. It is called, not
+    inlined: inlined at the level of Numba's IR it made the loops of the
+    evaluation kernels 20 to 30 times slower, so the hot loops read the
+    tables directly."""
     if kind[j] == DISCRETE:
         code = codes[r, j]
         if code < 0:
@@ -266,17 +278,8 @@ def _log_likelihood(s, j, r, codes, xg, disc, mean, var, kind, voff, gidx):
         return disc[s, voff[j] + code]
     if kind[j] == GAUSSIAN:
         g = gidx[j]
-        v = var[s, g]
-        diff = xg[r, g] - mean[s, g]
-        return _clamp(-0.5 * (diff * diff / v + np.log(2.0 * np.pi * v)))
+        return _gaussian_ll(xg[r, g], mean[s, g], var[s, g])
     return 0.0
-
-
-# The same function called rather than inlined, on the back-off paths that
-# few samples take: it keeps the evaluation kernels faster to compile
-_log_likelihood_call = nb.njit(cache=True)(
-    getattr(_log_likelihood, "py_func", _log_likelihood)  # Plain with NUMBA_DISABLE_JIT
-)
 
 
 @nb.njit(cache=True, inline="always")
@@ -365,11 +368,15 @@ def component_scores(
                     for t in range(children.shape[1]):
                         j = children[m, t]
                         if s >= 0:
-                            ll = _log_likelihood(
-                                s, j, r, codes, xg, disc, mean, var, kind, voff, gidx
-                            )
+                            ll = 0.0
+                            if kind[j] == DISCRETE:
+                                if codes[r, j] >= 0:
+                                    ll = disc[s, voff[j] + codes[r, j]]
+                            elif kind[j] == GAUSSIAN:
+                                g = gidx[j]
+                                ll = _gaussian_ll(xg[r, g], mean[s, g], var[s, g])
                         elif backoff:
-                            ll = _log_likelihood_call(
+                            ll = _log_likelihood(
                                 c,
                                 j,
                                 r,
@@ -396,7 +403,7 @@ def component_scores(
             for c in range(n_classes):
                 total = b_root[c]
                 for j in range(n_features):
-                    total += _log_likelihood_call(
+                    total += _log_likelihood(
                         c, j, r, codes, xg, b_disc, b_mean, b_var, kind, voff, gidx
                     )
                 nb_jll[r, c] = total
@@ -471,11 +478,14 @@ def pooled_scores(
                     total = root[s] if s >= 0 else log_prior_unseen[m]
                     for j in children[m]:
                         if s >= 0:
-                            total += _log_likelihood(
-                                s, j, r, codes, xg, disc, mean, var, kind, voff, gidx
-                            )
+                            if kind[j] == DISCRETE:
+                                if codes[r, j] >= 0:
+                                    total += disc[s, voff[j] + codes[r, j]]
+                            elif kind[j] == GAUSSIAN:
+                                g = gidx[j]
+                                total += _gaussian_ll(xg[r, g], mean[s, g], var[s, g])
                         elif backoff:
-                            total += _log_likelihood_call(
+                            total += _log_likelihood(
                                 c,
                                 j,
                                 r,
@@ -504,7 +514,7 @@ def pooled_scores(
                 if n_active[i] == 0:
                     total = b_root[c]
                     for j in range(n_features):
-                        total += _log_likelihood_call(
+                        total += _log_likelihood(
                             c, j, r, codes, xg, b_disc, b_mean, b_var, kind, voff, gidx
                         )
                     scores[r, c] = total
