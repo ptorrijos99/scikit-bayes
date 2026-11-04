@@ -9,7 +9,14 @@ All notable changes to scikit-bayes are listed here. The project follows [semant
 - `TAN`: Tree Augmented Naive Bayes, with a Chow-Liu tree on the conditional mutual information (contributed by Óscar Alcarria Laserna, #15).
 - `KDB`: K-Dependence Bayesian classifier of Sahami (1996) (contributed by Óscar Alcarria Laserna, #16).
 - `GaussianAnJE` and `GaussianALR`: AnJE and ALR built on the factors of the SPnDEs, so that continuous attributes keep Gaussian conditionals.
-- `AnJE` and `ALR` now follow the definitions and training protocol of Zaidi et al. (2016); `WeightedAnDE` gains weights per factor (`weight_scope="factor"`).
+- `AnJE` and `ALR` now follow the definitions and training protocol of Zaidi et al. (2016), with the L-BFGS-B settings of their code (`factr = 1e7`, 5 corrections, no test on the projected gradient); `WeightedAnDE` gains weights per factor (`weight_scope="factor"`).
+
+### Performance
+
+- The SPnDEs of `AnDE`, `WeightedAnDE`, `GaussianAnJE` and `GaussianALR` are counted and evaluated by Numba kernels on flat tables that hold only the augmented states seen in training, instead of one `MixedNB` per component, and `AnDE` predicts without building the samples x classes x components tensor. The predictions do not change (beyond 1e-14); on Connect-4, A2DE fits 6 times and predicts 10 times faster.
+- `AnJE` and `ALR` count and evaluate the n-joins with Numba kernels and a map from cells to table rows, instead of a matrix of cell keys and a sparse incidence matrix (4 GB for the folds of Covertype).
+- `n_jobs` sets the number of threads of the kernels; `AnJE` and `ALR` gain the parameter.
+- Numba is a new dependency.
 
 ### Changed behaviour
 
@@ -27,7 +34,7 @@ All notable changes to scikit-bayes are listed here. The project follows [semant
 - AnDE, TAN and KDB evaluate each component only at the augmented states of the classes when predicting, which cuts prediction time and memory.
 - KDB raises a clear error when the parent states of an attribute exceed a 64-bit index.
 - A brute-force reference implementation of AnDE checks the predictions of every order and pooling.
-- The minimum supported versions are Python 3.10 and scikit-learn 1.6 (the earlier `scikit-learn>=1.4.2` requirement was wrong: the package needs 1.6). CI now also tests the minimum and the latest dependency versions.
+- The minimum supported versions are Python 3.10, scikit-learn 1.6 and Numba 0.58.1 (the earlier `scikit-learn>=1.4.2` requirement was wrong: the package needs 1.6). CI now also tests the minimum and the latest dependency versions.
 
 ## 1.2.1 (2026-10-13)
 

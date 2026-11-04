@@ -18,7 +18,7 @@
 
 1. **The whole AnDE family in one place.** AnDE at any order, with arithmetic or geometric pooling, the n-join estimators (AnJE), and the hybrid generative-discriminative models: ALR and `WeightedAnDE`, with weights per component or per factor at four granularities, fitted jointly or one component at a time. No other Python library provides AnDE beyond order 1 or any of the hybrid models.
 2. **Mixed data without a discretisation step.** Every component is a Naive Bayes model on an augmented class, so continuous children keep Gaussian conditionals at any order and only the super-parents are discretised. The supervised MDL and decision-tree discretisers are available as transformers for those who prefer to discretise everything.
-3. **The scikit-learn interface.** Every estimator passes `sklearn.utils.estimator_checks.check_estimator` and works inside `Pipeline`, `GridSearchCV` and the rest of the ecosystem. The only dependencies are NumPy, SciPy and scikit-learn.
+3. **The scikit-learn interface.** Every estimator passes `sklearn.utils.estimator_checks.check_estimator` and works inside `Pipeline`, `GridSearchCV` and the rest of the ecosystem. The only dependencies are NumPy, SciPy, Numba and scikit-learn.
 4. **TAN and KDB on the same footing.** Both reuse the same estimators and the same handling of mixed data and unseen values, so the structured models and the ensembles can be compared under one implementation.
 
 BayesNet offers boosting and local discretisation, which `scikit-bayes` does not implement, and its C++ kernels are faster on large data.

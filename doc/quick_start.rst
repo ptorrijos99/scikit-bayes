@@ -10,8 +10,8 @@ Installation
 From PyPI (Recommended)
 -----------------------
 
-scikit-bayes needs Python 3.10 or later, NumPy, SciPy and scikit-learn 1.6 or
-later. Install it from PyPI with pip:
+scikit-bayes needs Python 3.10 or later, NumPy, SciPy, Numba and
+scikit-learn 1.6 or later. Install it from PyPI with pip:
 
 .. prompt:: bash $
 

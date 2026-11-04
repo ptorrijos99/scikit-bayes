@@ -342,10 +342,12 @@ defined on discrete attributes: continuous attributes are discretized into
 
 ``weight_level=3`` (the default) is the model of the paper. Levels 1 (one
 weight per n-join) and 2 (per n-join and value) tie the weights following the
-nesting of [3]_. The other defaults reproduce the protocol of the paper's
-experiments: weights start at ``w = 1``, there is no penalty, and L-BFGS-B
-runs until the relative reduction of the objective falls below 1e-32 or for
-10\ :sup:`4` iterations. The starting point is not the AnJE but the unaveraged
+nesting of [3]_. The other defaults reproduce the settings of the code
+released with the paper: weights start at ``w = 1``, there is no penalty, and
+L-BFGS-B keeps 5 corrections and runs until the relative reduction of the
+objective falls below 1e7 machine epsilons (its ``factr = 1e7``) or for
+10\ :sup:`4` iterations, with the test on the projected gradient disabled.
+The starting point is not the AnJE but the unaveraged
 product of all n-joins, so on small samples the unpenalized model overfits.
 ``l2_reg`` adds the penalty towards ``w = 1`` that the paper suggests for
 small datasets, and ``max_iter`` and ``tol`` stop the optimizer earlier.
@@ -556,7 +558,17 @@ and overfit small datasets with a weak penalty, so for them values between
 Computational Considerations
 ----------------------------
 
-* Use ``n_jobs=-1`` to parallelize SPODE fitting
+* The counting and the evaluation of the SPnDEs and of the n-joins run in
+  compiled Numba kernels. They are compiled on the first use and cached on
+  disk, so the first fit after installing the package takes a few seconds
+  longer.
+* ``n_jobs`` sets the number of threads of those kernels (1 by default,
+  ``-1`` for all processors); the weights of the hybrid models are optimized
+  in a single thread, with the objective of ALR evaluated in ``n_jobs``
+  threads.
+* The parameters are stored only for the augmented states and the cells seen
+  in training, so the memory of a model is bounded by the data rather than by
+  the cardinalities of the attributes.
 * The cost of an optimization step grows with the number of weights each
   sample touches: one per component with component weights, one per factor
   with factor weights and one per n-join in ALR
