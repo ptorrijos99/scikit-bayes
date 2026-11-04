@@ -5,6 +5,7 @@
 
 import numba as nb
 import numpy as np
+import pytest
 
 from skbn._kernels import _Kernel, _state_index, _threads
 
@@ -16,6 +17,9 @@ def _row_sums(x):
     return out
 
 
+@pytest.mark.skipif(
+    nb.config.DISABLE_JIT, reason="Without the JIT there is nothing to compile"
+)
 def test_kernel_compiles_the_parallel_version_only_for_several_threads():
     kernel = _Kernel(_row_sums)
     x = np.arange(12.0).reshape(4, 3)

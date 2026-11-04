@@ -274,7 +274,9 @@ def _log_likelihood(s, j, r, codes, xg, disc, mean, var, kind, voff, gidx):
 
 # The same function called rather than inlined, on the back-off paths that
 # few samples take: it keeps the evaluation kernels faster to compile
-_log_likelihood_call = nb.njit(cache=True)(_log_likelihood.py_func)
+_log_likelihood_call = nb.njit(cache=True)(
+    getattr(_log_likelihood, "py_func", _log_likelihood)  # Plain with NUMBA_DISABLE_JIT
+)
 
 
 @nb.njit(cache=True, inline="always")

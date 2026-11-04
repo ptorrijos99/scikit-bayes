@@ -98,7 +98,9 @@ setuptools-scm = ">=8"
 pandas = "*"
 
 [tool.pixi.feature.test.tasks]
-test = { cmd = "pytest -vsl --cov=skbn --cov-report=xml skbn" }
+test = { cmd = "pytest -vsl skbn" }
+# The kernels run as Python, so that coverage sees inside them
+coverage = { cmd = "pytest -q --cov=skbn --cov-report=xml skbn", env = { NUMBA_DISABLE_JIT = "1" } }
 
 [tool.pixi.feature.doc.dependencies]
 matplotlib = "*"

@@ -29,7 +29,12 @@ jobs:
     - name: Run Tests
       run: pixi run -e test test
 
+    - name: Measure coverage with the kernels uncompiled
+      if: matrix.os == 'ubuntu-latest'
+      run: pixi run -e test coverage
+
     - name: Upload coverage reports to Codecov
+      if: matrix.os == 'ubuntu-latest'
       uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
