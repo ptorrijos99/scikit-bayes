@@ -17,6 +17,16 @@ authors:
   - family-names: Puerta
     given-names: José M.
     affiliation: "Universidad de Castilla-La Mancha"
+version: "1.3.0"
+date-released: "2026-11-04"
+doi: "10.5281/zenodo.23950884"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.23950884"
+    description: "All versions (resolves to the latest)"
+  - type: doi
+    value: "10.5281/zenodo.23950885"
+    description: "Version 1.3.0"
 repository-code: "https://github.com/ptorrijos99/scikit-bayes"
 url: "https://ptorrijos99.github.io/scikit-bayes/"
 license: BSD-3-Clause

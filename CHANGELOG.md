@@ -2,7 +2,7 @@
 
 All notable changes to scikit-bayes are listed here. The project follows [semantic versioning](https://semver.org/).
 
-## Unreleased (1.3.0)
+## 1.3.0 (2026-11-04)
 
 ### New estimators
 

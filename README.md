@@ -3,7 +3,8 @@
 [![tests](https://github.com/ptorrijos99/scikit-bayes/actions/workflows/python-app.yml/badge.svg)](https://github.com/ptorrijos99/scikit-bayes/actions/workflows/python-app.yml)
 [![codecov](https://codecov.io/gh/ptorrijos99/scikit-bayes/graph/badge.svg)](https://codecov.io/gh/ptorrijos99/scikit-bayes)
 [![doc](https://github.com/ptorrijos99/scikit-bayes/actions/workflows/deploy-gh-pages.yml/badge.svg)](https://ptorrijos99.github.io/scikit-bayes/)
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![DOI](https://zenodo.org/badge/1081042310.svg)](https://doi.org/10.5281/zenodo.23950884)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green.svg)](LICENSE)
 
 **scikit-bayes** is a Python package that extends `scikit-learn` with a suite of Bayesian Network Classifiers.
@@ -89,11 +90,12 @@ If you use scikit-bayes in a scientific publication, please cite:
   author = {Torrijos, Pablo and Alcarria Laserna, {\'O}scar and G{\'a}mez, Jos{\'e} A. and Puerta, Jos{\'e} M.},
   title = {scikit-bayes: Bayesian Network Classifiers for Python},
   year = {2026},
+  doi = {10.5281/zenodo.23950884},
   url = {https://github.com/ptorrijos99/scikit-bayes}
 }
 ```
 
-The same information is in [`CITATION.cff`](CITATION.cff), which GitHub shows as "Cite this repository".
+The DOI always resolves to the latest version; every release also has its own DOI on [Zenodo](https://doi.org/10.5281/zenodo.23950884) (1.3.0: [10.5281/zenodo.23950885](https://doi.org/10.5281/zenodo.23950885)). The same information is in [`CITATION.cff`](CITATION.cff), which GitHub shows as "Cite this repository".
 
 ## References
 
