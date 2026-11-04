@@ -1,0 +1,50 @@
+﻿KDB
+======================
+
+.. currentmodule:: skbn
+
+.. autoclass:: KDB
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      
+      
+        ~KDB.fit
+      
+      
+        ~KDB.get_metadata_routing
+      
+      
+        ~KDB.get_params
+      
+      
+        ~KDB.predict
+      
+      
+        ~KDB.predict_log_proba
+      
+      
+        ~KDB.predict_proba
+      
+      
+        ~KDB.score
+      
+      
+        ~KDB.set_params
+      
+      
+        ~KDB.set_score_request
+      
+   
+   
+
+.. include:: skbn.KDB.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

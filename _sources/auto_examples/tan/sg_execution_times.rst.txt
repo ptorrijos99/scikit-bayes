@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:00.521** total execution time for 1 file **from auto_examples/tan**:
+**00:00.354** total execution time for 1 file **from auto_examples/tan**:
 
 .. container::
 
@@ -33,5 +33,5 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_auto_examples_tan_17_plot_tan_structure.py` (``17_plot_tan_structure.py``)
-     - 00:00.521
+     - 00:00.354
      - 0.0

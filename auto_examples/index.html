@@ -427,6 +427,14 @@ on at most one other attribute: how the tree is learned and what it captures.</p
 <p><a class="reference internal" href="tan/17_plot_tan_structure.html"><span class="doc">Learning the Tree: TAN vs Naive Bayes</span></a></p>
   <div class="sphx-glr-thumbnail-title">Learning the Tree: TAN vs Naive Bayes</div>
 </div></div></section>
+<section id="k-dependence-bayesian-classifier">
+<h2>K-Dependence Bayesian Classifier<a class="headerlink" href="#k-dependence-bayesian-classifier" title="Link to this heading">#</a></h2>
+<p>A single Bayesian network in which every attribute depends on the class and
+on at most k other attributes: how k trades expressiveness for data.</p>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="skbn.KDB (K-Dependence Bayesian classifier) lets every attribute depend on the class and on at most k other attributes. The attributes are added to the network in decreasing order of their mutual information with the class $I(A_i; C)$, and each one takes as parents the k attributes already in the network with the highest conditional mutual information $I(A_i; A_j \mid C)$."><img alt="" src="../_images/sphx_glr_18_plot_kdb_k_dependence_thumb.png" />
+<p><a class="reference internal" href="kdb/18_plot_kdb_k_dependence.html"><span class="doc">Choosing k: KDB with Increasing Dependence</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Choosing k: KDB with Increasing Dependence</div>
+</div></div></section>
 <section id="hybrid-models">
 <h2>Hybrid Models<a class="headerlink" href="#hybrid-models" title="Link to this heading">#</a></h2>
 <p>Generative components with discriminatively learned weights: granularity of
@@ -518,6 +526,7 @@ the weights, their interpretation and their effect on calibration.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mixed-naive-bayes">Mixed Naive Bayes</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#generative-ande-models">Generative AnDE Models</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tree-augmented-naive-bayes">Tree Augmented Naive Bayes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#k-dependence-bayesian-classifier">K-Dependence Bayesian Classifier</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hybrid-models">Hybrid Models</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#discretization">Discretization</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#working-with-scikit-learn">Working with scikit-learn</a></li>

@@ -1,0 +1,49 @@
+
+
+.. _sphx_glr_auto_examples_kdb:
+
+.. _kdb_examples:
+
+K-Dependence Bayesian Classifier
+--------------------------------
+
+A single Bayesian network in which every attribute depends on the class and
+on at most k other attributes: how k trades expressiveness for data.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="skbn.KDB (K-Dependence Bayesian classifier) lets every attribute depend on the class and on at most k other attributes. The attributes are added to the network in decreasing order of their mutual information with the class $I(A_i; C)$, and each one takes as parents the k attributes already in the network with the highest conditional mutual information $I(A_i; A_j \mid C)$.">
+
+.. only:: html
+
+  .. image:: /auto_examples/kdb/images/thumb/sphx_glr_18_plot_kdb_k_dependence_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/kdb/18_plot_kdb_k_dependence`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Choosing k: KDB with Increasing Dependence</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /auto_examples/kdb/18_plot_kdb_k_dependence
+

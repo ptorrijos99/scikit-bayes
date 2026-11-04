@@ -398,6 +398,72 @@ so discrete children use Laplace smoothing (``alpha``).
     clf.conditional_mutual_info_   # edge weights used to learn the tree
 
 
+.. _kdb:
+
+KDB: K-Dependence Bayesian Classifier
+=====================================
+
+:class:`skbn.KDB` [8]_ generalizes Naive Bayes and TAN with a single
+parameter: every attribute has the class and **at most k other attributes**
+as parents.
+
+.. math::
+
+    P(y, \mathbf{x}) = P(y) \prod_{i} P(x_i | y, \mathbf{x}_{\Pi(i)}), \qquad |\Pi(i)| \leq k
+
+Where :math:`\Pi(i)` is the set of attribute parents of attribute :math:`i`.
+With ``k=0`` the model is Naive Bayes.
+
+Learning the Structure
+----------------------
+
+The structure is learned greedily [8]_:
+
+1. Compute the mutual information :math:`I(A_i; C)` between every attribute
+   and the class, and the conditional mutual information
+   :math:`I(A_i; A_j | C)` between every pair of attributes.
+2. Add the attributes to the network in decreasing order of
+   :math:`I(A_i; C)`.
+3. Each attribute takes as parents the :math:`\min(k, t)` attributes, among
+   the :math:`t` already added, with the highest :math:`I(A_i; A_j | C)`.
+
+Mixed data is handled as in TAN: continuous attributes are discretized
+(``n_bins``, ``strategy``) for the structure and when they act as parents,
+and every conditional :math:`P(x_i | y, \mathbf{x}_{\Pi(i)})` is a
+:class:`skbn.MixedNB` fitted on the augmented class
+:math:`(y, \mathbf{x}_{\Pi(i)})`.
+
+Choosing k
+----------
+
+Larger values of ``k`` capture interactions between more attributes, but the
+number of cells of the conditional probability tables grows exponentially
+with ``k``, so they need more data to be estimated. ``k=1`` (the default)
+gives a network of the same complexity as TAN; ``k=2`` or more pays off with
+large training sets. Choose ``k`` by cross-validation.
+
+**Key Parameters:**
+
+* ``k``: Maximum number of attribute parents. Default: 1
+* ``alpha``: Laplace smoothing for discrete attributes. Default: 1.0
+* ``n_bins``: Discretization bins for continuous attributes
+* ``strategy``: Discretization strategy ('uniform', 'quantile', 'kmeans')
+
+**Example:**
+
+.. code-block:: python
+
+    from skbn import KDB
+
+    clf = KDB(k=2)
+    clf.fit(X, y)
+
+    clf.feature_order_             # order in which the attributes were added
+    clf.parents_                   # attribute parents of each attribute
+    clf.mutual_info_               # I(A_i; C), used to order the attributes
+    clf.conditional_mutual_info_   # I(A_i; A_j | C), used to choose parents
+
+
 Parameter Tuning Guide
 ======================
 
@@ -467,3 +533,7 @@ References
 .. [7] Chow, C. K., & Liu, C. N. (1968). Approximating discrete probability
        distributions with dependence trees. IEEE Transactions on Information
        Theory, 14(3), 462-467.
+
+.. [8] Sahami, M. (1996). Learning limited dependence Bayesian classifiers.
+       In Proceedings of the Second International Conference on Knowledge
+       Discovery and Data Mining (KDD-96), 335-338.
