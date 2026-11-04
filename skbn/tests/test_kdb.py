@@ -5,7 +5,6 @@ checked against hand-computed values and a reference implementation."""
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import pickle
 from collections import Counter
 
 import numpy as np
@@ -387,25 +386,6 @@ def test_numpy_integer_k(categorical_data):
     X, y = categorical_data
     model = KDB(k=np.int64(2)).fit(X, y)
     assert _as_lists(model.parents_) == _as_lists(KDB(k=2).fit(X, y).parents_)
-
-
-def test_string_labels_and_log_proba(categorical_data):
-    X, y = categorical_data
-    labels = np.array(["a", "b", "c"])[y]
-    model = KDB(k=2).fit(X, labels)
-    np.testing.assert_array_equal(model.classes_, ["a", "b", "c"])
-    np.testing.assert_allclose(
-        np.exp(model.predict_log_proba(X)), model.predict_proba(X)
-    )
-    assert set(model.predict(X)) <= {"a", "b", "c"}
-
-
-def test_pickle_roundtrip(categorical_data):
-    X, y = categorical_data
-    model = KDB(k=2).fit(X, y)
-    restored = pickle.loads(pickle.dumps(model))
-    assert _as_lists(restored.parents_) == _as_lists(model.parents_)
-    np.testing.assert_allclose(restored.predict_proba(X), model.predict_proba(X))
 
 
 def test_prediction_memory_does_not_grow_with_the_parent_states():

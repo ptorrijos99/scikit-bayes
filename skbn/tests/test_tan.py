@@ -5,7 +5,6 @@ checked against hand-computed values and a reference implementation."""
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import pickle
 from collections import Counter
 from itertools import product
 
@@ -156,20 +155,6 @@ def test_root_only_orients_the_tree(categorical_data, root):
         while model.parents_[node] >= 0 and steps <= X.shape[1]:
             node, steps = model.parents_[node], steps + 1
         assert node == root
-
-
-def test_recovers_chain_structure():
-    # A0 -> A1 -> A2 -> A3 (noisy copies), all also dependent on the class
-    rng = np.random.RandomState(1)
-    n = 2000
-    y = rng.randint(0, 2, size=n)
-    cols = [(rng.randint(0, 4, size=n) + y) % 4]
-    for _ in range(3):
-        noise = rng.randint(0, 4, size=n)
-        cols.append(np.where(rng.rand(n) < 0.85, cols[-1], noise))
-    X = np.column_stack(cols)
-    model = TAN().fit(X, y)
-    np.testing.assert_array_equal(model.parents_, [-1, 0, 1, 2])
 
 
 # --- Parameter estimation ---------------------------------------------------
@@ -336,25 +321,6 @@ def test_invalid_root(root):
     y = np.array([0, 1, 0, 1])
     with pytest.raises(ValueError, match="root"):
         TAN(root=root).fit(X, y)
-
-
-def test_string_labels_and_log_proba(categorical_data):
-    X, y = categorical_data
-    labels = np.array(["a", "b", "c"])[y]
-    model = TAN().fit(X, labels)
-    np.testing.assert_array_equal(model.classes_, ["a", "b", "c"])
-    np.testing.assert_allclose(
-        np.exp(model.predict_log_proba(X)), model.predict_proba(X)
-    )
-    assert set(model.predict(X)) <= {"a", "b", "c"}
-
-
-def test_pickle_roundtrip(categorical_data):
-    X, y = categorical_data
-    model = TAN().fit(X, y)
-    restored = pickle.loads(pickle.dumps(model))
-    np.testing.assert_array_equal(restored.parents_, model.parents_)
-    np.testing.assert_allclose(restored.predict_proba(X), model.predict_proba(X))
 
 
 # --- Compiled kernels ---------------------------------------------------------

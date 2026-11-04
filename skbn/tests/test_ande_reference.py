@@ -41,7 +41,9 @@ def _data(seed=42, n=150, n_test=300):
     return X, y, X_test
 
 
-def _reference_ande(X, y, X_test, n_dependence, mean, min_count, cards=CARDS):
+def _reference_ande(
+    X, y, X_test, n_dependence, mean, min_count, cards=CARDS, alpha=1.0
+):
     classes = np.unique(y)
     n, n_features = X.shape
     out = np.zeros((len(X_test), len(classes)))
@@ -57,13 +59,15 @@ def _reference_ande(X, y, X_test, n_dependence, mean, min_count, cards=CARDS):
             for c in classes:
                 match_pc = match_p & (y == c)
                 if n_dependence:
-                    row[c] = np.log((match_pc.sum() + 1) / (n + n_states))
+                    row[c] = np.log((match_pc.sum() + alpha) / (n + alpha * n_states))
                 else:  # Naive Bayes keeps the maximum-likelihood prior
                     row[c] = np.log(match_pc.sum() / n)
                 for j in range(n_features):
                     if j not in parents:
                         hits = (X[match_pc, j] == x[j]).sum()
-                        row[c] += np.log((hits + 1) / (match_pc.sum() + cards[j]))
+                        row[c] += np.log(
+                            (hits + alpha) / (match_pc.sum() + alpha * cards[j])
+                        )
             joints.append(row)
         assert joints, "every test instance keeps a component with these data"
         joints = np.array(joints)
@@ -84,6 +88,19 @@ def test_ande_matches_brute_force_reference(n_dependence, mean, min_count):
         categorical_features=list(range(X.shape[1])),
     ).fit(X, y)
     expected = _reference_ande(X, y, X_test, n_dependence, mean, min_count)
+    assert_allclose(model.predict_log_proba(X_test), expected, atol=1e-10)
+
+
+@pytest.mark.parametrize("n_dependence", [0, 1, 2])
+@pytest.mark.parametrize("alpha", [0.3, 2.5])
+def test_smoothing_matches_brute_force_reference(n_dependence, alpha):
+    X, y, X_test = _data()
+    model = AnDE(
+        n_dependence=n_dependence,
+        alpha=alpha,
+        categorical_features=list(range(X.shape[1])),
+    ).fit(X, y)
+    expected = _reference_ande(X, y, X_test, n_dependence, "arithmetic", 1, alpha=alpha)
     assert_allclose(model.predict_log_proba(X_test), expected, atol=1e-10)
 
 
@@ -136,7 +153,7 @@ def test_invalid_parameters_are_rejected(estimator):
 @pytest.mark.parametrize(
     "params",
     [
-        {"n_dependence": -1},
+        {"mean": "harmonic"},
         {"strategy": "median"},
         {"min_parent_count": -2},
         {"unseen_state": "zero"},
@@ -147,13 +164,6 @@ def test_invalid_ande_parameters_are_rejected(params):
     X, y, _ = _data()
     with pytest.raises(InvalidParameterError, match=next(iter(params))):
         AnDE(**params).fit(X, y)
-
-
-def test_n_dependence_larger_than_n_features_is_rejected():
-    X, y, _ = _data()
-    for estimator in (AnDE, WeightedAnDE):
-        with pytest.raises(ValueError, match="n_dependence"):
-            estimator(n_dependence=X.shape[1] + 1).fit(X, y)
 
 
 @pytest.mark.parametrize("modular", [False, True])

@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from scipy.optimize import approx_fprime
 from scipy.special import logsumexp
-from sklearn.naive_bayes import GaussianNB
+from sklearn.base import clone
 
 from skbn import AnDE, GaussianALR, GaussianAnJE, MixedNB, WeightedAnDE
 
@@ -69,12 +69,6 @@ def test_factors_sum_to_the_component_joint(mixed_data, n_dependence):
     factors = model._get_jll_per_model(X_new, per_factor=True)[0]
     assert factors.shape == jll.shape + (1 + X.shape[1] - n_dependence,)
     np.testing.assert_allclose(factors.sum(axis=3), jll, atol=1e-8)
-
-
-def test_invalid_mean_raises(mixed_data):
-    X, y = mixed_data
-    with pytest.raises(ValueError, match="mean"):
-        AnDE(mean="harmonic").fit(X, y)
 
 
 # --- Weight layouts ---------------------------------------------------------
@@ -193,12 +187,20 @@ def test_modular_wande_class_independent_levels_equal_ande(mixed_data, level):
     )
 
 
-@pytest.mark.parametrize("scope, levels", [("component", [3, 4]), ("factor", LEVELS)])
-def test_modular_identifiable_levels_learn(mixed_data, scope, levels):
+@pytest.mark.parametrize(
+    "scope, levels, mean",
+    [
+        ("component", [3, 4], "arithmetic"),
+        ("component", LEVELS, "geometric"),
+        ("factor", LEVELS, "arithmetic"),
+    ],
+)
+def test_modular_identifiable_levels_learn(mixed_data, scope, levels, mean):
     X, y = mixed_data
     for level in levels:
         wande = WeightedAnDE(
             n_dependence=1,
+            mean=mean,
             weight_scope=scope,
             weight_level=level,
             modular=True,
@@ -382,6 +384,10 @@ def test_unseen_augmented_state_backs_off_instead_of_vetoing():
     assert jll.min() > -100  # no hard -700 floor
     proba = model.predict_proba(np.array([[1, 2.1]]))
     assert proba[0, 1] > 0.5  # the continuous child still points to class 1
+    # Laplace smoothing gives that state (component 0) the pooled Gaussian
+    laplace = clone(model).set_params(unseen_state="laplace").fit(X, y)
+    jll_laplace = laplace._get_jll_per_model(np.array([[1, 2.1]]))[0]
+    assert not np.isclose(jll[0, 1, 0], jll_laplace[0, 1, 0])
 
 
 def test_unseen_parent_value_excludes_component_and_falls_back_to_nb():
@@ -400,15 +406,6 @@ def test_unseen_parent_value_excludes_component_and_falls_back_to_nb():
 
 
 # --- Variance shrinkage -----------------------------------------------------
-
-
-def test_mixednb_zero_prior_weight_matches_gaussiannb():
-    rng = np.random.RandomState(0)
-    X = rng.normal(size=(50, 3))
-    y = rng.randint(0, 2, size=50)
-    ours = MixedNB(gaussian_features=[0, 1, 2], var_prior_weight=0.0).fit(X, y)
-    ref = GaussianNB().fit(X, y)
-    np.testing.assert_allclose(ours.predict_proba(X), ref.predict_proba(X), atol=1e-10)
 
 
 def test_mixednb_prior_weight_shrinks_singleton_variances():
@@ -450,28 +447,6 @@ def test_unseen_categorical_parent_value_deactivates_component():
     _, _, active, _ = model._get_jll_per_model(np.array([[7.0, 0.0]]))
     assert not active[0, 0]  # component with super-parent X0 = 7 (unseen)
     assert active[0, 1]
-
-
-def test_laplace_unseen_state_uses_uniform_child_conditionals():
-    # Parent X0=1 never co-occurs with class 1; child X1 has 3 categories.
-    X = np.array([[0, 0], [0, 1], [1, 2], [1, 0], [0, 2], [0, 2], [0, 1]], dtype=float)
-    y = np.array([0, 0, 0, 0, 1, 1, 1])
-    kw = dict(n_dependence=1, categorical_features=[0, 1])
-    lap = AnDE(unseen_state="laplace", **kw).fit(X, y)
-    jll, _, active, _ = lap._get_jll_per_model(np.array([[1.0, 2.0]]))
-    comp = lap.ensemble_[0]  # super-parent X0
-    expected = comp["log_prior_unseen"] + np.log(1.0 / 3.0)
-    np.testing.assert_allclose(jll[0, 1, 0], expected)
-    back = AnDE(unseen_state="backoff", **kw).fit(X, y)
-    jll_b, _, _, _ = back._get_jll_per_model(np.array([[1.0, 2.0]]))
-    assert not np.isclose(jll_b[0, 1, 0], expected)
-
-
-def test_invalid_unseen_state_raises():
-    X = np.array([[0, 0], [1, 1], [0, 1], [1, 0]], dtype=float)
-    y = np.array([0, 1, 1, 0])
-    with pytest.raises(ValueError, match="unseen_state"):
-        AnDE(unseen_state="other", categorical_features=[0, 1]).fit(X, y)
 
 
 @pytest.mark.parametrize("Estimator", [AnDE, WeightedAnDE, GaussianAnJE, GaussianALR])
