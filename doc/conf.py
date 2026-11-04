@@ -118,6 +118,7 @@ sphinx_gallery_conf = {
         "../examples/mixednb",
         "../examples/ande",
         "../examples/tan",
+        "../examples/kdb",
         "../examples/hybrid",
         "../examples/discretization",
         "../examples/integration",

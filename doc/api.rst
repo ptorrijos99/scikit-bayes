@@ -59,6 +59,19 @@ Naive Bayes extended with a tree of dependencies between the attributes.
 
    TAN
 
+.. _kdb_api:
+
+K-Dependence Bayesian Classifier
+--------------------------------
+
+Bayesian network in which every attribute has at most k attribute parents.
+
+.. autosummary::
+   :toctree: generated/
+   :template: class.rst
+
+   KDB
+
 
 Utilities
 =========

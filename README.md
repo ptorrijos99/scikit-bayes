@@ -17,6 +17,7 @@ The primary goal of this package is to provide robust, `scikit-learn`-compatible
 - **WeightedAnDE**: AnDE with discriminative weights, one per component or one per factor of each component (weighted CCBN), at four levels of granularity, fitted jointly or one component at a time (the AnDE<sup>w</sup> of FedAnDE)
 - **AnJE and ALR**: Averaged n-Join Estimators and Accelerated Logistic Regression, as defined by Zaidi et al. (2016), with the training protocol of the paper by default
 - **TAN**: Tree Augmented Naive Bayes, a tree of attribute dependencies learned with the Chow-Liu procedure
+- **KDB**: K-Dependence Bayesian classifier, in which every attribute has at most k attribute parents chosen by conditional mutual information
 - **Full scikit-learn API**: Compatible with pipelines, cross-validation, and grid search
 
 ## Quick Start

@@ -13,6 +13,7 @@ except ImportError:
 from .ande import AnDE, WeightedAnDE
 from .anje import ALR, AnJE
 from .discretization import DecisionTreeDiscretizer, MDLPDiscretizer
+from .kdb import KDB
 from .mixed_nb import MixedNB
 from .tan import TAN
 
@@ -23,6 +24,7 @@ __all__ = [
     "ALR",
     "WeightedAnDE",
     "TAN",
+    "KDB",
     "DecisionTreeDiscretizer",
     "MDLPDiscretizer",
     "__version__",

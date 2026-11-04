@@ -11,9 +11,9 @@ def test_all_estimators():
     skbayes_estimators = [
         (name, cls) for name, cls in estimators if cls.__module__.startswith("skbn")
     ]
-    # Should be 8: MixedNB, AnDE, AnJE, ALR, WeightedAnDE, TAN,
+    # Should be 9: MixedNB, AnDE, AnJE, ALR, WeightedAnDE, TAN, KDB,
     # DecisionTreeDiscretizer, MDLPDiscretizer
-    assert len(skbayes_estimators) == 8
+    assert len(skbayes_estimators) == 9
     estimator_names = [name for name, _ in skbayes_estimators]
     assert "MixedNB" in estimator_names
     assert "AnDE" in estimator_names
@@ -21,6 +21,7 @@ def test_all_estimators():
     assert "ALR" in estimator_names
     assert "WeightedAnDE" in estimator_names
     assert "TAN" in estimator_names
+    assert "KDB" in estimator_names
     assert "DecisionTreeDiscretizer" in estimator_names
     assert "MDLPDiscretizer" in estimator_names
 
@@ -30,7 +31,7 @@ def test_all_estimators():
         (name, cls) for name, cls in classifiers if cls.__module__.startswith("skbn")
     ]
     assert (
-        len(skbayes_classifiers) == 6
+        len(skbayes_classifiers) == 7
     )  # DecisionTreeDiscretizer is a transformer, not a classifier
 
 
