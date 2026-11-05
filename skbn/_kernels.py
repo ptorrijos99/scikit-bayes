@@ -791,6 +791,10 @@ def component_scores(
     for b in nb.prange(n_blocks):
         lo, hi = b * _BLOCK_ROWS, min(n, (b + 1) * _BLOCK_ROWS)
         sample_codes, hits = _light_buffers(codes, lo, hi, attrs, dcol, tcodes)
+        class_hits = np.empty((n_classes, hits.shape[0]), dtype=np.int64)
+        states = np.empty(n_classes, dtype=np.int64)
+        rows_of = np.empty(n_classes, dtype=np.int64)
+        totals = np.empty(n_classes)
         for m in range(n_models):
             grp_m = group[m]
             for r in range(lo, hi):
@@ -809,6 +813,106 @@ def component_scores(
                 )
                 act = freq >= min_count or n_dep == 0
                 active[r, m] = act
+                if not per_factor:
+                    # As in pooled_scores: the states of every class, then
+                    # each child read once for all of them
+                    for c in range(n_classes):
+                        st = _find(
+                            state_keys,
+                            state_off[grp_m],
+                            state_off[grp_m + 1],
+                            c * n_combos[m] + key,
+                        )
+                        states[c] = st
+                        if st >= 0:
+                            rows_of[c] = drow[st]
+                            totals[c] = root[st]
+                            if drow[st] < 0:
+                                _count_hits(
+                                    st,
+                                    count,
+                                    loff,
+                                    rows,
+                                    tcodes,
+                                    sample_codes[r - lo],
+                                    class_hits[c],
+                                )
+                    if n_classes == 2:
+                        _two_class_children(
+                            r,
+                            m,
+                            states,
+                            rows_of,
+                            totals,
+                            class_hits,
+                            codes,
+                            xg,
+                            parents,
+                            count,
+                            dense,
+                            lut,
+                            mean,
+                            var,
+                            kind,
+                            gidx,
+                            attrs,
+                            dcol,
+                            doff,
+                            grp,
+                        )
+                    else:
+                        _class_children(
+                            r,
+                            m,
+                            states,
+                            rows_of,
+                            totals,
+                            class_hits,
+                            codes,
+                            xg,
+                            parents,
+                            count,
+                            dense,
+                            lut,
+                            mean,
+                            var,
+                            kind,
+                            gidx,
+                            attrs,
+                            dcol,
+                            doff,
+                            grp,
+                        )
+                    for c in range(n_classes):
+                        if states[c] >= 0:
+                            out[r, c, m, 0] = totals[c]
+                        elif act:
+                            total = log_prior_unseen[grp_m]
+                            q = 0
+                            for a in range(nonzero.shape[0]):
+                                j = nonzero[a]
+                                while q < n_dep and parents[m, q] < j:
+                                    q += 1
+                                if q < n_dep and parents[m, q] == j:
+                                    continue
+                                if backoff:
+                                    total += _log_likelihood(
+                                        c,
+                                        j,
+                                        r,
+                                        codes,
+                                        xg,
+                                        b_disc,
+                                        b_mean,
+                                        b_var,
+                                        kind,
+                                        voff,
+                                        gidx,
+                                    )
+                                else:
+                                    total += uninf[r, j]
+                            out[r, c, m, 0] = total
+                    continue
                 for c in range(n_classes):
                     s = _find(
                         state_keys,
