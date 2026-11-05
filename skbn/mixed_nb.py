@@ -18,6 +18,7 @@ from ._core import (
     _encode_values,
     _feature_indices,
 )
+from ._kernels import categorical_counts
 
 
 def _fit_gaussian_nb(X, y_idx, classes, var_smoothing):
@@ -56,16 +57,14 @@ def _fit_gaussian_nb(X, y_idx, classes, var_smoothing):
 
 
 def _fit_categorical_nb(X, y_idx, classes, alpha, n_categories):
-    """CategoricalNB with the estimates of ``CategoricalNB.fit``, using a single
-    ``bincount`` over all features instead of a loop over features and classes."""
+    """CategoricalNB with the estimates of ``CategoricalNB.fit``, counted in a
+    single compiled pass over the samples instead of a loop over features and
+    classes."""
     n_classes = len(classes)
     cards = np.asarray(n_categories, dtype=np.int64)
     # Feature j owns the cells [offsets[j], offsets[j] + n_classes * cards[j])
     offsets = np.concatenate([[0], np.cumsum(n_classes * cards)[:-1]])
-    flat = np.bincount(
-        (offsets + y_idx[:, np.newaxis] * cards + X).ravel(),
-        minlength=int(n_classes * cards.sum()),
-    ).astype(np.float64)
+    flat = categorical_counts(X, y_idx, offsets, cards, int(n_classes * cards.sum()))
     # Smoothed log-probabilities of every cell, normalised per (feature, class) row
     row_len = np.repeat(cards, n_classes)
     row_start = np.concatenate([[0], np.cumsum(row_len)[:-1]])

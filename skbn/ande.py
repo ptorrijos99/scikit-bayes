@@ -463,8 +463,14 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             gaussian_features=types["gaussian"],
             discrete_features=types["categorical"] + types["bernoulli"],
         )
+        # The codes of the training samples, in 16 bits for nearly every
+        # dataset (a single type, so that the kernels compile once)
+        widest = max([self.n_bins, 2] + [len(c) for c in self.backoff_.categories_])
+        code_type = np.uint16 if widest <= 1 << 16 else np.int32
         parent_codes = self._encoder.fit_transform(
-            X, known=(types["categorical"], self.backoff_.categories_, cat_codes)
+            X,
+            known=(types["categorical"], self.backoff_.categories_, cat_codes),
+            dtype=code_type,
         )
         gauss = types["gaussian"]
         Xg = np.asarray(X[:, gauss], dtype=float) if gauss else np.zeros((len(X), 0))
@@ -477,7 +483,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         self.class_count_ = np.bincount(y_int, minlength=len(self.classes_)).astype(
             float
         )
-        codes = self._value_codes(X, cat_codes)
+        codes = self._value_codes(X, cat_codes, code_type)
         del cat_codes
         self._fit_components(X, y_int, parent_codes, codes)
         return self
@@ -520,11 +526,6 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         group_cards, grp = np.unique(cards, return_inverse=True)
 
         xg = np.ascontiguousarray(X[:, types["gaussian"]], dtype=np.float64)
-        # Narrow codes for the counting and the light states (a single type
-        # for nearly every dataset, so that the kernels compile once)
-        widest = max(cards.max(initial=0), self._encoder.cards_.max(initial=0))
-        code_type = np.uint16 if widest <= 1 << 16 else np.int32
-        parent_codes = parent_codes.astype(code_type)
         y_int = y_int.astype(np.int64)
         with _threads(self.n_jobs):
             sizes = index_states(
@@ -537,7 +538,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             keys, count, drow, loff, dense, rows, mean, var = count_tables(
                 y_int,
                 parent_codes,
-                codes.astype(code_type),
+                codes,
                 xg,
                 parents,
                 strides,
@@ -587,7 +588,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         # Codes of the training rows of the light states, read when one is hit
         used, rows = np.unique(rows, return_inverse=True)
         rows = rows.astype(np.int32)
-        tcodes = codes[np.ix_(used, multi)].astype(code_type)
+        tcodes = codes[np.ix_(used, multi)]
 
         # Gaussian children: the variances of GaussianNB (plus the largest
         # child variance times var_smoothing), shrunk towards the pooled

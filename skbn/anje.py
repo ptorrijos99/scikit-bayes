@@ -246,7 +246,7 @@ class AnJE(ClassifierMixin, BaseEstimator):
                 self.bernoulli_features, n_features, "bernoulli_features"
             ),
         )
-        codes = self._encoder.fit_transform(X)
+        codes = self._encoder.fit_transform(X, dtype=np.int32)
 
         # --- Cell keys: 0 is the class prior, then one block per join ---
         n = min(self.n_join, n_features)

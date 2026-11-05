@@ -1199,7 +1199,8 @@ def column_ranges(X, columns):
 @nb.njit(cache=True)
 def integer_codes(X, columns, lo, table_off):
     """Rank of every value of the integer columns ``columns`` among the
-    distinct values of its column, shape (n, len(columns)), and the table
+    distinct values of its column, int32 of shape (n, len(columns)), and the
+    table
     from value to rank: column ``c`` owns the entries
     ``table_off[c]:table_off[c + 1]`` for the values from ``lo[c]`` up,
     -1 for the values absent from it."""
@@ -1215,8 +1216,19 @@ def integer_codes(X, columns, lo, table_off):
             if table[v] == 0:
                 table[v] = rank
                 rank += 1
-    codes = np.empty((n, k), dtype=np.int64)
+    codes = np.empty((n, k), dtype=np.int32)
     for r in range(n):
         for c in range(k):
             codes[r, c] = table[table_off[c] + X[r, columns[c]] - lo[c]]
     return codes, table
+
+
+@nb.njit(cache=True)
+def categorical_counts(X, y, offsets, cards, size):
+    """Count of every (feature, class, value) cell of a categorical Naive
+    Bayes: feature ``j`` owns the cells ``offsets[j] + y * cards[j] + v``."""
+    flat = np.zeros(size)
+    for r in range(X.shape[0]):
+        for j in range(X.shape[1]):
+            flat[offsets[j] + y[r] * cards[j] + X[r, j]] += 1.0
+    return flat
