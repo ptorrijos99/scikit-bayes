@@ -765,13 +765,18 @@ def pooled_scores(
     n_groups = rep.shape[0]
     n_classes = b_root.shape[0]
     scores = np.empty((n, n_classes))
-    # Samples per block, so that the scores of the groups stay within 32 MB
-    block = max(1, min(_BLOCK_ROWS, (1 << 22) // (n_groups * n_classes)))
+    # With groups, the arithmetic pool keeps the term exp(score - peak) of
+    # every group and sample (see below)
+    reuse = n_groups < n_models and not geometric
+    # Samples per block, so that the scores (and terms) of the groups stay
+    # within 32 MB
+    size = n_groups * n_classes * (3 if reuse else 1)
+    block = max(1, min(_BLOCK_ROWS, (1 << 22) // size))
     n_blocks = (n + block - 1) // block
     for b in nb.prange(n_blocks):
         lo, hi = b * block, min(n, (b + 1) * block)
-        group_score = np.empty((hi - lo, n_groups, n_classes))
-        group_active = np.empty((hi - lo, n_groups), dtype=np.bool_)
+        group_score = np.empty((n_groups, hi - lo, n_classes))
+        group_active = np.empty((n_groups, hi - lo), dtype=np.bool_)
         sample_codes, hits = _light_buffers(codes, lo, hi, attrs, dcol, tcodes)
         for grp_m in range(n_groups):
             m = rep[grp_m]
@@ -791,7 +796,7 @@ def pooled_scores(
                     const,
                 )
                 act = freq >= min_count or n_dep == 0
-                group_active[i, grp_m] = act
+                group_active[grp_m, i] = act
                 if not act:
                     continue
                 for c in range(n_classes):
@@ -852,52 +857,50 @@ def pooled_scores(
                                 )
                             else:
                                 total += uninf[r, j]
-                    group_score[i, grp_m, c] = total
+                    group_score[grp_m, i, c] = total
         # Pool the components in their order. The term exp(score - peak) of
         # a group is kept until the peak moves, for the other components of
         # the group: the same operands give the same term
-        reuse = n_groups < n_models and not geometric
-        term = np.empty((n_groups if reuse else 0, n_classes))
-        stamp = np.empty((n_groups if reuse else 0, n_classes), dtype=np.int64)
-        peak = np.empty(n_classes)
-        acc = np.empty(n_classes)
-        moves = np.empty(n_classes, dtype=np.int64)
-        for i in range(hi - lo):
-            r = lo + i
-            peak[:] = -np.inf
-            acc[:] = 0.0
-            moves[:] = 0
-            stamp[:] = -1
-            n_active = 0
-            for m in range(n_models):
-                grp_m = group[m]
-                if not group_active[i, grp_m]:
+        shape = (n_groups, hi - lo, n_classes) if reuse else (0, 0, 0)
+        term = np.empty(shape)
+        stamp = np.full(shape, -1, dtype=np.int64)
+        moves = np.zeros((hi - lo, n_classes), dtype=np.int64)
+        peak = np.full((hi - lo, n_classes), -np.inf)
+        acc = np.zeros((hi - lo, n_classes))
+        n_active = np.zeros(hi - lo, dtype=np.int64)
+        for m in range(n_models):
+            grp_m = group[m]
+            for r in range(lo, hi):
+                i = r - lo
+                if not group_active[grp_m, i]:
                     continue
                 unseen = False
                 for q in range(n_dep):
                     unseen |= const[parents[m, q]] and punseen[r, parents[m, q]]
                 if unseen:
                     continue
-                n_active += 1
+                n_active[i] += 1
                 for c in range(n_classes):
-                    total = group_score[i, grp_m, c]
+                    total = group_score[grp_m, i, c]
                     if geometric:
-                        acc[c] += total
-                    elif total > peak[c]:
+                        acc[i, c] += total
+                    elif total > peak[i, c]:
                         # Running log-sum-exp, rescaled to the largest term
-                        acc[c] = acc[c] * np.exp(peak[c] - total) + 1.0
-                        peak[c] = total
-                        moves[c] += 1
+                        acc[i, c] = acc[i, c] * np.exp(peak[i, c] - total) + 1.0
+                        peak[i, c] = total
+                        moves[i, c] += 1
                     elif total > -np.inf:
                         if not reuse:
-                            acc[c] += np.exp(total - peak[c])
+                            acc[i, c] += np.exp(total - peak[i, c])
                         else:
-                            if stamp[grp_m, c] != moves[c]:
-                                term[grp_m, c] = np.exp(total - peak[c])
-                                stamp[grp_m, c] = moves[c]
-                            acc[c] += term[grp_m, c]
+                            if stamp[grp_m, i, c] != moves[i, c]:
+                                term[grp_m, i, c] = np.exp(total - peak[i, c])
+                                stamp[grp_m, i, c] = moves[i, c]
+                            acc[i, c] += term[grp_m, i, c]
+        for r in range(lo, hi):
+            i = r - lo
             for c in range(n_classes):
-                if n_active == 0:
+                if n_active[i] == 0:
                     total = b_root[c]
                     for a in range(nonzero.shape[0]):
                         total += _log_likelihood(
@@ -915,9 +918,9 @@ def pooled_scores(
                         )
                     scores[r, c] = total
                 elif geometric:
-                    scores[r, c] = acc[c] / n_active
+                    scores[r, c] = acc[i, c] / n_active[i]
                 else:
-                    scores[r, c] = peak[c] + np.log(acc[c]) - np.log(n_active)
+                    scores[r, c] = peak[i, c] + np.log(acc[i, c]) - np.log(n_active[i])
     return scores
 
 
