@@ -12,9 +12,19 @@ from skbn import AnDE, WeightedAnDE
 from skbn.utils.discovery import all_estimators
 
 
+def _few_iterations(estimator):
+    """``estimator`` with a few optimizer iterations, if it has any. These
+    checks are about the scikit-learn API, not about how well the weights fit
+    (tested on their own); with the kernels run as Python, as for coverage,
+    the full optimization of every check would take tens of minutes."""
+    if "max_iter" in estimator.get_params():
+        estimator.set_params(max_iter=3)
+    return estimator
+
+
 @pytest.mark.parametrize("name, Estimator", all_estimators())
 def test_all_estimators(name, Estimator):
-    check_estimator(Estimator())
+    check_estimator(_few_iterations(Estimator()))
 
 
 @pytest.mark.parametrize(
@@ -32,4 +42,4 @@ def test_all_estimators(name, Estimator):
     ids=repr,
 )
 def test_variants(estimator):
-    check_estimator(estimator)
+    check_estimator(_few_iterations(estimator))

@@ -10,7 +10,6 @@ from math import comb
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose, assert_array_equal
-from scipy.optimize import approx_fprime
 from scipy.special import logsumexp
 from sklearn.base import clone
 from sklearn.datasets import load_iris
@@ -19,6 +18,8 @@ from sklearn.naive_bayes import GaussianNB
 from skbn import ALR, AnJE, GaussianALR, GaussianAnJE
 from skbn import anje as anje_module
 from skbn._kernels import join_rows
+
+from ._gradient import assert_gradient
 
 
 @pytest.fixture
@@ -161,10 +162,7 @@ def test_alr_gradient_matches_finite_differences(discrete_data, level):
     codes_t = model._transform_codes(X)
     theta = np.random.RandomState(1).uniform(0.5, 1.5, size=model.n_weights_)
     _, grad = model._nll_and_grad(theta, codes_t, y)
-    numeric = approx_fprime(
-        theta, lambda t: model._nll_and_grad(t, codes_t, y)[0], 1e-6
-    )
-    assert_allclose(grad, numeric, rtol=1e-4, atol=1e-3)
+    assert_gradient(lambda t: model._nll_and_grad(t, codes_t, y)[0], theta, grad)
 
 
 def test_alr_learns_and_beats_anje_on_training_likelihood(discrete_data):
@@ -259,10 +257,7 @@ def test_two_class_alr_objective_matches_the_predictions(cached):
     model.learned_weights_ = theta
     expected = -model.predict_log_proba(X)[np.arange(len(y)), y].sum()
     assert_allclose(nll, expected, rtol=1e-10)
-    numeric = approx_fprime(
-        theta, lambda t: model._nll_and_grad(t, codes_t, y, rows)[0], 1e-6
-    )
-    assert_allclose(grad, numeric, rtol=1e-4, atol=1e-3)
+    assert_gradient(lambda t: model._nll_and_grad(t, codes_t, y, rows)[0], theta, grad)
 
 
 def test_alr_objective_without_cached_rows(discrete_data, monkeypatch):
@@ -384,8 +379,7 @@ def test_gaussian_alr_gradient_matches_finite_differences():
     Y = np.eye(3)[y]
     theta = rng.uniform(0.5, 1.5, size=model.n_weights_)
     _, grad = model._nll_and_grad(theta, design, Y)
-    numeric = approx_fprime(theta, lambda t: model._nll_and_grad(t, design, Y)[0], 1e-6)
-    assert_allclose(grad, numeric, rtol=1e-4, atol=1e-3)
+    assert_gradient(lambda t: model._nll_and_grad(t, design, Y)[0], theta, grad)
 
 
 def test_gaussian_alr_beats_gaussian_anje_on_training_likelihood(discrete_data):

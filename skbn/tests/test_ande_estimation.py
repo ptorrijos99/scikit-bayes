@@ -6,11 +6,12 @@ weight layouts, zero-count handling, variance shrinkage and analytic gradients."
 
 import numpy as np
 import pytest
-from scipy.optimize import approx_fprime
 from scipy.special import logsumexp
 from sklearn.base import clone
 
 from skbn import AnDE, GaussianALR, GaussianAnJE, MixedNB, WeightedAnDE
+
+from ._gradient import assert_gradient
 
 MEANS = ["arithmetic", "geometric"]
 SCOPES = ["component", "factor"]
@@ -299,8 +300,7 @@ def test_samples_without_active_component_are_left_out_of_the_fit(mixed_data):
     scores = model._scores(theta, design)[0]
     log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
     np.testing.assert_allclose(nll, -np.sum(log_prob[kept] * Y[kept]))
-    num = approx_fprime(theta, lambda t: model._nll_and_grad(t, design, Y)[0], 1e-6)
-    np.testing.assert_allclose(grad, num, rtol=1e-4, atol=1e-3)
+    assert_gradient(lambda t: model._nll_and_grad(t, design, Y)[0], theta, grad)
     assert np.all(np.isfinite(model.predict_proba(X)))
 
 
@@ -324,8 +324,7 @@ def test_joint_gradient_matches_finite_differences(mixed_data, mean, scope, leve
     rng = np.random.RandomState(1)
     theta = model.coef_theta_ + rng.uniform(-0.3, 0.3, size=model.n_weights_)
     _, grad = model._nll_and_grad(theta, design, Y)
-    num = approx_fprime(theta, lambda t: model._nll_and_grad(t, design, Y)[0], 1e-6)
-    np.testing.assert_allclose(grad, num, rtol=1e-4, atol=1e-3)
+    assert_gradient(lambda t: model._nll_and_grad(t, design, Y)[0], theta, grad)
 
 
 def _array_objective(model, theta, design, Y):
@@ -360,7 +359,7 @@ def _array_objective(model, theta, design, Y):
 
 
 @pytest.mark.parametrize("scope", SCOPES)
-@pytest.mark.parametrize("level", LEVELS)
+@pytest.mark.parametrize("level", [1, 4])  # The fewest and the most weights
 @pytest.mark.parametrize("min_count", [1, 70])
 @pytest.mark.parametrize(
     "mean, average",
@@ -416,8 +415,7 @@ def test_posterior_average_gradient_matches_finite_differences(
     rng = np.random.RandomState(1)
     theta = model.coef_theta_ + rng.uniform(-0.3, 0.3, size=model.n_weights_)
     _, grad = model._nll_and_grad(theta, design, Y)
-    num = approx_fprime(theta, lambda t: model._nll_and_grad(t, design, Y)[0], 1e-6)
-    np.testing.assert_allclose(grad, num, rtol=1e-4, atol=1e-3)
+    assert_gradient(lambda t: model._nll_and_grad(t, design, Y)[0], theta, grad)
 
 
 @pytest.mark.parametrize("mean", MEANS)
@@ -432,8 +430,7 @@ def test_component_gradient_matches_finite_differences(mixed_data, mean):
     sub = design.component(1, rows, lo, hi)
     theta = np.random.RandomState(2).uniform(0.7, 1.3, size=hi - lo)
     _, grad = model._nll_and_grad(theta, sub, Y[rows])
-    num = approx_fprime(theta, lambda t: model._nll_and_grad(t, sub, Y[rows])[0], 1e-6)
-    np.testing.assert_allclose(grad, num, rtol=1e-4, atol=1e-3)
+    assert_gradient(lambda t: model._nll_and_grad(t, sub, Y[rows])[0], theta, grad)
 
 
 # --- Zero counts ------------------------------------------------------------
