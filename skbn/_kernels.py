@@ -372,6 +372,32 @@ def _log_likelihood(s, j, r, codes, xg, disc, mean, var, kind, voff, gidx):
     return 0.0
 
 
+@nb.njit(cache=True)
+def _light_buffers(codes, lo, hi, attrs, dcol, tcodes):
+    """Codes of the samples ``lo:hi`` in the column order of ``tcodes``, and
+    a buffer for the hits of a light state in every column."""
+    sample_codes = np.empty((hi - lo, tcodes.shape[1]), dtype=np.int64)
+    for a in range(attrs.shape[0]):
+        j = attrs[a]
+        if dcol[j] >= 0:
+            for r in range(lo, hi):
+                sample_codes[r - lo, dcol[j]] = codes[r, j]
+    return sample_codes, np.empty(tcodes.shape[1], dtype=np.int64)
+
+
+@nb.njit(cache=True, inline="always")
+def _count_hits(s, count, loff, rows, tcodes, sample, hits):
+    """Number of training rows of the light state ``s`` that share the value
+    of ``sample`` in every column of ``tcodes``. The rows are read whole, one
+    after the other; read column by column, each row would be loaded once
+    per child."""
+    hits[:] = 0
+    for t in range(loff[s], loff[s] + int(count[s])):
+        trow = tcodes[rows[t]]
+        for col in range(hits.shape[0]):
+            hits[col] += trow[col] == sample[col]
+
+
 @nb.njit(cache=True, inline="always")
 def _parent_state(r, m, pcodes, punseen, parents, strides, pk_off, pk_keys, pk_count):
     """Parent key of component ``m`` for row ``r`` and the training frequency
@@ -446,6 +472,7 @@ def component_scores(
     n_blocks = (n + _BLOCK_ROWS - 1) // _BLOCK_ROWS
     for b in nb.prange(n_blocks):
         lo, hi = b * _BLOCK_ROWS, min(n, (b + 1) * _BLOCK_ROWS)
+        sample_codes, hits = _light_buffers(codes, lo, hi, attrs, dcol, tcodes)
         for m in range(n_models):
             for r in range(lo, hi):
                 key, freq = _parent_state(
@@ -463,6 +490,10 @@ def component_scores(
                     if s >= 0:
                         # Children with a single value, or a value unseen in
                         # training, contribute 0 and are skipped
+                        if drow[s] < 0:
+                            _count_hits(
+                                s, count, loff, rows, tcodes, sample_codes[r - lo], hits
+                            )
                         total = root[s]
                         out[r, c, m, 0] = total
                         q = 0
@@ -479,11 +510,7 @@ def component_scores(
                                 if drow[s] >= 0:
                                     ll = dense[drow[s], doff[j] + code]
                                 else:
-                                    n_rows, col = int(count[s]), dcol[j]
-                                    hits = 0
-                                    for t in range(loff[s], loff[s] + n_rows):
-                                        hits += tcodes[rows[t], col] == code
-                                    ll = lut[n_rows, grp[j], hits]
+                                    ll = lut[int(count[s]), grp[j], hits[dcol[j]]]
                             else:
                                 g = gidx[j]
                                 ll = _gaussian_ll(xg[r, g], mean[s, g], var[s, g])
@@ -594,6 +621,7 @@ def pooled_scores(
         peak = np.full((hi - lo, n_classes), -np.inf)
         acc = np.zeros((hi - lo, n_classes))
         n_active = np.zeros(hi - lo, dtype=np.int64)
+        sample_codes, hits = _light_buffers(codes, lo, hi, attrs, dcol, tcodes)
         for m in range(n_models):
             for r in range(lo, hi):
                 key, freq = _parent_state(
@@ -613,6 +641,10 @@ def pooled_scores(
                     q = 0
                     if s >= 0:
                         # As in component_scores
+                        if drow[s] < 0:
+                            _count_hits(
+                                s, count, loff, rows, tcodes, sample_codes[i], hits
+                            )
                         total = root[s]
                         for a in range(attrs.shape[0]):
                             j = attrs[a]
@@ -627,11 +659,7 @@ def pooled_scores(
                                 if drow[s] >= 0:
                                     total += dense[drow[s], doff[j] + code]
                                 else:
-                                    n_rows, col = int(count[s]), dcol[j]
-                                    hits = 0
-                                    for t in range(loff[s], loff[s] + n_rows):
-                                        hits += tcodes[rows[t], col] == code
-                                    total += lut[n_rows, grp[j], hits]
+                                    total += lut[int(count[s]), grp[j], hits[dcol[j]]]
                             else:
                                 g = gidx[j]
                                 total += _gaussian_ll(xg[r, g], mean[s, g], var[s, g])
