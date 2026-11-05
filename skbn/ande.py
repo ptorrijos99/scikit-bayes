@@ -170,8 +170,9 @@ def _shared_layout(
     every one of them as a child (-1 when it is not a discrete child).
     """
     for j in multi:
-        if parent_cards[j] != cards[j] or not np.array_equal(
-            parent_codes[:, j], codes[:, j]
+        if parent_cards[j] != cards[j] or (
+            codes is not parent_codes
+            and not np.array_equal(parent_codes[:, j], codes[:, j])
         ):
             return None
     by_shared = ~const[g_parents].any(axis=1)
@@ -576,7 +577,12 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         self.class_count_ = np.bincount(y_int, minlength=len(self.classes_)).astype(
             float
         )
-        codes = self._value_codes(X, cat_codes, code_type)
+        if len(types["categorical"]) == X.shape[1]:
+            # Every attribute is categorical: its codes as a child are its
+            # codes as a parent
+            codes = parent_codes
+        else:
+            codes = self._value_codes(X, cat_codes, code_type)
         del cat_codes
         self._fit_components(X, y_int, parent_codes, codes)
         return self
