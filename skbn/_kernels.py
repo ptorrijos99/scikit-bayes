@@ -1154,6 +1154,38 @@ def join_scores(codes_t, joins, strides, join_off, row_of_cell, cell_keys, table
     return scores
 
 
+@nb.njit(cache=True)
+def _binary_scores(rows, start, k, table, sums):
+    """Two-class scores ``table[0] + sum_j table[rows[i, j]]`` of the ``k <= 4``
+    samples ``start:start + k`` into ``sums``, each summed in join order."""
+    n_joins = rows.shape[1]
+    if k == 4:
+        a, b, c, d = rows[start], rows[start + 1], rows[start + 2], rows[start + 3]
+        a0 = b0 = c0 = d0 = table[0, 0]
+        a1 = b1 = c1 = d1 = table[0, 1]
+        for j in range(n_joins):
+            a0 += table[a[j], 0]
+            a1 += table[a[j], 1]
+            b0 += table[b[j], 0]
+            b1 += table[b[j], 1]
+            c0 += table[c[j], 0]
+            c1 += table[c[j], 1]
+            d0 += table[d[j], 0]
+            d1 += table[d[j], 1]
+        sums[0, 0], sums[0, 1] = a0, a1
+        sums[1, 0], sums[1, 1] = b0, b1
+        sums[2, 0], sums[2, 1] = c0, c1
+        sums[3, 0], sums[3, 1] = d0, d1
+        return
+    for i in range(k):
+        sample = rows[start + i]
+        s0, s1 = table[0, 0], table[0, 1]
+        for j in range(n_joins):
+            s0 += table[sample[j], 0]
+            s1 += table[sample[j], 1]
+        sums[i, 0], sums[i, 1] = s0, s1
+
+
 @_Kernel
 def join_objective(
     codes_t,
@@ -1194,6 +1226,7 @@ def join_objective(
     for t in nb.prange(n_chunks):
         buf = np.empty((n_joins, block), dtype=np.int64)
         local = np.empty((block if binary else 0, n_joins), dtype=np.int32)
+        sums = np.empty((4, 2))
         g = grad[t]
         for lo in range(t * size, min(n, (t + 1) * size), block):
             hi = min(n, (t + 1) * size, lo + block)
@@ -1220,28 +1253,31 @@ def join_objective(
                         for i in range(m):
                             local[i, j] = buf[j, i]
                     rows, off = local, 0
-                for i in range(m):
-                    sample = rows[off + i]
-                    yi = y[lo + i]
-                    s0, s1 = table[0, 0], table[0, 1]
-                    for j in range(n_joins):
-                        s0 += table[sample[j], 0]
-                        s1 += table[sample[j], 1]
-                    peak = max(s0, s1)
-                    log_norm = peak + np.log(np.exp(s0 - peak) + np.exp(s1 - peak))
-                    nll[t] -= (s0 if yi == 0 else s1) - log_norm
-                    # Softmax residuals P(c | x) - [c == y]
-                    r0 = np.exp(s0 - log_norm)
-                    r1 = np.exp(s1 - log_norm)
-                    if yi == 0:
-                        r0 -= 1.0
-                    else:
-                        r1 -= 1.0
-                    g[0, 0] += r0
-                    g[0, 1] += r1
-                    for j in range(n_joins):
-                        g[sample[j], 0] += r0
-                        g[sample[j], 1] += r1
+                for i0 in range(0, m, 4):
+                    k = min(4, m - i0)
+                    # The scores of four samples at once: each one is still
+                    # summed in the order of the joins, but the four sums
+                    # do not wait on each other
+                    _binary_scores(rows, off + i0, k, table, sums)
+                    for i in range(i0, i0 + k):
+                        sample = rows[off + i]
+                        yi = y[lo + i]
+                        s0, s1 = sums[i - i0, 0], sums[i - i0, 1]
+                        peak = max(s0, s1)
+                        log_norm = peak + np.log(np.exp(s0 - peak) + np.exp(s1 - peak))
+                        nll[t] -= (s0 if yi == 0 else s1) - log_norm
+                        # Softmax residuals P(c | x) - [c == y]
+                        r0 = np.exp(s0 - log_norm)
+                        r1 = np.exp(s1 - log_norm)
+                        if yi == 0:
+                            r0 -= 1.0
+                        else:
+                            r1 -= 1.0
+                        g[0, 0] += r0
+                        g[0, 1] += r1
+                        for j in range(n_joins):
+                            g[sample[j], 0] += r0
+                            g[sample[j], 1] += r1
                 continue
             if cached:
                 resid = _block_scores(cached_rows, lo, m, table)

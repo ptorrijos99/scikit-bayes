@@ -18,6 +18,7 @@ from sklearn.naive_bayes import GaussianNB
 
 from skbn import ALR, AnJE, GaussianALR, GaussianAnJE
 from skbn import anje as anje_module
+from skbn._kernels import join_rows
 
 
 @pytest.fixture
@@ -241,6 +242,27 @@ def test_binary_search_of_cells_matches_the_dense_map(monkeypatch):
         sparse = clone(model).fit(X, y)
         assert sparse._row_of_cell.size == 0
         assert_allclose(sparse.predict_log_proba(X_new), model.predict_log_proba(X_new))
+
+
+@pytest.mark.parametrize("cached", [True, False])
+def test_two_class_alr_objective_matches_the_predictions(cached):
+    # Two classes have their own loop in the objective, which scores four
+    # samples at a time (301 samples leave a remainder)
+    rng = np.random.RandomState(3)
+    X = rng.randint(0, 3, size=(301, 5))
+    y = (X[:, 0] + X[:, 1] * X[:, 2] + rng.randint(0, 2, 301)) % 2
+    model = ALR(n_join=2, max_iter=1).fit(X, y)
+    codes_t = model._transform_codes(X)
+    rows = join_rows(codes_t, *model._cell_args(), True) if cached else None
+    theta = np.random.RandomState(1).uniform(0.5, 1.5, size=model.n_weights_)
+    nll, grad = model._nll_and_grad(theta, codes_t, y, rows)
+    model.learned_weights_ = theta
+    expected = -model.predict_log_proba(X)[np.arange(len(y)), y].sum()
+    assert_allclose(nll, expected, rtol=1e-10)
+    numeric = approx_fprime(
+        theta, lambda t: model._nll_and_grad(t, codes_t, y, rows)[0], 1e-6
+    )
+    assert_allclose(grad, numeric, rtol=1e-4, atol=1e-3)
 
 
 def test_alr_objective_without_cached_rows(discrete_data, monkeypatch):
