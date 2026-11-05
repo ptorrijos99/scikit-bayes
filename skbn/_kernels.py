@@ -523,6 +523,124 @@ def _parent_state(
     return key, freq
 
 
+@nb.njit(cache=True)
+def _class_children(
+    r,
+    m,
+    states,
+    rows_of,
+    totals,
+    class_hits,
+    codes,
+    xg,
+    parents,
+    count,
+    dense,
+    lut,
+    mean,
+    var,
+    kind,
+    gidx,
+    attrs,
+    dcol,
+    doff,
+    grp,
+):
+    """Add the children of component ``m`` for sample ``r`` to ``totals``,
+    for every class whose state ``states[c]`` was seen (dense row
+    ``rows_of[c]``, hits ``class_hits[c]`` of a light one). Each child is read
+    once for all the classes, and each class sums its children in order."""
+    n_dep = parents.shape[1]
+    n_classes = states.shape[0]
+    q = 0
+    for a in range(attrs.shape[0]):
+        j = attrs[a]
+        while q < n_dep and parents[m, q] < j:
+            q += 1
+        if q < n_dep and parents[m, q] == j:
+            continue
+        if kind[j] == DISCRETE:
+            code = codes[r, j]
+            if code < 0:
+                continue
+            column, gj, cj = doff[j] + code, grp[j], dcol[j]
+            for c in range(n_classes):
+                st = states[c]
+                if st < 0:
+                    continue
+                if rows_of[c] >= 0:
+                    totals[c] += dense[rows_of[c], column]
+                else:
+                    totals[c] += lut[int(count[st]), gj, class_hits[c, cj]]
+        else:
+            g = gidx[j]
+            x = xg[r, g]
+            for c in range(n_classes):
+                st = states[c]
+                if st >= 0:
+                    totals[c] += _gaussian_ll(x, mean[st, g], var[st, g])
+
+
+@nb.njit(cache=True)
+def _two_class_children(
+    r,
+    m,
+    states,
+    rows_of,
+    totals,
+    class_hits,
+    codes,
+    xg,
+    parents,
+    count,
+    dense,
+    lut,
+    mean,
+    var,
+    kind,
+    gidx,
+    attrs,
+    dcol,
+    doff,
+    grp,
+):
+    """:func:`_class_children` for two classes, the sums kept in registers."""
+    n_dep = parents.shape[1]
+    s0, s1 = states[0], states[1]
+    d0, d1 = rows_of[0], rows_of[1]
+    t0, t1 = totals[0], totals[1]
+    q = 0
+    for a in range(attrs.shape[0]):
+        j = attrs[a]
+        while q < n_dep and parents[m, q] < j:
+            q += 1
+        if q < n_dep and parents[m, q] == j:
+            continue
+        if kind[j] == DISCRETE:
+            code = codes[r, j]
+            if code < 0:
+                continue
+            column, gj, cj = doff[j] + code, grp[j], dcol[j]
+            if s0 >= 0:
+                if d0 >= 0:
+                    t0 += dense[d0, column]
+                else:
+                    t0 += lut[int(count[s0]), gj, class_hits[0, cj]]
+            if s1 >= 0:
+                if d1 >= 0:
+                    t1 += dense[d1, column]
+                else:
+                    t1 += lut[int(count[s1]), gj, class_hits[1, cj]]
+        else:
+            g = gidx[j]
+            x = xg[r, g]
+            if s0 >= 0:
+                t0 += _gaussian_ll(x, mean[s0, g], var[s0, g])
+            if s1 >= 0:
+                t1 += _gaussian_ll(x, mean[s1, g], var[s1, g])
+    totals[0], totals[1] = t0, t1
+
+
 @_Kernel
 def component_scores(
     codes,
@@ -778,6 +896,10 @@ def pooled_scores(
         group_score = np.empty((n_groups, hi - lo, n_classes))
         group_active = np.empty((n_groups, hi - lo), dtype=np.bool_)
         sample_codes, hits = _light_buffers(codes, lo, hi, attrs, dcol, tcodes)
+        class_hits = np.empty((n_classes, hits.shape[0]), dtype=np.int64)
+        states = np.empty(n_classes, dtype=np.int64)
+        rows_of = np.empty(n_classes, dtype=np.int64)
+        totals = np.empty(n_classes)
         for grp_m in range(n_groups):
             m = rep[grp_m]
             for r in range(lo, hi):
@@ -799,64 +921,106 @@ def pooled_scores(
                 group_active[grp_m, i] = act
                 if not act:
                     continue
+                # The states of every class, then their children read once
+                # for all the classes: the sums of the classes, each in the
+                # order of the children, do not wait on each other
                 for c in range(n_classes):
-                    s = _find(
+                    st = _find(
                         state_keys,
                         state_off[grp_m],
                         state_off[grp_m + 1],
                         c * n_combos[m] + key,
                     )
-                    q = 0
-                    if s >= 0:
-                        # As in component_scores
-                        if drow[s] < 0:
+                    states[c] = st
+                    if st >= 0:
+                        rows_of[c] = drow[st]
+                        totals[c] = root[st]
+                        if drow[st] < 0:
                             _count_hits(
-                                s, count, loff, rows, tcodes, sample_codes[i], hits
+                                st,
+                                count,
+                                loff,
+                                rows,
+                                tcodes,
+                                sample_codes[i],
+                                class_hits[c],
                             )
-                        total = root[s]
-                        for a in range(attrs.shape[0]):
-                            j = attrs[a]
-                            while q < n_dep and parents[m, q] < j:
-                                q += 1
-                            if q < n_dep and parents[m, q] == j:
-                                continue
-                            if kind[j] == DISCRETE:
-                                code = codes[r, j]
-                                if code < 0:
-                                    continue
-                                if drow[s] >= 0:
-                                    total += dense[drow[s], doff[j] + code]
-                                else:
-                                    total += lut[int(count[s]), grp[j], hits[dcol[j]]]
-                            else:
-                                g = gidx[j]
-                                total += _gaussian_ll(xg[r, g], mean[s, g], var[s, g])
-                    else:
-                        # The attributes with a single value add exactly 0 as
-                        # children, so every component of the group gets this
-                        total = log_prior_unseen[grp_m]
-                        for a in range(nonzero.shape[0]):
-                            j = nonzero[a]
-                            while q < n_dep and parents[m, q] < j:
-                                q += 1
-                            if q < n_dep and parents[m, q] == j:
-                                continue
-                            if backoff:
-                                total += _log_likelihood(
-                                    c,
-                                    j,
-                                    r,
-                                    codes,
-                                    xg,
-                                    b_disc,
-                                    b_mean,
-                                    b_var,
-                                    kind,
-                                    voff,
-                                    gidx,
-                                )
-                            else:
-                                total += uninf[r, j]
+                if n_classes == 2:
+                    _two_class_children(
+                        r,
+                        m,
+                        states,
+                        rows_of,
+                        totals,
+                        class_hits,
+                        codes,
+                        xg,
+                        parents,
+                        count,
+                        dense,
+                        lut,
+                        mean,
+                        var,
+                        kind,
+                        gidx,
+                        attrs,
+                        dcol,
+                        doff,
+                        grp,
+                    )
+                else:
+                    _class_children(
+                        r,
+                        m,
+                        states,
+                        rows_of,
+                        totals,
+                        class_hits,
+                        codes,
+                        xg,
+                        parents,
+                        count,
+                        dense,
+                        lut,
+                        mean,
+                        var,
+                        kind,
+                        gidx,
+                        attrs,
+                        dcol,
+                        doff,
+                        grp,
+                    )
+                for c in range(n_classes):
+                    if states[c] >= 0:
+                        group_score[grp_m, i, c] = totals[c]
+                        continue
+                    # The attributes with a single value add exactly 0 as
+                    # children, so every component of the group gets this
+                    total = log_prior_unseen[grp_m]
+                    q = 0
+                    for a in range(nonzero.shape[0]):
+                        j = nonzero[a]
+                        while q < n_dep and parents[m, q] < j:
+                            q += 1
+                        if q < n_dep and parents[m, q] == j:
+                            continue
+                        if backoff:
+                            total += _log_likelihood(
+                                c,
+                                j,
+                                r,
+                                codes,
+                                xg,
+                                b_disc,
+                                b_mean,
+                                b_var,
+                                kind,
+                                voff,
+                                gidx,
+                            )
+                        else:
+                            total += uninf[r, j]
                     group_score[grp_m, i, c] = total
         # Pool the components in their order. The term exp(score - peak) of
         # a group is kept until the peak moves, for the other components of
