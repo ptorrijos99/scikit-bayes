@@ -759,6 +759,14 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
                 n_c = count[:, None]
                 var = (n_c * var + nu * (pooled + epsilon[:, None])) / (n_c + nu)
 
+        # The attributes whose estimates for an unseen state can differ from
+        # 0: the others (ignored, or discrete with a single value and a
+        # back-off estimate of 0) are left out of its sum
+        silent = (kind != DISCRETE) & (kind != GAUSSIAN)
+        for j in np.flatnonzero((kind == DISCRETE) & (cards <= 1)):
+            silent[j] = not backoff[1][:, voff[j] : voff[j] + cards[j]].any()
+        nonzero = np.flatnonzero(~silent).astype(np.int64)
+
         pk_off, pk_keys, pk_count = _parent_frequencies(
             keys, count, g_combos, state_off
         )
@@ -793,6 +801,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             dcol,
             doff,
             grp.astype(np.int64),
+            nonzero,
         )
         self.ensemble_ = _Ensemble(
             parents,

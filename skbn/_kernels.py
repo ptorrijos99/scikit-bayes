@@ -563,6 +563,7 @@ def component_scores(
     dcol,
     doff,
     grp,
+    nonzero,
     min_count,
     backoff,
     per_factor,
@@ -649,9 +650,11 @@ def component_scores(
                         total = log_prior_unseen[grp_m]
                         out[r, c, m, 0] = total
                         q = 0
-                        for j in range(n_features):
-                            if q < n_dep and parents[m, q] == j:
+                        for a in range(nonzero.shape[0]):
+                            j = nonzero[a]
+                            while q < n_dep and parents[m, q] < j:
                                 q += 1
+                            if q < n_dep and parents[m, q] == j:
                                 continue
                             if backoff:
                                 ll = _log_likelihood(
@@ -680,9 +683,19 @@ def component_scores(
                 continue
             for c in range(n_classes):
                 total = b_root[c]
-                for j in range(n_features):
+                for a in range(nonzero.shape[0]):
                     total += _log_likelihood(
-                        c, j, r, codes, xg, b_disc, b_mean, b_var, kind, voff, gidx
+                        c,
+                        nonzero[a],
+                        r,
+                        codes,
+                        xg,
+                        b_disc,
+                        b_mean,
+                        b_var,
+                        kind,
+                        voff,
+                        gidx,
                     )
                 nb_jll[r, c] = total
     return out, active, nb_jll
@@ -728,6 +741,7 @@ def pooled_scores(
     dcol,
     doff,
     grp,
+    nonzero,
     min_count,
     backoff,
     geometric,
@@ -756,8 +770,8 @@ def pooled_scores(
     n_blocks = (n + block - 1) // block
     for b in nb.prange(n_blocks):
         lo, hi = b * block, min(n, (b + 1) * block)
-        group_score = np.empty((n_groups, hi - lo, n_classes))
-        group_active = np.empty((n_groups, hi - lo), dtype=np.bool_)
+        group_score = np.empty((hi - lo, n_groups, n_classes))
+        group_active = np.empty((hi - lo, n_groups), dtype=np.bool_)
         sample_codes, hits = _light_buffers(codes, lo, hi, attrs, dcol, tcodes)
         for grp_m in range(n_groups):
             m = rep[grp_m]
@@ -777,7 +791,7 @@ def pooled_scores(
                     const,
                 )
                 act = freq >= min_count or n_dep == 0
-                group_active[grp_m, i] = act
+                group_active[i, grp_m] = act
                 if not act:
                     continue
                 for c in range(n_classes):
@@ -816,10 +830,13 @@ def pooled_scores(
                         # The attributes with a single value add exactly 0 as
                         # children, so every component of the group gets this
                         total = log_prior_unseen[grp_m]
-                        for j in range(n_features):
-                            if q < n_dep and parents[m, q] == j:
+                        for a in range(nonzero.shape[0]):
+                            j = nonzero[a]
+                            while q < n_dep and parents[m, q] < j:
                                 q += 1
-                            elif backoff:
+                            if q < n_dep and parents[m, q] == j:
+                                continue
+                            if backoff:
                                 total += _log_likelihood(
                                     c,
                                     j,
@@ -835,46 +852,72 @@ def pooled_scores(
                                 )
                             else:
                                 total += uninf[r, j]
-                    group_score[grp_m, i, c] = total
-        peak = np.full((hi - lo, n_classes), -np.inf)
-        acc = np.zeros((hi - lo, n_classes))
-        n_active = np.zeros(hi - lo, dtype=np.int64)
-        for m in range(n_models):
-            grp_m = group[m]
-            for r in range(lo, hi):
-                i = r - lo
-                if not group_active[grp_m, i]:
+                    group_score[i, grp_m, c] = total
+        # Pool the components in their order. The term exp(score - peak) of
+        # a group is kept until the peak moves, for the other components of
+        # the group: the same operands give the same term
+        reuse = n_groups < n_models and not geometric
+        term = np.empty((n_groups if reuse else 0, n_classes))
+        stamp = np.empty((n_groups if reuse else 0, n_classes), dtype=np.int64)
+        peak = np.empty(n_classes)
+        acc = np.empty(n_classes)
+        moves = np.empty(n_classes, dtype=np.int64)
+        for i in range(hi - lo):
+            r = lo + i
+            peak[:] = -np.inf
+            acc[:] = 0.0
+            moves[:] = 0
+            stamp[:] = -1
+            n_active = 0
+            for m in range(n_models):
+                grp_m = group[m]
+                if not group_active[i, grp_m]:
                     continue
                 unseen = False
                 for q in range(n_dep):
                     unseen |= const[parents[m, q]] and punseen[r, parents[m, q]]
                 if unseen:
                     continue
-                n_active[i] += 1
+                n_active += 1
                 for c in range(n_classes):
-                    total = group_score[grp_m, i, c]
+                    total = group_score[i, grp_m, c]
                     if geometric:
-                        acc[i, c] += total
-                    elif total > peak[i, c]:
+                        acc[c] += total
+                    elif total > peak[c]:
                         # Running log-sum-exp, rescaled to the largest term
-                        acc[i, c] = acc[i, c] * np.exp(peak[i, c] - total) + 1.0
-                        peak[i, c] = total
+                        acc[c] = acc[c] * np.exp(peak[c] - total) + 1.0
+                        peak[c] = total
+                        moves[c] += 1
                     elif total > -np.inf:
-                        acc[i, c] += np.exp(total - peak[i, c])
-        for r in range(lo, hi):
-            i = r - lo
+                        if not reuse:
+                            acc[c] += np.exp(total - peak[c])
+                        else:
+                            if stamp[grp_m, c] != moves[c]:
+                                term[grp_m, c] = np.exp(total - peak[c])
+                                stamp[grp_m, c] = moves[c]
+                            acc[c] += term[grp_m, c]
             for c in range(n_classes):
-                if n_active[i] == 0:
+                if n_active == 0:
                     total = b_root[c]
-                    for j in range(n_features):
+                    for a in range(nonzero.shape[0]):
                         total += _log_likelihood(
-                            c, j, r, codes, xg, b_disc, b_mean, b_var, kind, voff, gidx
+                            c,
+                            nonzero[a],
+                            r,
+                            codes,
+                            xg,
+                            b_disc,
+                            b_mean,
+                            b_var,
+                            kind,
+                            voff,
+                            gidx,
                         )
                     scores[r, c] = total
                 elif geometric:
-                    scores[r, c] = acc[i, c] / n_active[i]
+                    scores[r, c] = acc[c] / n_active
                 else:
-                    scores[r, c] = peak[i, c] + np.log(acc[i, c]) - np.log(n_active[i])
+                    scores[r, c] = peak[c] + np.log(acc[c]) - np.log(n_active)
     return scores
 
 
