@@ -11,7 +11,7 @@ from scipy.optimize import minimize
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import KBinsDiscretizer
 
-from ._kernels import column_ranges, integer_codes
+from ._kernels import _column_ranges, _integer_codes
 
 # Number of elements a temporary array of a chunked computation may hold.
 _CHUNK_ELEMENTS = 1 << 22
@@ -87,14 +87,14 @@ def _discrete_codes(X, columns):
     categories = [None] * len(columns)
     fast = np.zeros(len(columns), dtype=bool)
     if n and len(columns) and np.issubdtype(X.dtype, np.signedinteger):
-        lo, hi = column_ranges(X, columns)
+        lo, hi = _column_ranges(X, columns)
         fast = hi - lo <= 4 * n + 1024  # The span rule of _integer_range
     idx = np.flatnonzero(fast)
     codes = np.empty((n, len(columns)), dtype=np.int32)
     if len(idx):
         span = hi[idx] - lo[idx] + 1
         off = np.concatenate([[0], np.cumsum(span)]).astype(np.int64)
-        sub, table = integer_codes(X, columns[idx], lo[idx], off)
+        sub, table = _integer_codes(X, columns[idx], lo[idx], off)
         if len(idx) == len(columns):
             codes = sub
         else:

@@ -1207,7 +1207,7 @@ def conditional_scores(
 
 
 @nb.njit(cache=True)
-def column_ranges(X, columns):
+def _column_ranges(X, columns):
     """Smallest and largest value of every column in ``columns``."""
     k = columns.shape[0]
     lo = np.empty(k, dtype=np.int64)
@@ -1223,7 +1223,7 @@ def column_ranges(X, columns):
 
 
 @nb.njit(cache=True)
-def integer_codes(X, columns, lo, table_off):
+def _integer_codes(X, columns, lo, table_off):
     """Rank of every value of the integer columns ``columns`` among the
     distinct values of its column, int32 of shape (n, len(columns)), and the
     table
@@ -1250,7 +1250,7 @@ def integer_codes(X, columns, lo, table_off):
 
 
 @nb.njit(cache=True)
-def categorical_counts(X, y, offsets, cards, size):
+def _categorical_counts(X, y, offsets, cards, size):
     """Count of every (feature, class, value) cell of a categorical Naive
     Bayes: feature ``j`` owns the cells ``offsets[j] + y * cards[j] + v``."""
     flat = np.zeros(size)
