@@ -120,15 +120,18 @@ def _clamp(v):
 
 
 @nb.njit(cache=True)
-def _augmented_keys(y, pcodes, parents, strides, n_combos):
-    """Key ``y * n_combos + parent_key`` of every training row."""
+def _augmented_keys(y, pcodes_t, parents, strides, n_combos):
+    """Key ``y * n_combos + parent_key`` of every training row, from the
+    parent codes transposed, shape (n_features, n): the parent columns are
+    read whole, instead of a row of every attribute per training row."""
     n = y.shape[0]
     keys = np.empty(n, dtype=np.int64)
     for r in range(n):
-        key = 0
-        for q in range(parents.shape[0]):
-            key += pcodes[r, parents[q]] * strides[q]
-        keys[r] = y[r] * n_combos + key
+        keys[r] = y[r] * n_combos
+    for q in range(parents.shape[0]):
+        column, stride = pcodes_t[parents[q]], strides[q]
+        for r in range(n):
+            keys[r] += column[r] * stride
     return keys
 
 
@@ -185,18 +188,18 @@ def _state_index(keys, n_grid):
 
 
 @_Kernel
-def count_states(y, pcodes, parents, strides, n_combos, n_classes):
+def count_states(y, pcodes_t, parents, strides, n_combos, n_classes):
     """Number of augmented states observed in training by each component."""
     n_models = parents.shape[0]
     n_states = np.empty(n_models, dtype=np.int64)
     for m in nb.prange(n_models):
-        keys = _augmented_keys(y, pcodes, parents[m], strides[m], n_combos[m])
+        keys = _augmented_keys(y, pcodes_t, parents[m], strides[m], n_combos[m])
         n_states[m] = _state_index(keys, n_classes * n_combos[m])[0].shape[0]
     return n_states
 
 
 @_Kernel
-def index_states(y, pcodes, parents, strides, n_combos, n_classes, max_light):
+def index_states(y, pcodes_t, parents, strides, n_combos, n_classes, max_light):
     """Sizes of the tables of every component, shape (n_models, 3): its
     number of augmented states seen in training, of dense states (more than
     ``max_light`` training rows) and of training rows in its light states."""
@@ -204,7 +207,7 @@ def index_states(y, pcodes, parents, strides, n_combos, n_classes, max_light):
     n_models = parents.shape[0]
     sizes = np.zeros((n_models, 3), dtype=np.int64)
     for m in nb.prange(n_models):
-        keys = _augmented_keys(y, pcodes, parents[m], strides[m], n_combos[m])
+        keys = _augmented_keys(y, pcodes_t, parents[m], strides[m], n_combos[m])
         states, index = _state_index(keys, n_classes * n_combos[m])
         rows_of = np.zeros(states.shape[0], dtype=np.int64)
         for r in range(n):
@@ -221,7 +224,7 @@ def index_states(y, pcodes, parents, strides, n_combos, n_classes, max_light):
 @_Kernel
 def count_tables(
     y,
-    pcodes,
+    pcodes_t,
     codes,
     xg,
     parents,
@@ -237,6 +240,7 @@ def count_tables(
     doff,
     gidx,
     n_columns,
+    by_triples,
 ):
     """Sufficient statistics of every component.
 
@@ -247,7 +251,8 @@ def count_tables(
     the light states, and the mean and the (biased) variance of every
     Gaussian attribute per state. ``codes`` holds the value codes of the
     training rows. The columns of the parents of a component are left at
-    zero.
+    zero, and so are those of its discrete children when ``by_triples[m]``
+    (:func:`count_triples` counts them).
     """
     n = y.shape[0]
     n_models = parents.shape[0]
@@ -263,7 +268,7 @@ def count_tables(
     mean = np.zeros((n_total, n_gauss))
     var = np.zeros((n_total, n_gauss))
     for m in nb.prange(n_models):
-        keys = _augmented_keys(y, pcodes, parents[m], strides[m], n_combos[m])
+        keys = _augmented_keys(y, pcodes_t, parents[m], strides[m], n_combos[m])
         states, index = _state_index(keys, n_classes * n_combos[m])
         o = state_off[m]
         n_states = states.shape[0]
@@ -292,7 +297,7 @@ def count_tables(
         child = np.empty(attrs.shape[0], dtype=np.int64)
         n_child = 0
         q = 0
-        for a in range(attrs.shape[0]):
+        for a in range(0 if by_triples[m] else attrs.shape[0]):
             j = attrs[a]
             while q < n_dep and parents[m, q] < j:
                 q += 1
@@ -331,6 +336,94 @@ def count_tables(
             for s in range(o, o + n_states):
                 var[s, g] /= count[s]
     return keys_out, count, drow, loff, dense, rows, mean, var
+
+
+@_Kernel
+def count_triples(
+    codes_t,
+    y,
+    n_classes,
+    cards,
+    first,
+    second,
+    pair_group,
+    child_col,
+    smap,
+    moff,
+    max_cells,
+    dense,
+):
+    """Value counts of the discrete children of the components with two
+    parents, in the rows of their dense states, from one count of every
+    triple of attributes.
+
+    The attributes are those of ``codes_t``, shape (n_attrs, n), with
+    ``cards[i]`` values; ``pair_group[a, b]`` is the component of parents
+    ``a < b``, whose state ``(y * cards[a] + x_a) * cards[b] + x_b`` has its
+    dense row in ``smap[moff[pair_group[a, b]] + state]`` (-1 for a light or
+    unseen state), and ``child_col[c]`` is the column of the values of ``c``
+    as a child (-1 when it is not a discrete child). The counts
+    ``N(y, x_a, x_b, x_c)`` of the triple ``a < b < c`` give the children
+    ``c``, ``b`` and ``a`` of the components ``(a, b)``, ``(a, c)`` and
+    ``(b, c)``: one pass over the samples instead of three. A triple with
+    more than ``max_cells`` cells is counted into the dense rows directly.
+    The pairs ``(first[t], second[t])`` are processed in parallel; each
+    child column of a component belongs to a single triple.
+    """
+    n_attrs, n = codes_t.shape
+    for t in nb.prange(first.shape[0]):
+        a, b = first[t], second[t]
+        ca, cb = cards[a], cards[b]
+        xa, xb = codes_t[a], codes_t[b]
+        base = np.empty(n, dtype=np.int64)
+        for r in range(n):
+            base[r] = (y[r] * ca + xa[r]) * cb + xb[r]
+        cells = np.empty(max_cells, dtype=np.int64)
+        m_ab = moff[pair_group[a, b]]
+        for c in range(b + 1, n_attrs):
+            cc = cards[c]
+            xc = codes_t[c]
+            m_ac, m_bc = moff[pair_group[a, c]], moff[pair_group[b, c]]
+            col_a, col_b, col_c = child_col[a], child_col[b], child_col[c]
+            size = n_classes * ca * cb * cc
+            if size > max_cells:
+                for r in range(n):
+                    if col_c >= 0:
+                        row = smap[m_ab + base[r]]
+                        if row >= 0:
+                            dense[row, col_c + xc[r]] += 1.0
+                    if col_b >= 0:
+                        row = smap[m_ac + (y[r] * ca + xa[r]) * cc + xc[r]]
+                        if row >= 0:
+                            dense[row, col_b + xb[r]] += 1.0
+                    if col_a >= 0:
+                        row = smap[m_bc + (y[r] * cb + xb[r]) * cc + xc[r]]
+                        if row >= 0:
+                            dense[row, col_a + xa[r]] += 1.0
+                continue
+            counts = cells[:size]
+            counts[:] = 0
+            for r in range(n):
+                counts[base[r] * cc + xc[r]] += 1
+            # Cell ((y * ca + va) * cb + vb) * cc + vc
+            for k in range(n_classes):
+                for va in range(ca):
+                    for vb in range(cb):
+                        block = ((k * ca + va) * cb + vb) * cc
+                        if col_c >= 0:
+                            row = smap[m_ab + (k * ca + va) * cb + vb]
+                            if row >= 0:
+                                for vc in range(cc):
+                                    dense[row, col_c + vc] = counts[block + vc]
+                        for vc in range(cc):
+                            if col_b >= 0:
+                                row = smap[m_ac + (k * ca + va) * cc + vc]
+                                if row >= 0:
+                                    dense[row, col_b + vb] = counts[block + vc]
+                            if col_a >= 0:
+                                row = smap[m_bc + (k * cb + vb) * cc + vc]
+                                if row >= 0:
+                                    dense[row, col_a + va] = counts[block + vc]
 
 
 @_Kernel
@@ -1192,7 +1285,7 @@ def conditional_mutual_info(codes_t, y, cards, n_classes):
 @_Kernel
 def count_conditionals(
     y,
-    pcodes,
+    pcodes_t,
     codes,
     xg,
     parents,
@@ -1218,7 +1311,7 @@ def count_conditionals(
     mean = np.zeros(n_total)
     var = np.zeros(n_total)
     for m in nb.prange(n_factors):
-        keys = _augmented_keys(y, pcodes, parents[m], strides[m], n_combos[m])
+        keys = _augmented_keys(y, pcodes_t, parents[m], strides[m], n_combos[m])
         states, index = _state_index(keys, n_classes * n_combos[m])
         o = state_off[m]
         keys_out[o : o + states.shape[0]] = states

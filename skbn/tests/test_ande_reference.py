@@ -144,6 +144,23 @@ def test_constant_attributes_match_brute_force_reference(n_dependence, mean, min
     assert_allclose(model.predict_log_proba(X_test), expected, atol=1e-10)
 
 
+@pytest.mark.parametrize("mean", ["arithmetic", "geometric"])
+def test_dense_states_match_brute_force_reference(mean):
+    # Enough samples for states with more than 16 rows, whose children A2DE
+    # counts by triples of attributes: in a table of the triple when it has
+    # at most half as many cells as samples, else row by row
+    rng = np.random.RandomState(5)
+    cards = np.array([60, 2, 3, 2, 9, 9, 1])
+    X = np.column_stack([rng.randint(0, c, 800) for c in cards])
+    y = (X[:, 1] + X[:, 2] + X[:, 4] // 3 + rng.randint(0, 2, 800)) % 2
+    X_test = np.column_stack([rng.randint(0, c, 100) for c in cards])
+    model = AnDE(
+        n_dependence=2, mean=mean, categorical_features=list(range(X.shape[1]))
+    ).fit(X, y)
+    expected = _reference_ande(X, y, X_test, 2, mean, 1, cards=cards)
+    assert_allclose(model.predict_log_proba(X_test), expected, atol=1e-10)
+
+
 def test_min_count_drops_components_for_some_instances():
     """Guard for the test above: with ``min_count=3`` some test instances lose
     some (but not all) of their components, so the selection is exercised."""

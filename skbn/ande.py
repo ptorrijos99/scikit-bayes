@@ -68,6 +68,7 @@ from ._kernels import (
     _threads,
     component_scores,
     count_tables,
+    count_triples,
     dense_estimates,
     index_states,
     pooled_scores,
@@ -139,6 +140,62 @@ def _constant_parent_groups(
     rank = np.empty_like(order)
     rank[order] = np.arange(len(order))
     return rank[group.reshape(-1)], first[order], const
+
+
+def _triple_layout(
+    g_parents,
+    g_combos,
+    const,
+    parent_codes,
+    codes,
+    parent_cards,
+    cards,
+    multi,
+    doff,
+    n_classes,
+    n_samples,
+):
+    """Inputs of :func:`count_triples` for the components with two parents,
+    or None when the children cannot be counted by triples: a discrete child
+    whose parent codes differ from its child codes, or an index of the dense
+    rows by state larger than 2**25 entries.
+
+    Returns the mask of the components whose parents are not constant (their
+    discrete children are counted by triples), the parent codes of the
+    non-constant attributes transposed and their cardinalities, the pairs of
+    them that start a triple, the component of every pair and the column of
+    every one of them as a child (-1 when it is not a discrete child).
+    """
+    for j in multi:
+        if parent_cards[j] != cards[j] or not np.array_equal(
+            parent_codes[:, j], codes[:, j]
+        ):
+            return None
+    by_triples = ~const[g_parents].any(axis=1)
+    if not by_triples.any() or (n_classes * g_combos[by_triples]).sum() > 1 << 25:
+        return None
+    attrs = np.flatnonzero(~const)
+    n_attrs = len(attrs)
+    position = np.full(len(const), -1)
+    position[attrs] = np.arange(n_attrs)
+    pair_group = np.full((n_attrs, n_attrs), -1, dtype=np.int64)
+    own = np.flatnonzero(by_triples)
+    pair_group[position[g_parents[own, 0]], position[g_parents[own, 1]]] = own
+    first, second = np.triu_indices(n_attrs, 1)
+    keep = second < n_attrs - 1
+    child_col = np.full(n_attrs, -1, dtype=np.int64)
+    is_multi = np.zeros(len(const), dtype=bool)
+    is_multi[multi] = True
+    child_col[is_multi[attrs]] = doff[attrs[is_multi[attrs]]]
+    return (
+        by_triples,
+        np.ascontiguousarray(parent_codes[:, attrs].T),
+        parent_cards[attrs].astype(np.int64),
+        first[keep].astype(np.int64),
+        second[keep].astype(np.int64),
+        pair_group,
+        child_col,
+    )
 
 
 class _Ensemble(Sequence):
@@ -564,12 +621,35 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         n_groups = len(rep)
         g_parents, g_strides, g_combos = parents[rep], strides[rep], n_combos[rep]
 
+        # With two parents, the discrete children of the components whose
+        # parents are not constant are counted by triples of attributes
+        triples = None
+        if n_dep == 2:
+            triples = _triple_layout(
+                g_parents,
+                g_combos,
+                const,
+                parent_codes,
+                codes,
+                self._encoder.cards_,
+                cards,
+                multi,
+                doff,
+                n_classes,
+                n_samples,
+            )
+        by_triples = np.zeros(n_groups, dtype=bool)
+        if triples is not None:
+            by_triples = triples[0]
+
         xg = np.ascontiguousarray(X[:, types["gaussian"]], dtype=np.float64)
         y_int = y_int.astype(np.int64)
+        # The parent codes by attribute, read a column at a time
+        parent_codes_t = np.ascontiguousarray(parent_codes.T)
         with _threads(self.n_jobs):
             sizes = index_states(
                 y_int,
-                parent_codes,
+                parent_codes_t,
                 g_parents,
                 g_strides,
                 g_combos,
@@ -582,7 +662,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             )
             keys, count, drow, loff, dense, rows, mean, var = count_tables(
                 y_int,
-                parent_codes,
+                parent_codes_t,
                 codes,
                 xg,
                 g_parents,
@@ -598,7 +678,31 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
                 doff,
                 gidx,
                 n_columns,
+                by_triples,
             )
+            if triples is not None:
+                _, codes_t, ucards, first, second, pair_group, child_col = triples
+                grid = n_classes * g_combos * by_triples
+                moff = np.concatenate([[0], np.cumsum(grid)]).astype(np.int64)
+                smap = np.full(moff[-1], -1, dtype=np.int32)
+                state_group = np.repeat(np.arange(n_groups), sizes[:, 0])
+                own = by_triples[state_group]
+                smap[moff[state_group[own]] + keys[own]] = drow[own]
+                count_triples(
+                    codes_t,
+                    y_int,
+                    n_classes,
+                    ucards,
+                    first,
+                    second,
+                    pair_group,
+                    child_col,
+                    smap,
+                    moff,
+                    max(n_samples // 2, 1),
+                    dense,
+                )
+                del smap
         n_states = sizes[:, 0]
         comp = np.repeat(np.arange(n_groups), n_states)
 

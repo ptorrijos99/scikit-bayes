@@ -193,7 +193,8 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
 
         xg = np.ascontiguousarray(X[:, types["gaussian"]], dtype=np.float64)
         value_codes = self._value_codes(X)
-        n_states = count_states(y_idx, codes, pa, strides, n_combos, n_classes)
+        codes_t = np.ascontiguousarray(codes.T)
+        n_states = count_states(y_idx, codes_t, pa, strides, n_combos, n_classes)
         state_off = np.concatenate([[0], np.cumsum(n_states)]).astype(np.int64)
         child_cards = np.where(kind[children] == DISCRETE, cards[children], 0)
         disc_off = np.concatenate([[0], np.cumsum(n_states * child_cards)]).astype(
@@ -201,7 +202,7 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         )
         keys, count, disc, mean, var = count_conditionals(
             y_idx,
-            codes,
+            codes_t,
             value_codes,
             xg,
             pa,
