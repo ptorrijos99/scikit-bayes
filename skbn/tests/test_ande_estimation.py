@@ -449,6 +449,38 @@ def test_unseen_categorical_parent_value_deactivates_component():
     assert active[0, 1]
 
 
+@pytest.mark.parametrize("mean", MEANS)
+@pytest.mark.parametrize("unseen_state", ["laplace", "backoff"])
+def test_unseen_value_of_a_constant_parent_drops_only_its_components(
+    mean, unseen_state
+):
+    # Components whose parents differ only in constant attributes share their
+    # scores; an unseen value of one constant attribute leaves out only the
+    # components that have it as a parent
+    rng = np.random.RandomState(1)
+    X = np.column_stack(
+        [rng.randint(0, 3, 200), np.zeros(200), rng.randint(0, 4, 200), np.zeros(200)]
+    )
+    y = (X[:, 0] + X[:, 2] + rng.randint(0, 2, 200)) % 3
+    X_test = X[:40].copy()
+    X_test[::2, 1] = 5.0
+    X_test[::3, 3] = 6.0
+    model = AnDE(
+        n_dependence=2,
+        mean=mean,
+        unseen_state=unseen_state,
+        categorical_features=[0, 1, 2, 3],
+    ).fit(X, y)
+    jll, _, active, _ = model._get_jll_per_model(X_test)
+    assert (~active).any() and active.any(axis=1).all()
+    if mean == "geometric":
+        expected = np.where(active[:, None], jll, 0.0).sum(2) / active.sum(1)[:, None]
+    else:
+        expected = logsumexp(np.where(active[:, None], jll, -np.inf), axis=2)
+    expected -= logsumexp(expected, axis=1, keepdims=True)
+    np.testing.assert_allclose(model.predict_log_proba(X_test), expected, atol=1e-10)
+
+
 @pytest.mark.parametrize("Estimator", [AnDE, WeightedAnDE, GaussianAnJE, GaussianALR])
 @pytest.mark.parametrize("n_dependence", [-1, 1.5, 3])
 def test_invalid_n_dependence_raises(Estimator, n_dependence):

@@ -2,10 +2,13 @@
 
 Every SPnDE is a Naive Bayes model on the augmented class ``Y* = (y, x_p)``.
 Its parameters are stored per augmented state observed in training, in flat
-tables shared by all the components of the ensemble:
+tables shared by all the components of the ensemble. The components that
+differ only in which constant attributes (``const``: one value as parents, no
+information as children) are among their parents have the same parameters,
+stored once for their group ``g = group[m]``:
 
 - ``state_keys[s]``: the key ``y * n_combos + parent_key`` of state ``s``; the
-  states of component ``m`` are ``state_off[m]:state_off[m + 1]``, sorted.
+  states of group ``g`` are ``state_off[g]:state_off[g + 1]``, sorted.
   ``count[s]`` is its number of training rows.
 - ``log P(x_j = v | s)`` of a discrete attribute ``j`` (categorical, or
   Bernoulli with values 0 and 1), with ``-inf`` replaced by ``LOG_ZERO``. A
@@ -399,16 +402,19 @@ def _count_hits(s, count, loff, rows, tcodes, sample, hits):
 
 
 @nb.njit(cache=True, inline="always")
-def _parent_state(r, m, pcodes, punseen, parents, strides, pk_off, pk_keys, pk_count):
-    """Parent key of component ``m`` for row ``r`` and the training frequency
-    of that parent instantiation (0 when a parent value was never seen)."""
+def _parent_state(
+    r, m, g, pcodes, punseen, parents, strides, pk_off, pk_keys, pk_count, skip
+):
+    """Parent key of component ``m`` (of group ``g``) for row ``r`` and the
+    training frequency of that parent instantiation (0 when the value of a
+    parent ``p`` with ``not skip[p]`` was never seen)."""
     key = 0
     unseen = False
     for q in range(parents.shape[1]):
         p = parents[m, q]
         key += pcodes[r, p] * strides[m, q]
-        unseen |= punseen[r, p]
-    pos = _find(pk_keys, pk_off[m], pk_off[m + 1], key)
+        unseen |= punseen[r, p] and not skip[p]
+    pos = _find(pk_keys, pk_off[g], pk_off[g + 1], key)
     freq = 0.0 if (pos < 0 or unseen) else pk_count[pos]
     return key, freq
 
@@ -423,6 +429,9 @@ def component_scores(
     parents,
     strides,
     n_combos,
+    group,
+    rep,
+    const,
     state_off,
     state_keys,
     root,
@@ -469,22 +478,34 @@ def component_scores(
     out = np.zeros((n, n_classes, n_models, n_factors))
     active = np.empty((n, n_models), dtype=np.bool_)
     nb_jll = np.zeros((n, n_classes))
+    no_skip = np.zeros(n_features, dtype=np.bool_)
     n_blocks = (n + _BLOCK_ROWS - 1) // _BLOCK_ROWS
     for b in nb.prange(n_blocks):
         lo, hi = b * _BLOCK_ROWS, min(n, (b + 1) * _BLOCK_ROWS)
         sample_codes, hits = _light_buffers(codes, lo, hi, attrs, dcol, tcodes)
         for m in range(n_models):
+            grp_m = group[m]
             for r in range(lo, hi):
                 key, freq = _parent_state(
-                    r, m, pcodes, punseen, parents, strides, pk_off, pk_keys, pk_count
+                    r,
+                    m,
+                    grp_m,
+                    pcodes,
+                    punseen,
+                    parents,
+                    strides,
+                    pk_off,
+                    pk_keys,
+                    pk_count,
+                    no_skip,
                 )
                 act = freq >= min_count or n_dep == 0
                 active[r, m] = act
                 for c in range(n_classes):
                     s = _find(
                         state_keys,
-                        state_off[m],
-                        state_off[m + 1],
+                        state_off[grp_m],
+                        state_off[grp_m + 1],
                         c * n_combos[m] + key,
                     )
                     if s >= 0:
@@ -521,7 +542,7 @@ def component_scores(
                         if not per_factor:
                             out[r, c, m, 0] = total
                     elif act:
-                        total = log_prior_unseen[m]
+                        total = log_prior_unseen[grp_m]
                         out[r, c, m, 0] = total
                         q = 0
                         for j in range(n_features):
@@ -573,6 +594,9 @@ def pooled_scores(
     parents,
     strides,
     n_combos,
+    group,
+    rep,
+    const,
     state_off,
     state_keys,
     root,
@@ -610,32 +634,53 @@ def pooled_scores(
     ``mean_m log P_m(y, x)``, over the active components; samples with no
     active component get the Naive Bayes joint. Equals pooling the output of
     :func:`component_scores` without materialising it.
+
+    The components of a group (``group[m]``) differ only in which attributes
+    with a single value (``const``) are among their parents, and give the
+    same score to every sample. The score is computed once per group, by its
+    first component ``rep[g]``, and pooled for every component, in their
+    order; a component is left out of the pool of a sample whose value of
+    one of its constant parents was never seen.
     """
     n, n_features = codes.shape
     n_models, n_dep = parents.shape
+    n_groups = rep.shape[0]
     n_classes = b_root.shape[0]
     scores = np.empty((n, n_classes))
-    n_blocks = (n + _BLOCK_ROWS - 1) // _BLOCK_ROWS
+    # Samples per block, so that the scores of the groups stay within 32 MB
+    block = max(1, min(_BLOCK_ROWS, (1 << 22) // (n_groups * n_classes)))
+    n_blocks = (n + block - 1) // block
     for b in nb.prange(n_blocks):
-        lo, hi = b * _BLOCK_ROWS, min(n, (b + 1) * _BLOCK_ROWS)
-        peak = np.full((hi - lo, n_classes), -np.inf)
-        acc = np.zeros((hi - lo, n_classes))
-        n_active = np.zeros(hi - lo, dtype=np.int64)
+        lo, hi = b * block, min(n, (b + 1) * block)
+        group_score = np.empty((n_groups, hi - lo, n_classes))
+        group_active = np.empty((n_groups, hi - lo), dtype=np.bool_)
         sample_codes, hits = _light_buffers(codes, lo, hi, attrs, dcol, tcodes)
-        for m in range(n_models):
+        for grp_m in range(n_groups):
+            m = rep[grp_m]
             for r in range(lo, hi):
-                key, freq = _parent_state(
-                    r, m, pcodes, punseen, parents, strides, pk_off, pk_keys, pk_count
-                )
-                if not (freq >= min_count or n_dep == 0):
-                    continue
                 i = r - lo
-                n_active[i] += 1
+                key, freq = _parent_state(
+                    r,
+                    m,
+                    grp_m,
+                    pcodes,
+                    punseen,
+                    parents,
+                    strides,
+                    pk_off,
+                    pk_keys,
+                    pk_count,
+                    const,
+                )
+                act = freq >= min_count or n_dep == 0
+                group_active[grp_m, i] = act
+                if not act:
+                    continue
                 for c in range(n_classes):
                     s = _find(
                         state_keys,
-                        state_off[m],
-                        state_off[m + 1],
+                        state_off[grp_m],
+                        state_off[grp_m + 1],
                         c * n_combos[m] + key,
                     )
                     q = 0
@@ -664,7 +709,9 @@ def pooled_scores(
                                 g = gidx[j]
                                 total += _gaussian_ll(xg[r, g], mean[s, g], var[s, g])
                     else:
-                        total = log_prior_unseen[m]
+                        # The attributes with a single value add exactly 0 as
+                        # children, so every component of the group gets this
+                        total = log_prior_unseen[grp_m]
                         for j in range(n_features):
                             if q < n_dep and parents[m, q] == j:
                                 q += 1
@@ -684,6 +731,24 @@ def pooled_scores(
                                 )
                             else:
                                 total += uninf[r, j]
+                    group_score[grp_m, i, c] = total
+        peak = np.full((hi - lo, n_classes), -np.inf)
+        acc = np.zeros((hi - lo, n_classes))
+        n_active = np.zeros(hi - lo, dtype=np.int64)
+        for m in range(n_models):
+            grp_m = group[m]
+            for r in range(lo, hi):
+                i = r - lo
+                if not group_active[grp_m, i]:
+                    continue
+                unseen = False
+                for q in range(n_dep):
+                    unseen |= const[parents[m, q]] and punseen[r, parents[m, q]]
+                if unseen:
+                    continue
+                n_active[i] += 1
+                for c in range(n_classes):
+                    total = group_score[grp_m, i, c]
                     if geometric:
                         acc[i, c] += total
                     elif total > peak[i, c]:

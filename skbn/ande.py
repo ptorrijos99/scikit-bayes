@@ -112,6 +112,34 @@ def _parent_frequencies(keys, count, n_combos, state_off):
     return offsets.astype(np.int64), pkeys[starts], freq
 
 
+def _constant_parent_groups(
+    parents, parent_cards, informative, b_disc, kind, voff, cards
+):
+    """Groups of the components that differ only in which constant attributes
+    are among their parents: those with a single value as parents, none as
+    children (``informative`` is False) and a back-off estimate of exactly 0.
+    Such an attribute adds exactly 0 to every score, and is 0 in the parent
+    key of every training row.
+
+    Returns the group of every component, the first component of every group
+    (groups in the order of their first component) and the mask of constant
+    attributes.
+    """
+    n_models = len(parents)
+    const = (parent_cards == 1) & ~informative
+    for j in np.flatnonzero(const & (kind == DISCRETE)):
+        const[j] = not b_disc[:, voff[j] : voff[j] + cards[j]].any()
+    if parents.shape[1] == 0 or not const[parents].any():
+        return np.arange(n_models), np.arange(n_models), const
+    canon = np.where(const[parents], -1, parents)
+    canon.sort(axis=1)
+    _, first, group = np.unique(canon, axis=0, return_index=True, return_inverse=True)
+    order = np.argsort(first)
+    rank = np.empty_like(order)
+    rank[order] = np.arange(len(order))
+    return rank[group.reshape(-1)], first[order], const
+
+
 class _Ensemble(Sequence):
     """The ``ensemble_`` of a fitted AnDE: a read-only sequence with the dict
     of every component, built when it is accessed. A list of dicts would hold
@@ -503,7 +531,6 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             parents = np.array(list(combinations(range(d), n_dep)), dtype=np.int64)
         else:
             parents = np.zeros((1, 0), dtype=np.int64)
-        n_models = len(parents)
         parent_cards = self._encoder.cards_[parents]
         if n_classes * np.prod(parent_cards.astype(float), axis=1).max() >= 2**62:
             raise ValueError(
@@ -524,12 +551,29 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         doff[multi] = np.cumsum(cards[multi]) - cards[multi]
         n_columns = int(cards[multi].sum())
         group_cards, grp = np.unique(cards, return_inverse=True)
+        backoff = self._backoff_tables(kind, voff, cards, int(cards.sum()))
+
+        # Components that differ only in which attributes with a single value
+        # (as parents and as children) are among their parents have the same
+        # tables and scores: each group of them is counted once, for its
+        # first component
+        group, rep, const = _constant_parent_groups(
+            parents, self._encoder.cards_, informative, backoff[1], kind, voff, cards
+        )
+        n_groups = len(rep)
+        g_parents, g_strides, g_combos = parents[rep], strides[rep], n_combos[rep]
 
         xg = np.ascontiguousarray(X[:, types["gaussian"]], dtype=np.float64)
         y_int = y_int.astype(np.int64)
         with _threads(self.n_jobs):
             sizes = index_states(
-                y_int, parent_codes, parents, strides, n_combos, n_classes, _MAX_LIGHT
+                y_int,
+                parent_codes,
+                g_parents,
+                g_strides,
+                g_combos,
+                n_classes,
+                _MAX_LIGHT,
             )
             state_off, dense_off, light_off = (
                 np.concatenate([[0], np.cumsum(sizes[:, k])]).astype(np.int64)
@@ -540,9 +584,9 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
                 parent_codes,
                 codes,
                 xg,
-                parents,
-                strides,
-                n_combos,
+                g_parents,
+                g_strides,
+                g_combos,
                 n_classes,
                 _MAX_LIGHT,
                 state_off,
@@ -555,18 +599,18 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
                 n_columns,
             )
         n_states = sizes[:, 0]
-        comp = np.repeat(np.arange(n_models), n_states)
+        comp = np.repeat(np.arange(n_groups), n_states)
 
         # Root P(y, x_p), Laplace-smoothed over the full grid of augmented
         # states; without parents the component is Naive Bayes (MLE prior)
         if n_dep:
-            denom = n_samples + alpha * n_classes * n_combos
+            denom = n_samples + alpha * n_classes * g_combos
             root = np.log((count + alpha) / denom[comp])
             with np.errstate(divide="ignore"):
                 log_prior_unseen = np.log(alpha / denom)
         else:
             root = np.log(count / count.sum())
-            log_prior_unseen = np.full(n_models, -np.inf)
+            log_prior_unseen = np.full(n_groups, -np.inf)
 
         # Discrete children: log((N(s, v) + alpha) / (N(s) + alpha * card)), in
         # the rows of the dense states and, for the light ones, in a table
@@ -595,8 +639,8 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         # variance when the component has parents
         if xg.shape[1]:
             pooled = np.var(xg, axis=0)
-            is_parent = np.zeros((n_models, d), dtype=bool)
-            is_parent[np.arange(n_models)[:, None], parents] = True
+            is_parent = np.zeros((n_groups, d), dtype=bool)
+            is_parent[np.arange(n_groups)[:, None], g_parents] = True
             child_var = np.where(is_parent[:, types["gaussian"]], -np.inf, pooled)
             epsilon = _VAR_SMOOTHING * np.maximum(child_var.max(axis=1), 0.0)[comp]
             var += epsilon[:, None]
@@ -606,12 +650,15 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
                 var = (n_c * var + nu * (pooled + epsilon[:, None])) / (n_c + nu)
 
         pk_off, pk_keys, pk_count = _parent_frequencies(
-            keys, count, n_combos, state_off
+            keys, count, g_combos, state_off
         )
         self._tables = (
             parents,
             strides,
             n_combos,
+            group,
+            rep,
+            const,
             state_off,
             keys,
             root,
@@ -628,7 +675,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             pk_keys,
             pk_count,
             log_prior_unseen,
-            *self._backoff_tables(kind, voff, cards, int(cards.sum())),
+            *backoff,
             kind,
             voff,
             gidx,
@@ -638,7 +685,13 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             grp.astype(np.int64),
         )
         self.ensemble_ = _Ensemble(
-            parents, n_combos, parent_cards, strides, n_states, log_prior_unseen, d
+            parents,
+            n_combos,
+            parent_cards,
+            strides,
+            n_states[group],
+            log_prior_unseen[group],
+            d,
         )
 
     def _parent_keys(self, X_parents_disc):

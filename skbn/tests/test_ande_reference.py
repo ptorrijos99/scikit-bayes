@@ -123,6 +123,27 @@ def test_large_state_grids_match_brute_force_reference(mean):
     assert_allclose(model.predict_log_proba(X_test), expected, atol=1e-10)
 
 
+@pytest.mark.parametrize("n_dependence", [1, 2, 3])
+@pytest.mark.parametrize("mean", ["arithmetic", "geometric"])
+@pytest.mark.parametrize("min_count", [1, 3])
+def test_constant_attributes_match_brute_force_reference(n_dependence, mean, min_count):
+    # The components whose parents differ only in attributes with a single
+    # value share their tables and scores, but each one is pooled
+    rng = np.random.RandomState(7)
+    cards = np.array([3, 1, 4, 1, 3, 1])
+    X = np.column_stack([rng.randint(0, c, 150) for c in cards])
+    y = (X[:, 0] + X[:, 2] + rng.randint(0, 3, 150)) % 3
+    X_test = np.column_stack([rng.randint(0, c, 200) for c in cards])
+    model = AnDE(
+        n_dependence=n_dependence,
+        mean=mean,
+        min_parent_count=min_count,
+        categorical_features=list(range(X.shape[1])),
+    ).fit(X, y)
+    expected = _reference_ande(X, y, X_test, n_dependence, mean, min_count, cards=cards)
+    assert_allclose(model.predict_log_proba(X_test), expected, atol=1e-10)
+
+
 def test_min_count_drops_components_for_some_instances():
     """Guard for the test above: with ``min_count=3`` some test instances lose
     some (but not all) of their components, so the selection is exercised."""
