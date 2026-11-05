@@ -297,13 +297,16 @@ def count_tables(
                 continue
             child[n_child] = j
             n_child += 1
+        offset = np.empty(n_child, dtype=np.int64)
+        for t in range(n_child):
+            offset[t] = doff[child[t]]
         for r in range(n):
             if row_dense[r] < 0:
                 continue
             row = dense[row_dense[r]]
+            sample = codes[r]
             for t in range(n_child):
-                j = child[t]
-                row[doff[j] + codes[r, j]] += 1.0
+                row[offset[t] + sample[child[t]]] += 1.0
         if n_gauss == 0:
             continue
         # Gaussian children of every state
@@ -716,8 +719,14 @@ def join_cells_seen(codes_t, joins, strides, join_off, n_keys):
     seen[0] = True
     n = codes_t.shape[1]
     for j in nb.prange(joins.shape[0]):  # joins own disjoint keys
-        for r in range(n):
-            seen[_join_key(codes_t, r, j, joins, strides, join_off)] = True
+        if joins.shape[1] == 2:
+            first, second = codes_t[joins[j, 0]], codes_t[joins[j, 1]]
+            s0, s1, off = strides[j, 0], strides[j, 1], join_off[j]
+            for r in range(n):
+                seen[off + first[r] * s0 + second[r] * s1] = True
+        else:
+            for r in range(n):
+                seen[_join_key(codes_t, r, j, joins, strides, join_off)] = True
     return seen
 
 
@@ -729,9 +738,19 @@ def join_key_counts(codes_t, y, joins, strides, join_off, n_keys, n_classes):
     counts = np.zeros((n_keys, n_classes), dtype=np.int32)
     for r in range(n):
         counts[0, y[r]] += 1
+    flat = counts.reshape(-1)
     for j in nb.prange(joins.shape[0]):  # joins own disjoint keys
-        for r in range(n):
-            counts[_join_key(codes_t, r, j, joins, strides, join_off), y[r]] += 1
+        # The constants of the join read once (pairs, the common case, have
+        # their own loop): about three times faster than reading them per row
+        if joins.shape[1] == 2:
+            first, second = codes_t[joins[j, 0]], codes_t[joins[j, 1]]
+            s0, s1, off = strides[j, 0], strides[j, 1], join_off[j]
+            for r in range(n):
+                flat[(off + first[r] * s0 + second[r] * s1) * n_classes + y[r]] += 1
+        else:
+            for r in range(n):
+                key = _join_key(codes_t, r, j, joins, strides, join_off)
+                flat[key * n_classes + y[r]] += 1
     return counts
 
 
@@ -758,9 +777,16 @@ def join_counts(
     for r in range(n):
         counts[0, y[r]] += 1.0
     for j in nb.prange(n_joins):  # joins own disjoint rows
-        for r in range(n):
-            key = _join_key(codes_t, r, j, joins, strides, join_off)
-            counts[_join_row(key, j, row_of_cell, cell_keys), y[r]] += 1.0
+        if joins.shape[1] == 2:
+            first, second = codes_t[joins[j, 0]], codes_t[joins[j, 1]]
+            s0, s1, off = strides[j, 0], strides[j, 1], join_off[j]
+            for r in range(n):
+                key = off + first[r] * s0 + second[r] * s1
+                counts[_join_row(key, j, row_of_cell, cell_keys), y[r]] += 1.0
+        else:
+            for r in range(n):
+                key = _join_key(codes_t, r, j, joins, strides, join_off)
+                counts[_join_row(key, j, row_of_cell, cell_keys), y[r]] += 1.0
     return counts
 
 
