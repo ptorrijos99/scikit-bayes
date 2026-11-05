@@ -53,6 +53,7 @@ from ._kernels import (
     _threads,
     join_cells_seen,
     join_counts,
+    join_key_counts,
     join_keys,
     join_objective,
     join_rows,
@@ -63,6 +64,10 @@ from .ande import WeightedAnDE, _BaseAnDE, _geometric_scores
 # Key spaces of the n-joins up to this size map keys to table rows with a
 # dense array (4 bytes per key); larger ones use a binary search
 _MAX_DENSE_KEYS = 1 << 26
+
+# Key spaces with at most this many keys times classes are counted in one
+# pass, into a dense array (4 bytes per key and class)
+_MAX_KEY_COUNTS = 1 << 24
 
 # ALR keeps the table rows of the training samples (4 bytes per sample and
 # join) when there are at most this many of them
@@ -267,11 +272,17 @@ class AnJE(ClassifierMixin, BaseEstimator):
         joins = (self.joins_, self._join_strides, self._join_offsets)
         n_joins = len(self.joins_)
         with _threads(self.n_jobs):
-            # A dense map from keys to rows when it fits, else a binary search
-            if n_keys <= _MAX_DENSE_KEYS:
+            key_counts = None
+            if n_keys * n_classes <= _MAX_KEY_COUNTS:
+                # The counts of every key in one pass give the cells seen
+                key_counts = join_key_counts(codes_t, y_idx, *joins, n_keys, n_classes)
+                self._cell_keys = np.flatnonzero(key_counts.any(axis=1))
+            elif n_keys <= _MAX_DENSE_KEYS:
                 self._cell_keys = np.flatnonzero(
                     join_cells_seen(codes_t, *joins, n_keys)
                 )
+            # A dense map from keys to rows when it fits, else a binary search
+            if n_keys <= _MAX_DENSE_KEYS:
                 n_seen = len(self._cell_keys)
                 self._row_of_cell = np.concatenate(
                     [[0], np.repeat(n_seen + np.arange(n_joins), sizes)]
@@ -291,7 +302,11 @@ class AnJE(ClassifierMixin, BaseEstimator):
             )
 
             # --- m-estimates (row 0 counts the classes: every sample is in it) ---
-            counts = join_counts(codes_t, y_idx, *self._cell_args(), n_classes)
+            if key_counts is None:
+                counts = join_counts(codes_t, y_idx, *self._cell_args(), n_classes)
+            else:
+                counts = np.zeros((self._n_rows, n_classes))
+                counts[: len(self._cell_keys)] = key_counts[self._cell_keys]
         class_counts = counts[0]
         m = self.alpha
         n_cells = self._encoder.cards_[self.joins_].prod(axis=1)  # |X_alpha|

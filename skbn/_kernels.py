@@ -722,6 +722,20 @@ def join_cells_seen(codes_t, joins, strides, join_off, n_keys):
 
 
 @_Kernel
+def join_key_counts(codes_t, y, joins, strides, join_off, n_keys, n_classes):
+    """Training count of every key and class, shape (n_keys, n_classes); key 0
+    (the class prior) counts every sample."""
+    n = codes_t.shape[1]
+    counts = np.zeros((n_keys, n_classes), dtype=np.int32)
+    for r in range(n):
+        counts[0, y[r]] += 1
+    for j in nb.prange(joins.shape[0]):  # joins own disjoint keys
+        for r in range(n):
+            counts[_join_key(codes_t, r, j, joins, strides, join_off), y[r]] += 1
+    return counts
+
+
+@_Kernel
 def join_keys(codes_t, joins, strides, join_off):
     """Key of every sample and join, shape (n, n_joins)."""
     n = codes_t.shape[1]
@@ -752,12 +766,13 @@ def join_counts(
 
 @nb.njit(cache=True, inline="always")
 def _block_rows(
-    lo, hi, codes_t, joins, strides, join_off, row_of_cell, cell_keys, rows
+    lo, hi, j0, j1, codes_t, joins, strides, join_off, row_of_cell, cell_keys, rows
 ):
-    """Table row of every join (axis 0) for the samples ``lo:hi`` (axis 1)."""
+    """Table row of the joins ``j0:j1`` (axis 0, from 0) for the samples
+    ``lo:hi`` (axis 1)."""
     m = hi - lo
-    for j in range(joins.shape[0]):
-        keys = rows[j, :m]
+    for j in range(j0, j1):
+        keys = rows[j - j0, :m]
         keys[:] = join_off[j]
         for q in range(joins.shape[1]):
             a, s = joins[j, q], strides[j, q]
@@ -791,8 +806,8 @@ def _block_scores(rows, off, m, table):
 @nb.njit(cache=True)
 def _block_size(n_joins):
     """Samples per block of :func:`_block_rows`, so that its buffer of
-    ``n_joins`` rows per sample stays within about a million entries."""
-    return max(1, min(_BLOCK_ROWS, (1 << 20) // max(n_joins, 1)))
+    ``n_joins`` rows per sample stays within about four million entries (32 MB)."""
+    return max(1, min(_BLOCK_ROWS, (1 << 22) // max(n_joins, 1)))
 
 
 @_Kernel
@@ -809,7 +824,17 @@ def join_rows(codes_t, joins, strides, join_off, row_of_cell, cell_keys, by_samp
         lo, hi = b * block, min(n, (b + 1) * block)
         buf = np.empty((n_joins, block), dtype=np.int64)
         _block_rows(
-            lo, hi, codes_t, joins, strides, join_off, row_of_cell, cell_keys, buf
+            lo,
+            hi,
+            0,
+            n_joins,
+            codes_t,
+            joins,
+            strides,
+            join_off,
+            row_of_cell,
+            cell_keys,
+            buf,
         )
         for j in range(n_joins):
             for i in range(hi - lo):
@@ -823,18 +848,40 @@ def join_rows(codes_t, joins, strides, join_off, row_of_cell, cell_keys, by_samp
 @_Kernel
 def join_scores(codes_t, joins, strides, join_off, row_of_cell, cell_keys, table):
     """Score of every sample and class: the sum of the table rows of its
-    cells, shape (n, n_classes)."""
+    cells, shape (n, n_classes). Blocks of samples go over the joins in
+    chunks, so that the buffer of their rows stays within 32 MB."""
     n = codes_t.shape[1]
-    scores = np.empty((n, table.shape[1]))
-    block = _block_size(joins.shape[0])
-    n_blocks = (n + block - 1) // block
+    n_joins = joins.shape[0]
+    n_classes = table.shape[1]
+    scores = np.empty((n, n_classes))
+    chunk = max(1, min(n_joins, (1 << 22) // _BLOCK_ROWS))
+    n_blocks = (n + _BLOCK_ROWS - 1) // _BLOCK_ROWS
     for b in nb.prange(n_blocks):
-        lo, hi = b * block, min(n, (b + 1) * block)
-        buf = np.empty((joins.shape[0], block), dtype=np.int64)
-        _block_rows(
-            lo, hi, codes_t, joins, strides, join_off, row_of_cell, cell_keys, buf
-        )
-        scores[lo:hi] = _block_scores(buf, 0, hi - lo, table)
+        lo, hi = b * _BLOCK_ROWS, min(n, (b + 1) * _BLOCK_ROWS)
+        buf = np.empty((chunk, _BLOCK_ROWS), dtype=np.int64)
+        for i in range(lo, hi):
+            for c in range(n_classes):
+                scores[i, c] = table[0, c]
+        for j0 in range(0, n_joins, chunk):
+            j1 = min(n_joins, j0 + chunk)
+            _block_rows(
+                lo,
+                hi,
+                j0,
+                j1,
+                codes_t,
+                joins,
+                strides,
+                join_off,
+                row_of_cell,
+                cell_keys,
+                buf,
+            )
+            for j in range(j1 - j0):
+                for i in range(hi - lo):
+                    row = buf[j, i]
+                    for c in range(n_classes):
+                        scores[lo + i, c] += table[row, c]
     return scores
 
 
@@ -886,6 +933,8 @@ def join_objective(
                 _block_rows(
                     lo,
                     hi,
+                    0,
+                    n_joins,
                     codes_t,
                     joins,
                     strides,
