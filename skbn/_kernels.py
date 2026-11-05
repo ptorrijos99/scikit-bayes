@@ -6,15 +6,26 @@ tables shared by all the components of the ensemble:
 
 - ``state_keys[s]``: the key ``y * n_combos + parent_key`` of state ``s``; the
   states of component ``m`` are ``state_off[m]:state_off[m + 1]``, sorted.
-- ``disc[s, voff[j] + v]``: ``log P(x_j = v | s)`` of a discrete attribute
-  ``j`` (categorical, or Bernoulli with values 0 and 1), with ``-inf``
-  replaced by ``LOG_ZERO``.
+  ``count[s]`` is its number of training rows.
+- ``log P(x_j = v | s)`` of a discrete attribute ``j`` (categorical, or
+  Bernoulli with values 0 and 1), with ``-inf`` replaced by ``LOG_ZERO``. A
+  dense state (more than ``_MAX_LIGHT`` training rows) keeps it in its row
+  ``drow[s]`` of ``dense``, at column ``doff[j] + v``. A light state keeps
+  only its training rows, ``rows[loff[s]:loff[s] + count[s]]``: the number
+  ``k`` of them with ``x_j = v`` (from the training codes ``tcodes``, column
+  ``dcol[j]``) gives the estimate ``lut[count[s], grp[j], k]``, where
+  ``grp[j]`` indexes the cardinality of ``j``. Most states of high-order or
+  high-cardinality ensembles have a few rows, and a dense row per state
+  would cost far more memory.
 - ``mean[s, g]`` and ``var[s, g]``: the Gaussian of continuous attribute ``g``.
 
 ``kind[j]`` gives the type of attribute ``j`` (``IGNORED``, ``DISCRETE`` or
-``GAUSSIAN``), ``voff[j]`` its offset in the rows of ``disc`` and ``gidx[j]``
-its column in ``mean`` and ``var``. A discrete code of -1 marks a value never
-seen in training, which contributes nothing.
+``GAUSSIAN``) and ``gidx[j]`` its column in ``mean`` and ``var``; ``attrs``
+lists the attributes that can contribute as children (the Gaussian ones and
+the discrete ones with more than one value; a single value has probability
+1). The class-level back-off tables keep every discrete value, at
+``voff[j] + v``. A discrete code of -1 marks a value never seen in training,
+which contributes nothing.
 """
 
 # Authors: scikit-bayes developers
@@ -39,6 +50,10 @@ _FLOAT_MAX = np.finfo(np.float64).max
 # Augmented-state grids up to this many cells per training row are indexed
 # with a dense array; larger ones are sorted.
 _DENSE_CELLS_PER_ROW = 4
+
+# Augmented states with up to this many training rows keep the rows instead of
+# a dense row of estimates
+_MAX_LIGHT = 16
 
 # Samples evaluated together, component by component, so that the tables of
 # a component stay in cache while the block is evaluated
@@ -178,6 +193,29 @@ def count_states(y, pcodes, parents, strides, n_combos, n_classes):
 
 
 @_Kernel
+def index_states(y, pcodes, parents, strides, n_combos, n_classes, max_light):
+    """Sizes of the tables of every component, shape (n_models, 3): its
+    number of augmented states seen in training, of dense states (more than
+    ``max_light`` training rows) and of training rows in its light states."""
+    n = y.shape[0]
+    n_models = parents.shape[0]
+    sizes = np.zeros((n_models, 3), dtype=np.int64)
+    for m in nb.prange(n_models):
+        keys = _augmented_keys(y, pcodes, parents[m], strides[m], n_combos[m])
+        states, index = _state_index(keys, n_classes * n_combos[m])
+        rows_of = np.zeros(states.shape[0], dtype=np.int64)
+        for r in range(n):
+            rows_of[index[r]] += 1
+        sizes[m, 0] = states.shape[0]
+        for s in range(states.shape[0]):
+            if rows_of[s] > max_light:
+                sizes[m, 1] += 1
+            else:
+                sizes[m, 2] += rows_of[s]
+    return sizes
+
+
+@_Kernel
 def count_tables(
     y,
     pcodes,
@@ -185,59 +223,108 @@ def count_tables(
     xg,
     parents,
     strides,
-    children,
     n_combos,
     n_classes,
+    max_light,
     state_off,
+    dense_off,
+    light_off,
+    attrs,
     kind,
-    voff,
+    doff,
     gidx,
-    n_values,
+    n_columns,
 ):
     """Sufficient statistics of every component.
 
     Returns the state keys, the number of training rows of every state, the
-    counts of every discrete value per state, and the mean and the (biased)
-    variance of every Gaussian attribute per state. The rows of the parents
-    of a component are left at zero.
+    dense row of every state (-1 for a light one) and the offset of its
+    training rows in ``rows`` (-1 for a dense one), the value counts of the
+    dense states (``n_columns`` columns, see ``doff``), the training rows of
+    the light states, and the mean and the (biased) variance of every
+    Gaussian attribute per state. ``codes`` holds the value codes of the
+    training rows. The columns of the parents of a component are left at
+    zero.
     """
-    n = codes.shape[0]
+    n = y.shape[0]
     n_models = parents.shape[0]
+    n_dep = parents.shape[1]
     n_total = state_off[n_models]
     n_gauss = xg.shape[1]
     keys_out = np.empty(n_total, dtype=np.int64)
     count = np.zeros(n_total)
-    disc = np.zeros((n_total, n_values))
+    drow = np.empty(n_total, dtype=np.int64)
+    loff = np.empty(n_total, dtype=np.int64)
+    dense = np.zeros((dense_off[n_models], n_columns))
+    rows = np.empty(light_off[n_models], dtype=np.int32)
     mean = np.zeros((n_total, n_gauss))
     var = np.zeros((n_total, n_gauss))
     for m in nb.prange(n_models):
         keys = _augmented_keys(y, pcodes, parents[m], strides[m], n_combos[m])
         states, index = _state_index(keys, n_classes * n_combos[m])
         o = state_off[m]
-        keys_out[o : o + states.shape[0]] = states
+        n_states = states.shape[0]
+        keys_out[o : o + n_states] = states
+        for r in range(n):
+            count[o + index[r]] += 1.0
+        next_dense, next_light = dense_off[m], light_off[m]
+        for s in range(o, o + n_states):
+            if count[s] > max_light:
+                drow[s], loff[s] = next_dense, -1
+                next_dense += 1
+            else:
+                drow[s], loff[s] = -1, next_light
+                next_light += int(count[s])
+        # Training rows of the light states, in row order; dense row of every
+        # training row (-1 when its state is light)
+        filled = np.zeros(n_states, dtype=np.int64)
+        row_dense = np.empty(n, dtype=np.int64)
         for r in range(n):
             s = o + index[r]
-            count[s] += 1.0
-            for j in children[m]:
-                if kind[j] == DISCRETE:
-                    disc[s, voff[j] + codes[r, j]] += 1.0
-                elif kind[j] == GAUSSIAN:
-                    mean[s, gidx[j]] += xg[r, gidx[j]]
+            row_dense[r] = drow[s]
+            if drow[s] < 0:
+                rows[loff[s] + filled[index[r]]] = r
+                filled[index[r]] += 1
+        # Discrete children of the dense states
+        child = np.empty(attrs.shape[0], dtype=np.int64)
+        n_child = 0
+        q = 0
+        for a in range(attrs.shape[0]):
+            j = attrs[a]
+            while q < n_dep and parents[m, q] < j:
+                q += 1
+            if (q < n_dep and parents[m, q] == j) or kind[j] != DISCRETE:
+                continue
+            child[n_child] = j
+            n_child += 1
+        for r in range(n):
+            if row_dense[r] < 0:
+                continue
+            row = dense[row_dense[r]]
+            for t in range(n_child):
+                j = child[t]
+                row[doff[j] + codes[r, j]] += 1.0
         if n_gauss == 0:
             continue
-        for s in range(o, o + states.shape[0]):
-            for g in range(n_gauss):
+        # Gaussian children of every state
+        q = 0
+        for a in range(attrs.shape[0]):
+            j = attrs[a]
+            while q < n_dep and parents[m, q] < j:
+                q += 1
+            if (q < n_dep and parents[m, q] == j) or kind[j] != GAUSSIAN:
+                continue
+            g = gidx[j]
+            for r in range(n):
+                mean[o + index[r], g] += xg[r, g]
+            for s in range(o, o + n_states):
                 mean[s, g] /= count[s]
-        for r in range(n):
-            s = o + index[r]
-            for j in children[m]:
-                if kind[j] == GAUSSIAN:
-                    diff = xg[r, gidx[j]] - mean[s, gidx[j]]
-                    var[s, gidx[j]] += diff * diff
-        for s in range(o, o + states.shape[0]):
-            for g in range(n_gauss):
+            for r in range(n):
+                diff = xg[r, g] - mean[o + index[r], g]
+                var[o + index[r], g] += diff * diff
+            for s in range(o, o + n_states):
                 var[s, g] /= count[s]
-    return keys_out, count, disc, mean, var
+    return keys_out, count, drow, loff, dense, rows, mean, var
 
 
 @nb.njit(cache=True, inline="always")
@@ -306,12 +393,17 @@ def component_scores(
     punseen,
     parents,
     strides,
-    children,
     n_combos,
     state_off,
     state_keys,
     root,
-    disc,
+    count,
+    drow,
+    loff,
+    dense,
+    rows,
+    tcodes,
+    lut,
     mean,
     var,
     pk_off,
@@ -325,6 +417,10 @@ def component_scores(
     kind,
     voff,
     gidx,
+    attrs,
+    dcol,
+    doff,
+    grp,
     min_count,
     backoff,
     per_factor,
@@ -361,42 +457,69 @@ def component_scores(
                         state_off[m + 1],
                         c * n_combos[m] + key,
                     )
-                    if s < 0 and not act:
-                        continue
-                    total = root[s] if s >= 0 else log_prior_unseen[m]
-                    out[r, c, m, 0] = total
-                    for t in range(children.shape[1]):
-                        j = children[m, t]
-                        if s >= 0:
-                            ll = 0.0
+                    if s >= 0:
+                        # Children with a single value, or a value unseen in
+                        # training, contribute 0 and are skipped
+                        total = root[s]
+                        out[r, c, m, 0] = total
+                        q = 0
+                        for a in range(attrs.shape[0]):
+                            j = attrs[a]
+                            while q < n_dep and parents[m, q] < j:
+                                q += 1
+                            if q < n_dep and parents[m, q] == j:
+                                continue
                             if kind[j] == DISCRETE:
-                                if codes[r, j] >= 0:
-                                    ll = disc[s, voff[j] + codes[r, j]]
-                            elif kind[j] == GAUSSIAN:
+                                code = codes[r, j]
+                                if code < 0:
+                                    continue
+                                if drow[s] >= 0:
+                                    ll = dense[drow[s], doff[j] + code]
+                                else:
+                                    n_rows, col = int(count[s]), dcol[j]
+                                    hits = 0
+                                    for t in range(loff[s], loff[s] + n_rows):
+                                        hits += tcodes[rows[t], col] == code
+                                    ll = lut[n_rows, grp[j], hits]
+                            else:
                                 g = gidx[j]
                                 ll = _gaussian_ll(xg[r, g], mean[s, g], var[s, g])
-                        elif backoff:
-                            ll = _log_likelihood(
-                                c,
-                                j,
-                                r,
-                                codes,
-                                xg,
-                                b_disc,
-                                b_mean,
-                                b_var,
-                                kind,
-                                voff,
-                                gidx,
-                            )
-                        else:
-                            ll = uninf[r, j]
-                        if per_factor:
-                            out[r, c, m, 1 + t] = ll
-                        else:
-                            total += ll
-                    if not per_factor:
+                            if per_factor:
+                                out[r, c, m, 1 + j - q] = ll
+                            else:
+                                total += ll
+                        if not per_factor:
+                            out[r, c, m, 0] = total
+                    elif act:
+                        total = log_prior_unseen[m]
                         out[r, c, m, 0] = total
+                        q = 0
+                        for j in range(n_features):
+                            if q < n_dep and parents[m, q] == j:
+                                q += 1
+                                continue
+                            if backoff:
+                                ll = _log_likelihood(
+                                    c,
+                                    j,
+                                    r,
+                                    codes,
+                                    xg,
+                                    b_disc,
+                                    b_mean,
+                                    b_var,
+                                    kind,
+                                    voff,
+                                    gidx,
+                                )
+                            else:
+                                ll = uninf[r, j]
+                            if per_factor:
+                                out[r, c, m, 1 + j - q] = ll
+                            else:
+                                total += ll
+                        if not per_factor:
+                            out[r, c, m, 0] = total
         for r in range(lo, hi):
             if active[r].any():
                 continue
@@ -419,12 +542,17 @@ def pooled_scores(
     punseen,
     parents,
     strides,
-    children,
     n_combos,
     state_off,
     state_keys,
     root,
-    disc,
+    count,
+    drow,
+    loff,
+    dense,
+    rows,
+    tcodes,
+    lut,
     mean,
     var,
     pk_off,
@@ -438,6 +566,10 @@ def pooled_scores(
     kind,
     voff,
     gidx,
+    attrs,
+    dcol,
+    doff,
+    grp,
     min_count,
     backoff,
     geometric,
@@ -475,31 +607,52 @@ def pooled_scores(
                         state_off[m + 1],
                         c * n_combos[m] + key,
                     )
-                    total = root[s] if s >= 0 else log_prior_unseen[m]
-                    for j in children[m]:
-                        if s >= 0:
+                    q = 0
+                    if s >= 0:
+                        # As in component_scores
+                        total = root[s]
+                        for a in range(attrs.shape[0]):
+                            j = attrs[a]
+                            while q < n_dep and parents[m, q] < j:
+                                q += 1
+                            if q < n_dep and parents[m, q] == j:
+                                continue
                             if kind[j] == DISCRETE:
-                                if codes[r, j] >= 0:
-                                    total += disc[s, voff[j] + codes[r, j]]
-                            elif kind[j] == GAUSSIAN:
+                                code = codes[r, j]
+                                if code < 0:
+                                    continue
+                                if drow[s] >= 0:
+                                    total += dense[drow[s], doff[j] + code]
+                                else:
+                                    n_rows, col = int(count[s]), dcol[j]
+                                    hits = 0
+                                    for t in range(loff[s], loff[s] + n_rows):
+                                        hits += tcodes[rows[t], col] == code
+                                    total += lut[n_rows, grp[j], hits]
+                            else:
                                 g = gidx[j]
                                 total += _gaussian_ll(xg[r, g], mean[s, g], var[s, g])
-                        elif backoff:
-                            total += _log_likelihood(
-                                c,
-                                j,
-                                r,
-                                codes,
-                                xg,
-                                b_disc,
-                                b_mean,
-                                b_var,
-                                kind,
-                                voff,
-                                gidx,
-                            )
-                        else:
-                            total += uninf[r, j]
+                    else:
+                        total = log_prior_unseen[m]
+                        for j in range(n_features):
+                            if q < n_dep and parents[m, q] == j:
+                                q += 1
+                            elif backoff:
+                                total += _log_likelihood(
+                                    c,
+                                    j,
+                                    r,
+                                    codes,
+                                    xg,
+                                    b_disc,
+                                    b_mean,
+                                    b_var,
+                                    kind,
+                                    voff,
+                                    gidx,
+                                )
+                            else:
+                                total += uninf[r, j]
                     if geometric:
                         acc[i, c] += total
                     elif total > peak[i, c]:

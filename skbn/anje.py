@@ -800,7 +800,7 @@ class GaussianAnJE(_BaseAnDE):
         Names of features seen during :term:`fit`. Defined only when `X`
         has feature names that are all strings.
 
-    ensemble_ : list of dict
+    ensemble_ : sequence of dict
         The fitted SPnDEs, one per set of ``n_dependence`` super-parents
         (a single one for ``n_dependence=0``). Each dict holds the
         ``"parent_indices"`` and ``"child_indices"`` of the component and the
@@ -962,7 +962,7 @@ class GaussianALR(WeightedAnDE):
         Names of features seen during :term:`fit`. Defined only when `X`
         has feature names that are all strings.
 
-    ensemble_ : list of dict
+    ensemble_ : sequence of dict
         The fitted SPnDEs of the generative phase, one per set of
         ``n_dependence`` super-parents (a single one for ``n_dependence=0``).
         Each dict holds the ``"parent_indices"`` and ``"child_indices"`` of the

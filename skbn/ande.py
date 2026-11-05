@@ -37,6 +37,7 @@ References
 
 import numbers
 import warnings
+from collections.abc import Sequence
 from itertools import combinations
 from numbers import Integral, Real
 from typing import NamedTuple, Optional
@@ -60,13 +61,14 @@ from ._core import (
     _warn_not_converged,
 )
 from ._kernels import (
+    _MAX_LIGHT,
     DISCRETE,
     GAUSSIAN,
     LOG_ZERO,
     _threads,
     component_scores,
-    count_states,
     count_tables,
+    index_states,
     pooled_scores,
 )
 from .mixed_nb import MixedNB
@@ -108,6 +110,49 @@ def _parent_frequencies(keys, count, n_combos, state_off):
     freq = np.add.reduceat(count[order], starts) if len(starts) else np.zeros(0)
     offsets = np.searchsorted(comp[starts], np.arange(n_models + 1))
     return offsets.astype(np.int64), pkeys[starts], freq
+
+
+class _Ensemble(Sequence):
+    """The ``ensemble_`` of a fitted AnDE: a read-only sequence with the dict
+    of every component, built when it is accessed. A list of dicts would hold
+    the child indices of every component, ``C(d, n) * (d - n)`` Python
+    integers."""
+
+    def __init__(
+        self, parents, n_combos, parent_cards, strides, n_states, log_prior_unseen, d
+    ):
+        self._parents = parents
+        self._n_combos = n_combos
+        self._parent_cards = parent_cards
+        self._strides = strides
+        self._n_states = n_states
+        self._log_prior_unseen = log_prior_unseen
+        self._d = d
+
+    def __len__(self):
+        return len(self._parents)
+
+    def __getitem__(self, m):
+        if isinstance(m, slice):
+            return [self[i] for i in range(*m.indices(len(self)))]
+        m = range(len(self))[m]  # Bounds check and negative indices
+        parents = self._parents[m]
+        has_parents = len(parents) > 0
+        return {
+            "parent_indices": tuple(int(p) for p in parents),
+            "child_indices": np.setdiff1d(np.arange(self._d), parents).tolist(),
+            "n_parent_combos": int(self._n_combos[m]) if has_parents else 1,
+            "parent_cards": self._parent_cards[m] if has_parents else np.array([1]),
+            "parent_strides": self._strides[m] if has_parents else np.array([0]),
+            "n_states": int(self._n_states[m]),
+            "log_prior_unseen": float(self._log_prior_unseen[m]),
+        }
+
+    def children(self):
+        """Child attributes of every component, shape (n_models, n_children)."""
+        is_child = np.ones((len(self), self._d), dtype=bool)
+        is_child[np.arange(len(self))[:, None], self._parents] = False
+        return np.nonzero(is_child)[1].reshape(len(self), -1)
 
 
 class _ChildEncodingMixin:
@@ -300,7 +345,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         Names of features seen during :term:`fit`. Defined only when `X`
         has feature names that are all strings.
 
-    ensemble_ : list of dict
+    ensemble_ : sequence of dict
         The fitted SPnDEs, one per set of ``n_dependence`` super-parents
         (a single one for ``n_dependence=0``). Each dict holds the
         ``"parent_indices"`` and ``"child_indices"`` of the component and the
@@ -429,14 +474,13 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
 
     def _fit_components(self, X, y_int, parent_codes):
         """Count every SPnDE and store its log-probabilities in flat tables
-        (see :mod:`skbn._kernels`), one row per augmented state seen in
+        (see :mod:`skbn._kernels`), one entry per augmented state seen in
         training."""
         types = self.backoff_.feature_types_
         n_samples, d = X.shape
         n_classes, n_dep = len(self.classes_), self.n_dependence
         alpha = self.alpha
         kind, voff, gidx, cards = self._layout()
-        n_values = int(cards.sum())
 
         if n_dep:
             parents = np.array(list(combinations(range(d), n_dep)), dtype=np.int64)
@@ -451,34 +495,53 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             )
         n_combos = np.prod(parent_cards, axis=1).astype(np.int64)
         strides = _parent_strides(parents, self._encoder.cards_)
-        is_child = np.ones((n_models, d), dtype=bool)
-        is_child[np.arange(n_models)[:, None], parents] = False
-        children = np.nonzero(is_child)[1].reshape(n_models, d - n_dep)
+
+        # The children that carry information: a discrete attribute with a
+        # single value has log P(x_j | s) = 0 in every state
+        informative = (kind == GAUSSIAN) | ((kind == DISCRETE) & (cards > 1))
+        attrs = np.flatnonzero(informative).astype(np.int64)
+        multi = np.flatnonzero((kind == DISCRETE) & (cards > 1))
+        dcol = np.full(d, -1, dtype=np.int64)
+        dcol[multi] = np.arange(len(multi))
+        doff = np.zeros(d, dtype=np.int64)
+        doff[multi] = np.cumsum(cards[multi]) - cards[multi]
+        n_columns = int(cards[multi].sum())
+        group_cards, grp = np.unique(cards, return_inverse=True)
 
         xg = np.ascontiguousarray(X[:, types["gaussian"]], dtype=np.float64)
         codes = self._value_codes(X)
+        # Narrow codes for the counting and the light states (a single type
+        # for nearly every dataset, so that the kernels compile once)
+        code_type = np.uint16 if cards.max(initial=0) <= 1 << 16 else np.int32
         y_int = y_int.astype(np.int64)
         with _threads(self.n_jobs):
-            n_states = count_states(
-                y_int, parent_codes, parents, strides, n_combos, n_classes
+            sizes = index_states(
+                y_int, parent_codes, parents, strides, n_combos, n_classes, _MAX_LIGHT
             )
-            state_off = np.concatenate([[0], np.cumsum(n_states)]).astype(np.int64)
-            keys, count, disc, mean, var = count_tables(
+            state_off, dense_off, light_off = (
+                np.concatenate([[0], np.cumsum(sizes[:, k])]).astype(np.int64)
+                for k in range(3)
+            )
+            keys, count, drow, loff, dense, rows, mean, var = count_tables(
                 y_int,
                 parent_codes,
-                codes,
+                codes.astype(code_type),
                 xg,
                 parents,
                 strides,
-                children,
                 n_combos,
                 n_classes,
+                _MAX_LIGHT,
                 state_off,
+                dense_off,
+                light_off,
+                attrs,
                 kind,
-                voff,
+                doff,
                 gidx,
-                n_values,
+                n_columns,
             )
+        n_states = sizes[:, 0]
         comp = np.repeat(np.arange(n_models), n_states)
 
         # Root P(y, x_p), Laplace-smoothed over the full grid of augmented
@@ -492,22 +555,36 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             root = np.log(count / count.sum())
             log_prior_unseen = np.full(n_models, -np.inf)
 
-        # Discrete children: log((N(s, v) + alpha) / (N(s) + alpha * card))
-        value_cards = np.repeat(cards[kind == DISCRETE], cards[kind == DISCRETE])
+        # Discrete children: log((N(s, v) + alpha) / (N(s) + alpha * card)), in
+        # the rows of the dense states and, for the light ones, in a table
+        # indexed by N(s), the cardinality and N(s, v)
+        value_cards = np.repeat(cards[multi], cards[multi])
+        dense_count = count[drow >= 0]
         with np.errstate(divide="ignore"):
-            for rows in _row_chunks(len(count), n_values):
-                block = disc[rows]
+            for block_rows in _row_chunks(len(dense), n_columns):
+                block = dense[block_rows]
                 block += alpha
                 np.log(block, out=block)
-                block -= np.log(count[rows, None] + alpha * value_cards)
-        np.nan_to_num(disc, copy=False, nan=LOG_ZERO, neginf=LOG_ZERO)
+                block -= np.log(dense_count[block_rows, None] + alpha * value_cards)
+            light = np.arange(_MAX_LIGHT + 1, dtype=float)
+            lut = np.log(light[None, None, :] + alpha) - np.log(
+                light[:, None, None] + alpha * group_cards[None, :, None]
+            )
+        np.nan_to_num(dense, copy=False, nan=LOG_ZERO, neginf=LOG_ZERO)
+        np.nan_to_num(lut, copy=False, nan=LOG_ZERO, neginf=LOG_ZERO)
+        # Codes of the training rows of the light states, read when one is hit
+        used, rows = np.unique(rows, return_inverse=True)
+        rows = rows.astype(np.int32)
+        tcodes = codes[np.ix_(used, multi)].astype(code_type)
 
         # Gaussian children: the variances of GaussianNB (plus the largest
         # child variance times var_smoothing), shrunk towards the pooled
         # variance when the component has parents
         if xg.shape[1]:
             pooled = np.var(xg, axis=0)
-            child_var = np.where(is_child[:, types["gaussian"]], pooled, -np.inf)
+            is_parent = np.zeros((n_models, d), dtype=bool)
+            is_parent[np.arange(n_models)[:, None], parents] = True
+            child_var = np.where(is_parent[:, types["gaussian"]], -np.inf, pooled)
             epsilon = _VAR_SMOOTHING * np.maximum(child_var.max(axis=1), 0.0)[comp]
             var += epsilon[:, None]
             nu = self.var_prior_weight
@@ -521,35 +598,35 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         self._tables = (
             parents,
             strides,
-            children,
             n_combos,
             state_off,
             keys,
             root,
-            disc,
+            count,
+            drow,
+            loff,
+            dense,
+            rows,
+            tcodes,
+            lut,
             mean,
             var,
             pk_off,
             pk_keys,
             pk_count,
             log_prior_unseen,
-            *self._backoff_tables(kind, voff, cards, n_values),
+            *self._backoff_tables(kind, voff, cards, int(cards.sum())),
             kind,
             voff,
             gidx,
+            attrs,
+            dcol,
+            doff,
+            grp.astype(np.int64),
         )
-        self.ensemble_ = [
-            {
-                "parent_indices": tuple(int(p) for p in parents[m]),
-                "child_indices": children[m].tolist(),
-                "n_parent_combos": int(n_combos[m]) if n_dep else 1,
-                "parent_cards": parent_cards[m] if n_dep else np.array([1]),
-                "parent_strides": strides[m] if n_dep else np.array([0]),
-                "n_states": int(n_states[m]),
-                "log_prior_unseen": float(log_prior_unseen[m]),
-            }
-            for m in range(n_models)
-        ]
+        self.ensemble_ = _Ensemble(
+            parents, n_combos, parent_cards, strides, n_states, log_prior_unseen, d
+        )
 
     def _parent_keys(self, X_parents_disc):
         """Linear index of the parent instantiation of every component,
@@ -781,7 +858,7 @@ class AnDE(_BaseAnDE):
         Names of features seen during :term:`fit`. Defined only when `X`
         has feature names that are all strings.
 
-    ensemble_ : list of dict
+    ensemble_ : sequence of dict
         The fitted SPnDEs, one per set of ``n_dependence`` super-parents
         (a single one for ``n_dependence=0``). Each dict holds the
         ``"parent_indices"`` and ``"child_indices"`` of the component and the
@@ -1117,7 +1194,7 @@ class WeightedAnDE(AnDE):
         Names of features seen during :term:`fit`. Defined only when `X`
         has feature names that are all strings.
 
-    ensemble_ : list of dict
+    ensemble_ : sequence of dict
         The fitted SPnDEs of the generative phase, one per set of
         ``n_dependence`` super-parents (a single one for ``n_dependence=0``).
         Each dict holds the ``"parent_indices"`` and ``"child_indices"`` of the
@@ -1242,8 +1319,7 @@ class WeightedAnDE(AnDE):
 
     def _children(self):
         """Child attributes of every component, shape (n_models, n_children)."""
-        children = [info["child_indices"] for info in self.ensemble_]
-        return np.array(children, dtype=np.int64).reshape(len(children), -1)
+        return self.ensemble_.children()
 
     def _child_value_codes(self, X):
         """Value code of every attribute as a child: the category of a
