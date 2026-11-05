@@ -1846,21 +1846,20 @@ def conditional_mutual_info(codes_t, y, cards, n_classes):
     cmi = np.zeros((d, d))
     for i in nb.prange(d):
         ci = cards[i]
-        key = np.empty(n, dtype=np.int64)
+        base = np.empty(n, dtype=np.int64)
         for r in range(n):
-            key[r] = (y[r] * ci + codes_t[i, r]) * max_card
-        table = np.zeros(n_classes * ci * max_card)
+            base[r] = y[r] * ci + codes_t[i, r]
+        table = np.empty(n_classes * ci * max_card, dtype=np.int64)
         for j in range(i + 1, d):
             cj = cards[j]
-            table[:] = 0.0
-            for r in range(n):
-                table[key[r] + codes_t[j, r]] += 1.0
+            # Integer counts, as count_pairs takes them
+            _histogram(base, cj, codes_t[j], table, n_classes * ci * cj)
             total = 0.0
             for c in range(n_classes):
                 for a in range(ci):
-                    row = (c * ci + a) * max_card
+                    row = (c * ci + a) * cj
                     for b in range(cj):
-                        n_cab = table[row + b]
+                        n_cab = float(table[row + b])
                         if n_cab > 0.0:
                             ratio = n_cab * n_c[c] / (marg[i, c, a] * marg[j, c, b])
                             total += n_cab * np.log(ratio)
