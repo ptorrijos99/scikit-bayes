@@ -1554,6 +1554,160 @@ def join_objective(
 
 
 # =============================================================================
+# Weighted AnDE: the geometric pool of exponent-weighted components
+# =============================================================================
+
+
+@nb.njit(cache=True)
+def _pairwise_block(a, lo, n):
+    """NumPy's pairwise sum of ``a[lo:lo + n]`` for ``n <= 128``: eight
+    partial sums, combined as a tree, then the rest one by one."""
+    if n < 8:
+        res = 0.0
+        for i in range(n):
+            res += a[lo + i]
+        return res
+    r0, r1, r2, r3 = a[lo], a[lo + 1], a[lo + 2], a[lo + 3]
+    r4, r5, r6, r7 = a[lo + 4], a[lo + 5], a[lo + 6], a[lo + 7]
+    i = 8
+    while i < n - n % 8:
+        r0 += a[lo + i]
+        r1 += a[lo + i + 1]
+        r2 += a[lo + i + 2]
+        r3 += a[lo + i + 3]
+        r4 += a[lo + i + 4]
+        r5 += a[lo + i + 5]
+        r6 += a[lo + i + 6]
+        r7 += a[lo + i + 7]
+        i += 8
+    res = ((r0 + r1) + (r2 + r3)) + ((r4 + r5) + (r6 + r7))
+    while i < n:
+        res += a[lo + i]
+        i += 1
+    return res
+
+
+@nb.njit(cache=True)
+def _pairwise_sum(a, lo, n):
+    """``np.sum(a[lo:lo + n])`` with the order of NumPy's pairwise summation,
+    so that the result is the same to the bit: blocks of up to 128 items,
+    and above that the sum of the two halves (the first rounded down to a
+    multiple of 8). The halves are walked with a stack: a recursive function
+    compiled with ``cache=True`` crashed when called from another one."""
+    if n <= 128:
+        return _pairwise_block(a, lo, n)
+    seg_lo = np.empty(96, dtype=np.int64)
+    seg_n = np.empty(96, dtype=np.int64)
+    merge = np.empty(96, dtype=np.bool_)
+    values = np.empty(64)
+    top, n_values = 1, 0
+    seg_lo[0], seg_n[0], merge[0] = lo, n, False
+    while top:
+        top -= 1
+        start, size = seg_lo[top], seg_n[top]
+        if merge[top]:
+            values[n_values - 2] = values[n_values - 2] + values[n_values - 1]
+            n_values -= 1
+        elif size <= 128:
+            values[n_values] = _pairwise_block(a, start, size)
+            n_values += 1
+        else:
+            half = size // 2
+            half -= half % 8
+            # Popped in reverse: the first half, then the second, then their sum
+            seg_lo[top], seg_n[top], merge[top] = start, size, True
+            seg_lo[top + 1], seg_n[top + 1], merge[top + 1] = (
+                start + half,
+                size - half,
+                False,
+            )
+            seg_lo[top + 2], seg_n[top + 2], merge[top + 2] = start, half, False
+            top += 3
+    return values[0]
+
+
+@nb.njit(cache=True)
+def _weighted_geometric_scores(
+    indptr, indices, data, n_terms, theta, active, n_classes
+):
+    """Pooled scores ``sum_m share[i, m] * u[i, c, m]`` of the geometric
+    weighted ensemble, shape (n, n_classes): ``u`` is the product of the CSR
+    operator (rows ``(i * n_classes + c) * n_models + m``) with ``theta`` and
+    ``share[i, m]`` is ``active[i, m]`` over the number of active components
+    (at least 1). The operations, and their order, are those of
+    ``(operator @ theta).reshape(n, C, M) * share`` summed over the last axis
+    by NumPy, without the arrays of every sample, class and component.
+    With ``n_terms > 0`` every row holds that many entries and ``indptr`` is
+    not read: it is as large as the indices, and reading it cost a third of
+    the time."""
+    n, n_models = active.shape
+    scores = np.empty((n, n_classes))
+    terms = np.empty(n_models)
+    share = np.empty(n_models)
+    for i in range(n):
+        n_active = 0
+        for m in range(n_models):
+            n_active += active[i, m]
+        for m in range(n_models):
+            share[m] = (1.0 if active[i, m] else 0.0) / max(n_active, 1)
+        for c in range(n_classes):
+            row = (i * n_classes + c) * n_models
+            if n_terms == 1:  # One weight per component, without a loop
+                for m in range(n_models):
+                    k = row + m
+                    terms[m] = (0.0 + data[k] * theta[indices[k]]) * share[m]
+            else:
+                for m in range(n_models):
+                    if n_terms:
+                        start = (row + m) * n_terms
+                        end = start + n_terms
+                    else:
+                        start, end = indptr[row + m], indptr[row + m + 1]
+                    u = 0.0
+                    for k in range(start, end):
+                        u += data[k] * theta[indices[k]]
+                    terms[m] = u * share[m]
+            scores[i, c] = 0.0 + _pairwise_sum(terms, 0, n_models)
+    return scores
+
+
+@nb.njit(cache=True)
+def _weighted_geometric_gradient(
+    indptr, indices, data, n_terms, dscores, active, n_weights
+):
+    """``operator.T @ (dscores[:, :, None] * share).ravel()`` for the operator
+    and shares of :func:`_weighted_geometric_scores`, accumulated in the order of the
+    rows, as SciPy does."""
+    n, n_models = active.shape
+    n_classes = dscores.shape[1]
+    grad = np.zeros(n_weights)
+    share = np.empty(n_models)
+    for i in range(n):
+        n_active = 0
+        for m in range(n_models):
+            n_active += active[i, m]
+        for m in range(n_models):
+            share[m] = (1.0 if active[i, m] else 0.0) / max(n_active, 1)
+        for c in range(n_classes):
+            row = (i * n_classes + c) * n_models
+            if n_terms == 1:
+                for m in range(n_models):
+                    k = row + m
+                    grad[indices[k]] += data[k] * (dscores[i, c] * share[m])
+                continue
+            for m in range(n_models):
+                if n_terms:
+                    start = (row + m) * n_terms
+                    end = start + n_terms
+                else:
+                    start, end = indptr[row + m], indptr[row + m + 1]
+                du = dscores[i, c] * share[m]
+                for k in range(start, end):
+                    grad[indices[k]] += data[k] * du
+    return grad
+
+
+# =============================================================================
 # Attribute-conditional networks (TAN and KDB)
 # =============================================================================
 #

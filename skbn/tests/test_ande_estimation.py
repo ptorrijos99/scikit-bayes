@@ -329,6 +329,39 @@ def test_joint_gradient_matches_finite_differences(mixed_data, mean, scope, leve
 
 
 @pytest.mark.parametrize("scope", SCOPES)
+@pytest.mark.parametrize("level", LEVELS)
+@pytest.mark.parametrize("min_count", [1, 70])
+def test_compiled_geometric_objective_equals_its_array_form(
+    mixed_data, scope, level, min_count
+):
+    # The geometric pool is computed by compiled kernels; they must give the
+    # same bits as the sparse product and the NumPy sums they replace
+    X, y = mixed_data
+    model = WeightedAnDE(
+        n_dependence=1,
+        mean="geometric",
+        weight_scope=scope,
+        weight_level=level,
+        min_parent_count=min_count,
+        max_iter=1,
+        **_fit_kwargs(),
+    ).fit(X, y)
+    design, Y = _training_design(model, X, y)
+    # Every component active (shares of 1/5), or some left out
+    assert design.active.all() == (min_count == 1)
+    rng = np.random.RandomState(2)
+    theta = model.coef_theta_ + rng.uniform(-0.3, 0.3, size=model.n_weights_)
+    nll, grad = model._nll_and_grad(theta, design, Y)
+    scores, cache = model._forward(theta, design)
+    log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
+    dscores = np.exp(log_prob) * Y.sum(axis=1, keepdims=True) - Y
+    assert nll == -np.sum(log_prob * Y)
+    np.testing.assert_array_equal(
+        grad, design.operator.T @ model._backward(dscores, cache).ravel()
+    )
+
+
+@pytest.mark.parametrize("scope", SCOPES)
 @pytest.mark.parametrize("level", [3, 4])
 def test_posterior_average_gradient_matches_finite_differences(
     mixed_data, scope, level

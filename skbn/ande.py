@@ -66,6 +66,8 @@ from ._kernels import (
     GAUSSIAN,
     LOG_ZERO,
     _threads,
+    _weighted_geometric_gradient,
+    _weighted_geometric_scores,
     component_scores,
     count_pairs,
     count_tables,
@@ -1218,12 +1220,14 @@ class _Design(NamedTuple):
     Each operator row holds the log-terms of a component at the indices of
     their weights (exponent weights), or a one (mixture weights, with the
     log-joint as intercept). ``active[i, m]`` marks the components that take
-    part in the prediction of sample ``i``.
+    part in the prediction of sample ``i``. ``n_terms`` is the number of
+    entries of every operator row, or 0 when the rows differ.
     """
 
     operator: csr_matrix
     intercept: Optional[np.ndarray]
     active: np.ndarray
+    n_terms: int = 0
 
     def component(self, m_idx, mask, lo, hi):
         """Component ``m_idx`` alone, on the samples in ``mask`` and with its
@@ -1666,7 +1670,7 @@ class WeightedAnDE(AnDE):
             shape=(n_samples * n_classes * n_models, self.n_weights_),
         )
         intercept = ll if self._offset else None
-        return _Design(operator, intercept, active), nb_jll
+        return _Design(operator, intercept, active, n_terms), nb_jll
 
     # --- Objective ----------------------------------------------------------
     def _forward(self, theta, design):
@@ -1712,11 +1716,38 @@ class WeightedAnDE(AnDE):
     def _nll_and_grad(self, theta, design, Y):
         """Conditional negative log-likelihood and its gradient. Rows of ``Y``
         set to zero leave their samples out of the objective."""
-        scores, cache = self._forward(theta, design)
+        # The geometric pool of exponent weights, compiled: the same
+        # operations as _forward and _backward, without their arrays of
+        # every sample, class and component
+        fused = design.intercept is None and self.mean == "geometric"
+        if fused:
+            op = design.operator
+            scores = _weighted_geometric_scores(
+                op.indptr,
+                op.indices,
+                op.data,
+                design.n_terms,
+                theta,
+                design.active,
+                Y.shape[1],
+            )
+        else:
+            scores, cache = self._forward(theta, design)
         log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
         nll = -np.sum(log_prob * Y)
         dscores = np.exp(log_prob) * Y.sum(axis=1, keepdims=True) - Y
-        grad = design.operator.T @ self._backward(dscores, cache).ravel()
+        if fused:
+            grad = _weighted_geometric_gradient(
+                op.indptr,
+                op.indices,
+                op.data,
+                design.n_terms,
+                dscores,
+                design.active,
+                theta.size,
+            )
+        else:
+            grad = design.operator.T @ self._backward(dscores, cache).ravel()
         return nll, grad
 
     def _optimize(self, theta, design, Y):

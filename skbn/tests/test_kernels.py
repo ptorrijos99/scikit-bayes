@@ -7,7 +7,7 @@ import numba as nb
 import numpy as np
 import pytest
 
-from skbn._kernels import _Kernel, _state_index, _threads
+from skbn._kernels import _Kernel, _pairwise_sum, _state_index, _threads
 
 
 def _row_sums(x):
@@ -56,3 +56,12 @@ def test_state_index_of_large_grids_matches_unique():
             states, index = _state_index(keys, n_grid)
             np.testing.assert_array_equal(states, np.unique(keys))
             np.testing.assert_array_equal(index, np.searchsorted(states, keys))
+
+
+@pytest.mark.parametrize("n", [1, 7, 8, 9, 40, 127, 128, 129, 300, 1000, 4099])
+def test_pairwise_sum_has_the_bits_of_numpy_sum(n):
+    # The compiled weighted objective relies on summing in NumPy's order
+    rng = np.random.default_rng(n)
+    x = rng.normal(size=(20, n)) * 10.0 ** rng.uniform(-3, 6, size=(20, n))
+    for row in x:
+        assert _pairwise_sum(row, 0, n) == 0.0 + row.sum()
