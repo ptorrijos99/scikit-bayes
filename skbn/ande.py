@@ -66,6 +66,8 @@ from ._kernels import (
     GAUSSIAN,
     LOG_ZERO,
     _threads,
+    _weighted_arithmetic_gradient,
+    _weighted_arithmetic_scores,
     _weighted_geometric_gradient,
     _weighted_geometric_scores,
     component_scores,
@@ -1673,81 +1675,60 @@ class WeightedAnDE(AnDE):
         return _Design(operator, intercept, active, n_terms), nb_jll
 
     # --- Objective ----------------------------------------------------------
-    def _forward(self, theta, design):
-        """Pooled scores, shape (n, C), and what :meth:`_backward` needs.
+    def _kernel_args(self, theta, design):
+        """Arguments of the compiled scores and gradient for ``design``."""
+        op = design.operator
+        intercept = design.intercept
+        if intercept is None:
+            intercept = np.zeros((0, 0, 0))
+        return (op.indptr, op.indices, op.data, design.n_terms, theta, intercept)
 
-        Samples without an active component score 0 for every class; they do
-        not depend on the weights and are predicted by the NB fallback.
+    def _scores(self, theta, design):
+        """Pooled scores of the samples of ``design``, shape (n, C), and, for
+        the arithmetic pool, the component scores the gradient reuses.
+
+        The geometric pool is ``sum_m share[i, m] * u[i, c, m]`` over the
+        active components, the arithmetic one ``log sum_m exp(u[i, c, m])``
+        (of the components' posteriors with ``average="posterior"``), where
+        ``u = intercept + operator @ theta``. Samples without an active
+        component score 0 for every class; they do not depend on the weights
+        and are predicted by the NB fallback. Compiled kernels compute them
+        sample by sample, without arrays of every sample, class and component
+        but ``u`` for the arithmetic pool, with the operations of the sparse
+        product, NumPy's sums and SciPy's ``logsumexp`` (from SciPy 1.15) in
+        the same order.
         """
-        n_samples, n_models = design.active.shape
-        u = (design.operator @ theta).reshape(n_samples, -1, n_models)
-        if design.intercept is not None:
-            u += design.intercept
-        n_active = design.active.sum(axis=1)
-        mask = design.active[:, None, :]
-
+        n_classes = len(self.classes_)
+        args = self._kernel_args(theta, design)
         if self.mean == "geometric":
-            share = mask / np.maximum(n_active, 1)[:, None, None]
-            return (u * share).sum(axis=2), (share, None)
-
-        q = None
-        if self._pools_posteriors:
-            log_q = u - logsumexp(u, axis=1, keepdims=True)
-            u, q = log_q, np.exp(log_q)
-        masked = np.where(mask, u, -np.inf)
-        scores = logsumexp(masked, axis=2)
-        scores[n_active == 0] = 0.0
-        with np.errstate(invalid="ignore"):
-            resp = np.nan_to_num(np.exp(masked - scores[:, :, None]))
-        return scores, (resp, q)
-
-    @staticmethod
-    def _backward(dscores, cache):
-        """Derivative of the loss with respect to every component score
-        ``u[i, c, m]``, given its derivative ``dscores`` with respect to the
-        pooled scores."""
-        share_or_resp, q = cache
-        du = dscores[:, :, None] * share_or_resp
-        if q is not None:
-            # Through the per-component normalization log_q = u - logsumexp_c u
-            du -= q * du.sum(axis=1, keepdims=True)
-        return du
+            return _weighted_geometric_scores(*args, design.active, n_classes), None
+        return _weighted_arithmetic_scores(
+            *args, design.active, n_classes, self._pools_posteriors
+        )
 
     def _nll_and_grad(self, theta, design, Y):
         """Conditional negative log-likelihood and its gradient. Rows of ``Y``
         set to zero leave their samples out of the objective."""
-        # The geometric pool of exponent weights, compiled: the same
-        # operations as _forward and _backward, without their arrays of
-        # every sample, class and component
-        fused = design.intercept is None and self.mean == "geometric"
-        if fused:
-            op = design.operator
-            scores = _weighted_geometric_scores(
-                op.indptr,
-                op.indices,
-                op.data,
-                design.n_terms,
-                theta,
-                design.active,
-                Y.shape[1],
-            )
-        else:
-            scores, cache = self._forward(theta, design)
+        scores, terms = self._scores(theta, design)
         log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
         nll = -np.sum(log_prob * Y)
         dscores = np.exp(log_prob) * Y.sum(axis=1, keepdims=True) - Y
-        if fused:
+        op = design.operator
+        args = (op.indptr, op.indices, op.data, design.n_terms)
+        if self.mean == "geometric":
             grad = _weighted_geometric_gradient(
-                op.indptr,
-                op.indices,
-                op.data,
-                design.n_terms,
-                dscores,
-                design.active,
-                theta.size,
+                *args, dscores, design.active, theta.size
             )
         else:
-            grad = design.operator.T @ self._backward(dscores, cache).ravel()
+            grad = _weighted_arithmetic_gradient(
+                *args,
+                terms,
+                design.active,
+                scores,
+                dscores,
+                self._pools_posteriors,
+                theta.size,
+            )
         return nll, grad
 
     def _optimize(self, theta, design, Y):
@@ -1879,7 +1860,7 @@ class WeightedAnDE(AnDE):
         out = np.empty((X.shape[0], n_classes))
         for rows in _row_chunks(X.shape[0], n_classes * n_models * n_terms):
             design, nb_jll = self._design(X[rows])
-            scores, _ = self._forward(self.coef_theta_, design)
+            scores = self._scores(self.coef_theta_, design)[0]
             fallback = ~design.active.any(axis=1)
             scores[fallback] = nb_jll[fallback]
             out[rows] = self._normalize(scores)

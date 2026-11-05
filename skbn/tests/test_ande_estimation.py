@@ -296,7 +296,7 @@ def test_samples_without_active_component_are_left_out_of_the_fit(mixed_data):
         -0.2, 0.2, size=model.n_weights_
     )
     nll, grad = model._nll_and_grad(theta, design, Y)
-    scores, _ = model._forward(theta, design)
+    scores = model._scores(theta, design)[0]
     log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
     np.testing.assert_allclose(nll, -np.sum(log_prob[kept] * Y[kept]))
     num = approx_fprime(theta, lambda t: model._nll_and_grad(t, design, Y)[0], 1e-6)
@@ -328,18 +328,53 @@ def test_joint_gradient_matches_finite_differences(mixed_data, mean, scope, leve
     np.testing.assert_allclose(grad, num, rtol=1e-4, atol=1e-3)
 
 
+def _array_objective(model, theta, design, Y):
+    """The objective of WeightedAnDE written with arrays of every sample,
+    class and component: the sparse product, NumPy sums and SciPy's
+    log-sum-exp, the form the compiled kernels replace."""
+    n_samples, n_models = design.active.shape
+    u = (design.operator @ theta).reshape(n_samples, -1, n_models)
+    if design.intercept is not None:
+        u = u + design.intercept
+    n_active = design.active.sum(axis=1)
+    mask = design.active[:, None, :]
+    q = None
+    if model.mean == "geometric":
+        weight = mask / np.maximum(n_active, 1)[:, None, None]
+        scores = (u * weight).sum(axis=2)
+    else:
+        if model._pools_posteriors:
+            u = u - logsumexp(u, axis=1, keepdims=True)
+            q = np.exp(u)
+        masked = np.where(mask, u, -np.inf)
+        scores = logsumexp(masked, axis=2)
+        scores[n_active == 0] = 0.0
+        with np.errstate(invalid="ignore"):
+            weight = np.nan_to_num(np.exp(masked - scores[:, :, None]))
+    log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
+    dscores = np.exp(log_prob) * Y.sum(axis=1, keepdims=True) - Y
+    du = dscores[:, :, None] * weight
+    if q is not None:
+        du -= q * du.sum(axis=1, keepdims=True)
+    return -np.sum(log_prob * Y), design.operator.T @ du.ravel()
+
+
 @pytest.mark.parametrize("scope", SCOPES)
 @pytest.mark.parametrize("level", LEVELS)
 @pytest.mark.parametrize("min_count", [1, 70])
-def test_compiled_geometric_objective_equals_its_array_form(
-    mixed_data, scope, level, min_count
+@pytest.mark.parametrize(
+    "mean, average",
+    [("geometric", "joint"), ("arithmetic", "joint"), ("arithmetic", "posterior")],
+)
+def test_compiled_objective_equals_its_array_form(
+    mixed_data, scope, level, min_count, mean, average
 ):
-    # The geometric pool is computed by compiled kernels; they must give the
-    # same bits as the sparse product and the NumPy sums they replace
+    # The kernels take the operations of the array form in the same order
     X, y = mixed_data
     model = WeightedAnDE(
         n_dependence=1,
-        mean="geometric",
+        mean=mean,
+        average=average,
         weight_scope=scope,
         weight_level=level,
         min_parent_count=min_count,
@@ -352,13 +387,16 @@ def test_compiled_geometric_objective_equals_its_array_form(
     rng = np.random.RandomState(2)
     theta = model.coef_theta_ + rng.uniform(-0.3, 0.3, size=model.n_weights_)
     nll, grad = model._nll_and_grad(theta, design, Y)
-    scores, cache = model._forward(theta, design)
-    log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
-    dscores = np.exp(log_prob) * Y.sum(axis=1, keepdims=True) - Y
-    assert nll == -np.sum(log_prob * Y)
-    np.testing.assert_array_equal(
-        grad, design.operator.T @ model._backward(dscores, cache).ravel()
-    )
+    expected_nll, expected_grad = _array_objective(model, theta, design, Y)
+    if mean == "geometric":
+        assert nll == expected_nll
+        np.testing.assert_array_equal(grad, expected_grad)
+    else:
+        # The kernels follow SciPy's logsumexp from 1.15 on and take exp from
+        # the compiler's math library, NumPy from its own: equal here, but
+        # not on every SciPy version and CPU
+        np.testing.assert_allclose(nll, expected_nll, rtol=1e-13)
+        np.testing.assert_allclose(grad, expected_grad, rtol=1e-11, atol=1e-11)
 
 
 @pytest.mark.parametrize("scope", SCOPES)
