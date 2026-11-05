@@ -64,7 +64,7 @@ from .ande import WeightedAnDE, _BaseAnDE, _geometric_scores
 # dense array (4 bytes per key); larger ones use a binary search
 _MAX_DENSE_KEYS = 1 << 26
 
-# ALR keeps the table rows of the training samples (8 bytes per sample and
+# ALR keeps the table rows of the training samples (4 bytes per sample and
 # join) when there are at most this many of them
 _MAX_CACHED_ROWS = 1 << 27
 
@@ -602,9 +602,9 @@ class ALR(AnJE):
             # The table rows of the training samples, computed once when they fit
             # in the budget (the objective is evaluated thousands of times)
             if codes_t.shape[1] * len(self.joins_) <= _MAX_CACHED_ROWS:
-                rows = join_rows(codes_t, *self._cell_args())
+                rows = join_rows(codes_t, *self._cell_args(), n_classes == 2)
             else:
-                rows = np.zeros((0, 0), dtype=np.int64)
+                rows = np.zeros((0, 0), dtype=np.int32)
             self.learned_weights_, self.n_iter_, converged = _fit_weights(
                 lambda theta: self._nll_and_grad(theta, codes_t, y_idx, rows),
                 np.ones(self.n_weights_),
@@ -622,14 +622,16 @@ class ALR(AnJE):
         transposed codes of the samples and their class indices (``rows``
         optionally holds their table rows, from :func:`join_rows`)."""
         if rows is None:
-            rows = np.zeros((0, 0), dtype=np.int64)
+            rows = np.zeros((0, 0), dtype=np.int32)
         weights = theta.reshape(-1, self._n_columns)
+        # Above level 1 every table row has its own weight group
+        own = self.weight_level > 1
         nll, dtable = join_objective(
             codes_t,
             y_idx,
             *self._cell_args(),
             rows,
-            weights[self._groups] * self._log_table,
+            (weights if own else weights[self._groups]) * self._log_table,
             get_num_threads(),
         )
         # dNLL/dweight of a row: its log-probability times the residuals of
@@ -637,6 +639,8 @@ class ALR(AnJE):
         drow = dtable * self._log_table
         if self._n_columns == 1:
             drow = drow.sum(axis=1, keepdims=True)
+        if own:
+            return nll, drow.ravel()
         grad = np.column_stack(
             [
                 np.bincount(self._groups, weights=col, minlength=len(weights))

@@ -788,19 +788,35 @@ def _block_scores(rows, off, m, table):
     return scores
 
 
+@nb.njit(cache=True)
+def _block_size(n_joins):
+    """Samples per block of :func:`_block_rows`, so that its buffer of
+    ``n_joins`` rows per sample stays within about a million entries."""
+    return max(1, min(_BLOCK_ROWS, (1 << 20) // max(n_joins, 1)))
+
+
 @_Kernel
-def join_rows(codes_t, joins, strides, join_off, row_of_cell, cell_keys):
-    """Table row of every join and sample, shape (n_joins, n)."""
+def join_rows(codes_t, joins, strides, join_off, row_of_cell, cell_keys, by_sample):
+    """Table row of every join and sample, shape (n_joins, n), or (n, n_joins)
+    with ``by_sample``."""
     n = codes_t.shape[1]
-    rows = np.empty((joins.shape[0], n), dtype=np.int64)
-    n_blocks = (n + _BLOCK_ROWS - 1) // _BLOCK_ROWS
+    n_joins = joins.shape[0]
+    shape = (n, n_joins) if by_sample else (n_joins, n)
+    rows = np.empty(shape, dtype=np.int32)
+    block = _block_size(n_joins)
+    n_blocks = (n + block - 1) // block
     for b in nb.prange(n_blocks):
-        lo, hi = b * _BLOCK_ROWS, min(n, (b + 1) * _BLOCK_ROWS)
-        buf = np.empty((joins.shape[0], _BLOCK_ROWS), dtype=np.int64)
+        lo, hi = b * block, min(n, (b + 1) * block)
+        buf = np.empty((n_joins, block), dtype=np.int64)
         _block_rows(
             lo, hi, codes_t, joins, strides, join_off, row_of_cell, cell_keys, buf
         )
-        rows[:, lo:hi] = buf[:, : hi - lo]
+        for j in range(n_joins):
+            for i in range(hi - lo):
+                if by_sample:
+                    rows[lo + i, j] = buf[j, i]
+                else:
+                    rows[j, lo + i] = buf[j, i]
     return rows
 
 
@@ -810,10 +826,11 @@ def join_scores(codes_t, joins, strides, join_off, row_of_cell, cell_keys, table
     cells, shape (n, n_classes)."""
     n = codes_t.shape[1]
     scores = np.empty((n, table.shape[1]))
-    n_blocks = (n + _BLOCK_ROWS - 1) // _BLOCK_ROWS
+    block = _block_size(joins.shape[0])
+    n_blocks = (n + block - 1) // block
     for b in nb.prange(n_blocks):
-        lo, hi = b * _BLOCK_ROWS, min(n, (b + 1) * _BLOCK_ROWS)
-        buf = np.empty((joins.shape[0], _BLOCK_ROWS), dtype=np.int64)
+        lo, hi = b * block, min(n, (b + 1) * block)
+        buf = np.empty((joins.shape[0], block), dtype=np.int64)
         _block_rows(
             lo, hi, codes_t, joins, strides, join_off, row_of_cell, cell_keys, buf
         )
@@ -838,25 +855,34 @@ def join_objective(
     and its derivative with respect to every table entry, shape
     (n_rows, n_classes).
 
-    ``cached_rows`` holds the output of :func:`join_rows` for ``codes_t``, or
-    is empty and the rows are computed block by block. The samples are split
-    into ``n_chunks`` contiguous chunks with their own accumulators, summed at
-    the end.
+    ``cached_rows`` holds the output of :func:`join_rows` for ``codes_t``
+    (``by_sample`` with two classes), or is empty and the rows are computed
+    block by block. The samples are split into ``n_chunks`` contiguous
+    chunks with their own accumulators, summed at the end.
+
+    Two classes, the common case, have their own loop: each sample is scored
+    and its residuals spread over its rows in one visit, about three times
+    faster than the loop over a run-time number of classes. With more
+    classes a block of samples is processed join by join, which keeps the
+    rows of the table that a join reaches in cache.
     """
     n = codes_t.shape[1]
+    n_joins = joins.shape[0]
     n_rows, n_classes = table.shape
-    cached = cached_rows.shape[1] == n
+    binary = n_classes == 2
+    cached = cached_rows.shape[0 if binary else 1] == n
+    block = _block_size(n_joins)
     grad = np.zeros((n_chunks, n_rows, n_classes))
     nll = np.zeros(n_chunks)
     size = (n + n_chunks - 1) // n_chunks
     for t in nb.prange(n_chunks):
-        buf = np.empty((joins.shape[0], _BLOCK_ROWS), dtype=np.int64)
-        for lo in range(t * size, min(n, (t + 1) * size), _BLOCK_ROWS):
-            hi = min(n, (t + 1) * size, lo + _BLOCK_ROWS)
+        buf = np.empty((n_joins, block), dtype=np.int64)
+        local = np.empty((block if binary else 0, n_joins), dtype=np.int32)
+        g = grad[t]
+        for lo in range(t * size, min(n, (t + 1) * size), block):
+            hi = min(n, (t + 1) * size, lo + block)
             m = hi - lo
-            if cached:
-                rows, off = cached_rows, lo
-            else:
+            if not cached:
                 _block_rows(
                     lo,
                     hi,
@@ -868,8 +894,41 @@ def join_objective(
                     cell_keys,
                     buf,
                 )
-                rows, off = buf, 0
-            resid = _block_scores(rows, off, m, table)
+            if binary:
+                if cached:
+                    rows, off = cached_rows, lo
+                else:
+                    for j in range(n_joins):
+                        for i in range(m):
+                            local[i, j] = buf[j, i]
+                    rows, off = local, 0
+                for i in range(m):
+                    sample = rows[off + i]
+                    yi = y[lo + i]
+                    s0, s1 = table[0, 0], table[0, 1]
+                    for j in range(n_joins):
+                        s0 += table[sample[j], 0]
+                        s1 += table[sample[j], 1]
+                    peak = max(s0, s1)
+                    log_norm = peak + np.log(np.exp(s0 - peak) + np.exp(s1 - peak))
+                    nll[t] -= (s0 if yi == 0 else s1) - log_norm
+                    # Softmax residuals P(c | x) - [c == y]
+                    r0 = np.exp(s0 - log_norm)
+                    r1 = np.exp(s1 - log_norm)
+                    if yi == 0:
+                        r0 -= 1.0
+                    else:
+                        r1 -= 1.0
+                    g[0, 0] += r0
+                    g[0, 1] += r1
+                    for j in range(n_joins):
+                        g[sample[j], 0] += r0
+                        g[sample[j], 1] += r1
+                continue
+            if cached:
+                resid = _block_scores(cached_rows, lo, m, table)
+            else:
+                resid = _block_scores(buf, 0, m, table)
             # Softmax residuals P(c | x) - [c == y] in place
             for i in range(m):
                 peak = resid[i].max()
@@ -882,12 +941,12 @@ def join_objective(
                     resid[i, c] = np.exp(resid[i, c] - log_norm)
                 resid[i, y[lo + i]] -= 1.0
                 for c in range(n_classes):
-                    grad[t, 0, c] += resid[i, c]
-            for j in range(rows.shape[0]):
+                    g[0, c] += resid[i, c]
+            for j in range(n_joins):
                 for i in range(m):
-                    row = rows[j, off + i]
+                    row = cached_rows[j, lo + i] if cached else buf[j, i]
                     for c in range(n_classes):
-                        grad[t, row, c] += resid[i, c]
+                        g[row, c] += resid[i, c]
     return nll.sum(), grad.sum(axis=0)
 
 
