@@ -333,6 +333,20 @@ def count_tables(
     return keys_out, count, drow, loff, dense, rows, mean, var
 
 
+@_Kernel
+def dense_estimates(dense, log_hits, log_total, group_of):
+    """Replace, in place, the value counts ``k = dense[s, c]`` of the dense
+    states by ``log_hits[k] - log_total[s, group_of[c]]``, clamped as
+    ``np.nan_to_num``. With the logarithms taken by NumPy over every count
+    and every state total, the estimates are those of NumPy over the whole
+    table, without a logarithm per entry."""
+    for s in nb.prange(dense.shape[0]):
+        row = dense[s]
+        total = log_total[s]
+        for c in range(row.shape[0]):
+            row[c] = _clamp(log_hits[int(row[c])] - total[group_of[c]])
+
+
 @nb.njit(cache=True, inline="always")
 def _find(keys, lo, hi, key):
     """Position of ``key`` in the sorted ``keys[lo:hi]``, or -1."""

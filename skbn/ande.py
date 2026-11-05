@@ -68,6 +68,7 @@ from ._kernels import (
     _threads,
     component_scores,
     count_tables,
+    dense_estimates,
     index_states,
     pooled_scores,
 )
@@ -615,19 +616,19 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         # Discrete children: log((N(s, v) + alpha) / (N(s) + alpha * card)), in
         # the rows of the dense states and, for the light ones, in a table
         # indexed by N(s), the cardinality and N(s, v)
-        value_cards = np.repeat(cards[multi], cards[multi])
+        # (both from the logarithms of every possible count and state total)
         dense_count = count[drow >= 0]
         with np.errstate(divide="ignore"):
-            for block_rows in _row_chunks(len(dense), n_columns):
-                block = dense[block_rows]
-                block += alpha
-                np.log(block, out=block)
-                block -= np.log(dense_count[block_rows, None] + alpha * value_cards)
+            log_hits = np.log(np.arange(n_samples + 1, dtype=float) + alpha)
+            log_total = np.log(dense_count[:, None] + alpha * group_cards[None, :])
             light = np.arange(_MAX_LIGHT + 1, dtype=float)
             lut = np.log(light[None, None, :] + alpha) - np.log(
                 light[:, None, None] + alpha * group_cards[None, :, None]
             )
-        np.nan_to_num(dense, copy=False, nan=LOG_ZERO, neginf=LOG_ZERO)
+        with _threads(self.n_jobs):
+            dense_estimates(
+                dense, log_hits, log_total, np.repeat(grp[multi], cards[multi])
+            )
         np.nan_to_num(lut, copy=False, nan=LOG_ZERO, neginf=LOG_ZERO)
         # Codes of the training rows of the light states, read when one is hit
         used, rows = np.unique(rows, return_inverse=True)
