@@ -7,9 +7,7 @@ from numbers import Integral, Real
 
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin, _fit_context
-from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import KBinsDiscretizer
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.validation import validate_data
 
@@ -158,6 +156,10 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
         ValueError
             If ``n_bins`` is less than 2 or ``fallback`` is not valid.
         """
+        # Imported here: sklearn.tree pulls in some hundred modules that the
+        # rest of the package does not need
+        from sklearn.tree import DecisionTreeClassifier
+
         X, y = validate_data(self, X, y, ensure_all_finite="allow-nan")
         self.thresholds_ = []
         self.imputers_ = []
@@ -283,6 +285,8 @@ class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
         """
         if not np.isnan(xi).any():
             return None
+
+        from sklearn.impute import SimpleImputer
 
         imputer = SimpleImputer(strategy="median")
         imputer.fit(xi)
