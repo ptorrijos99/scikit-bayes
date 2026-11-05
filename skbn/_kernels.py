@@ -240,7 +240,7 @@ def count_tables(
     doff,
     gidx,
     n_columns,
-    by_triples,
+    by_shared,
     pcards,
     max_cells,
 ):
@@ -253,10 +253,11 @@ def count_tables(
     the light states, and the mean and the (biased) variance of every
     Gaussian attribute per state. ``codes`` holds the value codes of the
     training rows. The columns of the parents of a component are left at
-    zero, and so are those of the discrete children that
-    :func:`count_triples` counts: when ``by_triples[m]``, the children ``j``
-    of the parents ``p < q`` whose triple has at most ``max_cells`` cells
-    (``n_classes * pcards[p] * pcards[q] * pcards[j]``).
+    zero, and so are those of the discrete children that :func:`count_pairs`
+    (one parent) or :func:`count_triples` (two) count: when ``by_shared[m]``,
+    the children ``j`` whose table over the class, the parents and ``j`` has
+    at most ``max_cells`` cells (``n_classes * pcards[j]`` times the
+    ``pcards`` of the parents).
     """
     n = y.shape[0]
     n_models = parents.shape[0]
@@ -307,11 +308,12 @@ def count_tables(
                 q += 1
             if (q < n_dep and parents[m, q] == j) or kind[j] != DISCRETE:
                 continue
-            if by_triples[m] and (
-                n_classes * pcards[parents[m, 0]] * pcards[parents[m, 1]] * pcards[j]
-                <= max_cells
-            ):
-                continue  # Counted by count_triples
+            if by_shared[m]:
+                cells = n_classes * pcards[j]
+                for p in range(n_dep):
+                    cells *= pcards[parents[m, p]]
+                if cells <= max_cells:
+                    continue  # Counted by count_pairs or count_triples
             child[n_child] = j
             n_child += 1
         offset = np.empty(n_child, dtype=np.int64)
@@ -345,6 +347,91 @@ def count_tables(
             for s in range(o, o + n_states):
                 var[s, g] /= count[s]
     return keys_out, count, drow, loff, dense, rows, mean, var
+
+
+# Tables of a pair or triple up to this many cells are counted in four
+# copies (see _histogram)
+_SMALL_TABLE = 1024
+
+
+@nb.njit(cache=True, inline="always")
+def _histogram(base, card, x, counts, size):
+    """``counts[base[r] * card + x[r]] += 1`` over every sample ``r``, in the
+    first ``size`` entries of ``counts``. The cells are counted in an array
+    of the function, which cannot alias the inputs: counted in ``counts``,
+    the loop reloads them after every increment. A small table is counted in
+    four copies, the samples taken in turns, so that consecutive samples in
+    the same cell do not wait on each other's increment; the counts are the
+    same. Inlined: called, the loop runs 1.5 times slower."""
+    n = base.shape[0]
+    if size > _SMALL_TABLE:
+        local = np.zeros(size, dtype=np.int64)
+        for r in range(n):
+            local[base[r] * card + x[r]] += 1
+        for k in range(size):
+            counts[k] = local[k]
+        return
+    copies = np.zeros(4 * size, dtype=np.int64)
+    end = n - n % 4
+    for r in range(0, end, 4):
+        copies[base[r] * card + x[r]] += 1
+        copies[size + base[r + 1] * card + x[r + 1]] += 1
+        copies[2 * size + base[r + 2] * card + x[r + 2]] += 1
+        copies[3 * size + base[r + 3] * card + x[r + 3]] += 1
+    for r in range(end, n):
+        copies[base[r] * card + x[r]] += 1
+    for k in range(size):
+        counts[k] = copies[k] + copies[size + k] + copies[2 * size + k]
+        counts[k] += copies[3 * size + k]
+
+
+@_Kernel
+def count_pairs(
+    codes_t, y, n_classes, cards, single, child_col, smap, moff, max_cells, dense
+):
+    """Value counts of the discrete children of the components with one
+    parent, in the rows of their dense states, from one count of every pair
+    of attributes: :func:`count_triples` for one parent.
+
+    ``single[a]`` is the component of parent ``a``, whose state
+    ``y * cards[a] + x_a`` has its dense row in ``smap[moff[single[a]] +
+    state]``. The counts ``N(y, x_a, x_b)`` of the pair ``a < b`` give the
+    child ``b`` of ``(a)`` and the child ``a`` of ``(b)``. A pair with more
+    than ``max_cells`` cells is left to :func:`count_tables`.
+    """
+    n_attrs, n = codes_t.shape
+    for a in nb.prange(n_attrs - 1):
+        ca = cards[a]
+        xa = codes_t[a]
+        base = np.empty(n, dtype=np.int64)
+        for r in range(n):
+            base[r] = y[r] * ca + xa[r]
+        cells = np.empty(max_cells, dtype=np.int64)
+        m_a = moff[single[a]]
+        col_a = child_col[a]
+        for b in range(a + 1, n_attrs):
+            cb = cards[b]
+            size = n_classes * ca * cb
+            if size > max_cells:
+                continue  # Counted by count_tables
+            xb = codes_t[b]
+            m_b, col_b = moff[single[b]], child_col[b]
+            counts = cells
+            _histogram(base, cb, xb, counts, size)
+            # Cell (y * ca + va) * cb + vb
+            for k in range(n_classes):
+                for va in range(ca):
+                    block = (k * ca + va) * cb
+                    if col_b >= 0:
+                        row = smap[m_a + k * ca + va]
+                        if row >= 0:
+                            for vb in range(cb):
+                                dense[row, col_b + vb] = counts[block + vb]
+                    if col_a >= 0:
+                        for vb in range(cb):
+                            row = smap[m_b + k * cb + vb]
+                            if row >= 0:
+                                dense[row, col_a + va] = counts[block + vb]
 
 
 @_Kernel
@@ -398,10 +485,8 @@ def count_triples(
             size = n_classes * ca * cb * cc
             if size > max_cells:
                 continue  # Counted by count_tables
-            counts = cells[:size]
-            counts[:] = 0
-            for r in range(n):
-                counts[base[r] * cc + xc[r]] += 1
+            counts = cells
+            _histogram(base, cc, xc, counts, size)
             # Cell ((y * ca + va) * cb + vb) * cc + vc
             for k in range(n_classes):
                 for va in range(ca):
