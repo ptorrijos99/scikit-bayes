@@ -639,6 +639,9 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
                 n_samples,
             )
         by_triples = np.zeros(n_groups, dtype=bool)
+        # A triple is counted in its own table when it has at most half as
+        # many cells as samples, a pass over them that counts three children
+        max_cells = max(n_samples // 2, 1)
         if triples is not None:
             by_triples = triples[0]
 
@@ -679,6 +682,8 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
                 gidx,
                 n_columns,
                 by_triples,
+                self._encoder.cards_,
+                max_cells,
             )
             if triples is not None:
                 _, codes_t, ucards, first, second, pair_group, child_col = triples
@@ -699,7 +704,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
                     child_col,
                     smap,
                     moff,
-                    max(n_samples // 2, 1),
+                    max_cells,
                     dense,
                 )
                 del smap

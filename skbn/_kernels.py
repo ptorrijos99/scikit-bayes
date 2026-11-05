@@ -241,6 +241,8 @@ def count_tables(
     gidx,
     n_columns,
     by_triples,
+    pcards,
+    max_cells,
 ):
     """Sufficient statistics of every component.
 
@@ -251,8 +253,10 @@ def count_tables(
     the light states, and the mean and the (biased) variance of every
     Gaussian attribute per state. ``codes`` holds the value codes of the
     training rows. The columns of the parents of a component are left at
-    zero, and so are those of its discrete children when ``by_triples[m]``
-    (:func:`count_triples` counts them).
+    zero, and so are those of the discrete children that
+    :func:`count_triples` counts: when ``by_triples[m]``, the children ``j``
+    of the parents ``p < q`` whose triple has at most ``max_cells`` cells
+    (``n_classes * pcards[p] * pcards[q] * pcards[j]``).
     """
     n = y.shape[0]
     n_models = parents.shape[0]
@@ -297,12 +301,17 @@ def count_tables(
         child = np.empty(attrs.shape[0], dtype=np.int64)
         n_child = 0
         q = 0
-        for a in range(0 if by_triples[m] else attrs.shape[0]):
+        for a in range(attrs.shape[0]):
             j = attrs[a]
             while q < n_dep and parents[m, q] < j:
                 q += 1
             if (q < n_dep and parents[m, q] == j) or kind[j] != DISCRETE:
                 continue
+            if by_triples[m] and (
+                n_classes * pcards[parents[m, 0]] * pcards[parents[m, 1]] * pcards[j]
+                <= max_cells
+            ):
+                continue  # Counted by count_triples
             child[n_child] = j
             n_child += 1
         offset = np.empty(n_child, dtype=np.int64)
@@ -366,7 +375,8 @@ def count_triples(
     ``N(y, x_a, x_b, x_c)`` of the triple ``a < b < c`` give the children
     ``c``, ``b`` and ``a`` of the components ``(a, b)``, ``(a, c)`` and
     ``(b, c)``: one pass over the samples instead of three. A triple with
-    more than ``max_cells`` cells is counted into the dense rows directly.
+    more than ``max_cells`` cells is left to :func:`count_tables`, which
+    counts the rows of the dense states only.
     The pairs ``(first[t], second[t])`` are processed in parallel; each
     child column of a component belongs to a single triple.
     """
@@ -387,20 +397,7 @@ def count_triples(
             col_a, col_b, col_c = child_col[a], child_col[b], child_col[c]
             size = n_classes * ca * cb * cc
             if size > max_cells:
-                for r in range(n):
-                    if col_c >= 0:
-                        row = smap[m_ab + base[r]]
-                        if row >= 0:
-                            dense[row, col_c + xc[r]] += 1.0
-                    if col_b >= 0:
-                        row = smap[m_ac + (y[r] * ca + xa[r]) * cc + xc[r]]
-                        if row >= 0:
-                            dense[row, col_b + xb[r]] += 1.0
-                    if col_a >= 0:
-                        row = smap[m_bc + (y[r] * cb + xb[r]) * cc + xc[r]]
-                        if row >= 0:
-                            dense[row, col_a + xa[r]] += 1.0
-                continue
+                continue  # Counted by count_tables
             counts = cells[:size]
             counts[:] = 0
             for r in range(n):
