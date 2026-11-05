@@ -179,13 +179,17 @@ class _ChildEncodingMixin:
         gidx[types["gaussian"]] = np.arange(len(types["gaussian"]))
         return kind, voff, gidx, cards
 
-    def _value_codes(self, X):
+    def _value_codes(self, X, cat_codes=None, dtype=np.int64):
         """Value of every discrete attribute as a child (the category of a
         categorical attribute, the bit of a Bernoulli one), -1 for categories
-        never seen in training and 0 for the other attributes."""
+        never seen in training and 0 for the other attributes. ``cat_codes``
+        optionally holds the codes of the categorical attributes of a
+        training ``X``, as the back-off model returns them."""
         types = self.backoff_.feature_types_
-        codes = np.zeros(X.shape, dtype=np.int64)
-        if types["categorical"]:
+        codes = np.zeros(X.shape, dtype=dtype)
+        if cat_codes is not None:
+            codes[:, types["categorical"]] = cat_codes
+        elif types["categorical"]:
             cat, unseen = self.backoff_._categorical_codes(X)
             codes[:, types["categorical"]] = np.where(unseen, -1, cat)
         if types["bernoulli"]:
@@ -440,13 +444,16 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
 
         # --- 1. Class-level back-off model (Naive Bayes on the original class),
         #        which also resolves the type of every attribute ---
-        self.backoff_ = MixedNB(
+        #        (X and y are validated; the codes of the categorical attributes
+        #        serve the parents and the children as well)
+        y_int = np.searchsorted(self.classes_, y)
+        self.backoff_, cat_codes = MixedNB(
             alpha=self.alpha,
             categorical_features=self.categorical_features,
             bernoulli_features=self.bernoulli_features,
             gaussian_features=self.gaussian_features,
             var_prior_weight=self.var_prior_weight,
-        ).fit(X, y)
+        )._fit_encoded(X, y_int, self.classes_, return_codes=True)
         types = self.backoff_.feature_types_
 
         # --- 2. Discretize parents, with the types the children use ---
@@ -456,7 +463,9 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             gaussian_features=types["gaussian"],
             discrete_features=types["categorical"] + types["bernoulli"],
         )
-        parent_codes = self._encoder.fit_transform(X)
+        parent_codes = self._encoder.fit_transform(
+            X, known=(types["categorical"], self.backoff_.categories_, cat_codes)
+        )
         gauss = types["gaussian"]
         Xg = np.asarray(X[:, gauss], dtype=float) if gauss else np.zeros((len(X), 0))
         self._pooled_mean = Xg.mean(axis=0) if gauss else np.zeros(0)
@@ -465,17 +474,19 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         )
 
         # --- 3. Count the SPnDEs ---
-        y_int = np.searchsorted(self.classes_, y)
         self.class_count_ = np.bincount(y_int, minlength=len(self.classes_)).astype(
             float
         )
-        self._fit_components(X, y_int, parent_codes)
+        codes = self._value_codes(X, cat_codes)
+        del cat_codes
+        self._fit_components(X, y_int, parent_codes, codes)
         return self
 
-    def _fit_components(self, X, y_int, parent_codes):
+    def _fit_components(self, X, y_int, parent_codes, codes):
         """Count every SPnDE and store its log-probabilities in flat tables
         (see :mod:`skbn._kernels`), one entry per augmented state seen in
-        training."""
+        training, from the parent codes and the child value codes of the
+        training samples."""
         types = self.backoff_.feature_types_
         n_samples, d = X.shape
         n_classes, n_dep = len(self.classes_), self.n_dependence
@@ -509,10 +520,11 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         group_cards, grp = np.unique(cards, return_inverse=True)
 
         xg = np.ascontiguousarray(X[:, types["gaussian"]], dtype=np.float64)
-        codes = self._value_codes(X)
         # Narrow codes for the counting and the light states (a single type
         # for nearly every dataset, so that the kernels compile once)
-        code_type = np.uint16 if cards.max(initial=0) <= 1 << 16 else np.int32
+        widest = max(cards.max(initial=0), self._encoder.cards_.max(initial=0))
+        code_type = np.uint16 if widest <= 1 << 16 else np.int32
+        parent_codes = parent_codes.astype(code_type)
         y_int = y_int.astype(np.int64)
         with _threads(self.n_jobs):
             sizes = index_states(

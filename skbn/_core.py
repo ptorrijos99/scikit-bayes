@@ -11,6 +11,8 @@ from scipy.optimize import minimize
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import KBinsDiscretizer
 
+from ._kernels import column_ranges, integer_codes
+
 # Number of elements a temporary array of a chunked computation may hold.
 _CHUNK_ELEMENTS = 1 << 22
 
@@ -71,6 +73,40 @@ def _encode_values(col, categories):
     codes = table[np.where(inside, offset, hi - lo + 1).astype(np.int64)]
     known = codes >= 0
     return np.where(known, codes, 0), ~known
+
+
+def _discrete_codes(X, columns):
+    """Sorted distinct values of the columns ``columns`` of ``X`` and the code
+    of every value among them: a list with the values of each column (as
+    :func:`_unique_values`) and the codes, shape (n_samples, len(columns))
+    (as :func:`_encode_values`). Integer columns whose values span a small
+    range are encoded together in one compiled pass over the rows; the rest
+    column by column."""
+    columns = np.asarray(columns, dtype=np.int64)
+    n = X.shape[0]
+    categories = [None] * len(columns)
+    fast = np.zeros(len(columns), dtype=bool)
+    if n and len(columns) and np.issubdtype(X.dtype, np.signedinteger):
+        lo, hi = column_ranges(X, columns)
+        fast = hi - lo <= 4 * n + 1024  # The span rule of _integer_range
+    idx = np.flatnonzero(fast)
+    codes = np.empty((n, len(columns)), dtype=np.int64)
+    if len(idx):
+        span = hi[idx] - lo[idx] + 1
+        off = np.concatenate([[0], np.cumsum(span)]).astype(np.int64)
+        sub, table = integer_codes(X, columns[idx], lo[idx], off)
+        if len(idx) == len(columns):
+            codes = sub
+        else:
+            codes[:, idx] = sub
+        for k, c in enumerate(idx):
+            present = np.flatnonzero(table[off[k] : off[k + 1]] >= 0)
+            categories[c] = (present + lo[c]).astype(X.dtype)
+    for c in np.flatnonzero(~fast):
+        col = X[:, columns[c]]
+        categories[c] = _unique_values(col)
+        codes[:, c] = _encode_values(col, categories[c])[0]
+    return categories, codes
 
 
 def _auto_type(col):
@@ -142,7 +178,14 @@ class _AttributeEncoder:
         self.gaussian_features = gaussian_features
         self.discrete_features = discrete_features
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, known=None):
+        """Fit the encoders and return the codes of ``X``. ``known`` optionally
+        gives ``(columns, categories, codes)``, the output of
+        :func:`_discrete_codes` for some discrete columns, reused as is."""
+        known_columns = (
+            {} if known is None else {int(c): k for k, c in enumerate(known[0])}
+        )
+        reused = []
         declared_gaussian = {int(i) for i in self.gaussian_features or []}
         declared_discrete = {int(i) for i in self.discrete_features or []}
         kwargs = {"subsample": None}
@@ -170,11 +213,16 @@ class _AttributeEncoder:
                     **kwargs,
                 )
                 codes[:, i] = enc.fit_transform(col.reshape(-1, 1)).ravel()
+            elif i in known_columns:
+                enc = known[1][known_columns[i]]
+                reused.append(i)
             else:
                 # The sorted values of a discrete attribute
                 enc = _unique_values(col)
                 codes[:, i] = _encode_values(col, enc)[0]
             self.encoders_.append(enc)
+        if reused:
+            codes[:, reused] = known[2][:, [known_columns[i] for i in reused]]
         self.cards_ = codes.max(axis=0) + 1
         return codes
 

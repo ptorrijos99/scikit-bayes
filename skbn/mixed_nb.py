@@ -12,7 +12,12 @@ from sklearn.utils._param_validation import Interval
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted, validate_data
 
-from ._core import _auto_type, _encode_values, _feature_indices, _unique_values
+from ._core import (
+    _auto_type,
+    _discrete_codes,
+    _encode_values,
+    _feature_indices,
+)
 
 
 def _fit_gaussian_nb(X, y_idx, classes, var_smoothing):
@@ -294,7 +299,14 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         return self._fit_encoded(X, np.searchsorted(classes, y), classes)
 
     def _fit_encoded(
-        self, X, y_idx, classes, X_int=None, columns=None, categories=None
+        self,
+        X,
+        y_idx,
+        classes,
+        X_int=None,
+        columns=None,
+        categories=None,
+        return_codes=False,
     ):
         """Fit on a validated ``X`` with labels given as indices into ``classes``.
 
@@ -306,6 +318,8 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         for every column of ``X``, the sorted categories of a categorical
         attribute (None for the others), and ``X_int`` the codes of those
         columns in them; those models compute both once for all attributes.
+        With ``return_codes`` it returns ``(self, codes)``, the codes of the
+        categorical features in training, shape (n_samples, n_categorical).
         """
         if columns is None:
             columns = np.arange(X.shape[1])
@@ -381,10 +395,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         if self.feature_types_["categorical"]:
             g = cols(self.feature_types_["categorical"])
             if categories is None:
-                self.categories_ = [_unique_values(X[:, j]) for j in g]
-                X_cat = np.column_stack(
-                    [_encode_values(X[:, j], c)[0] for j, c in zip(g, self.categories_)]
-                )
+                self.categories_, X_cat = _discrete_codes(X, g)
             else:
                 self.categories_ = [categories[j] for j in g]
                 X_cat = X_int[:, g]
@@ -405,6 +416,10 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         class_counts = np.bincount(y_idx, minlength=len(self.classes_))
         self.class_log_prior_ = np.log(class_counts / class_counts.sum())
 
+        if return_codes:
+            if not self.feature_types_["categorical"]:
+                X_cat = np.zeros((len(X), 0), dtype=np.int64)
+            return self, X_cat
         return self
 
     def _categorical_codes(self, X):

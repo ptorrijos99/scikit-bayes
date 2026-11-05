@@ -1173,3 +1173,50 @@ def conditional_scores(
                             -0.5 * (diff * diff / v + np.log(2.0 * np.pi * v))
                         )
     return out
+
+
+# =============================================================================
+# Label encoding of integer attributes
+# =============================================================================
+
+
+@nb.njit(cache=True)
+def column_ranges(X, columns):
+    """Smallest and largest value of every column in ``columns``."""
+    k = columns.shape[0]
+    lo = np.empty(k, dtype=np.int64)
+    hi = np.empty(k, dtype=np.int64)
+    for c in range(k):
+        lo[c] = hi[c] = X[0, columns[c]]
+    for r in range(1, X.shape[0]):
+        for c in range(k):
+            v = X[r, columns[c]]
+            lo[c] = min(lo[c], v)
+            hi[c] = max(hi[c], v)
+    return lo, hi
+
+
+@nb.njit(cache=True)
+def integer_codes(X, columns, lo, table_off):
+    """Rank of every value of the integer columns ``columns`` among the
+    distinct values of its column, shape (n, len(columns)), and the table
+    from value to rank: column ``c`` owns the entries
+    ``table_off[c]:table_off[c + 1]`` for the values from ``lo[c]`` up,
+    -1 for the values absent from it."""
+    n = X.shape[0]
+    k = columns.shape[0]
+    table = np.full(table_off[k], -1, dtype=np.int64)
+    for r in range(n):
+        for c in range(k):
+            table[table_off[c] + X[r, columns[c]] - lo[c]] = 0
+    for c in range(k):
+        rank = 0
+        for v in range(table_off[c], table_off[c + 1]):
+            if table[v] == 0:
+                table[v] = rank
+                rank += 1
+    codes = np.empty((n, k), dtype=np.int64)
+    for r in range(n):
+        for c in range(k):
+            codes[r, c] = table[table_off[c] + X[r, columns[c]] - lo[c]]
+    return codes, table
