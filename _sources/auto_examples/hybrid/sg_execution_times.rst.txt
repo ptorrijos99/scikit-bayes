@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:23.026** total execution time for 3 files **from auto_examples/hybrid**:
+**00:27.601** total execution time for 3 files **from auto_examples/hybrid**:
 
 .. container::
 
@@ -33,11 +33,11 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_auto_examples_hybrid_12_plot_weight_scope.py` (``12_plot_weight_scope.py``)
-     - 00:19.618
+     - 00:23.560
      - 0.0
    * - :ref:`sphx_glr_auto_examples_hybrid_14_plot_calibration.py` (``14_plot_calibration.py``)
-     - 00:02.679
+     - 00:03.143
      - 0.0
    * - :ref:`sphx_glr_auto_examples_hybrid_13_plot_compare_ande_interpretability.py` (``13_plot_compare_ande_interpretability.py``)
-     - 00:00.729
+     - 00:00.898
      - 0.0

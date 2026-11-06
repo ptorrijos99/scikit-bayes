@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:01.281** total execution time for 2 files **from auto_examples/mixednb**:
+**00:01.317** total execution time for 2 files **from auto_examples/mixednb**:
 
 .. container::
 
@@ -33,8 +33,8 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_auto_examples_mixednb_01_plot_mixednb_equivalence.py` (``01_plot_mixednb_equivalence.py``)
-     - 00:00.958
+     - 00:00.989
      - 0.0
    * - :ref:`sphx_glr_auto_examples_mixednb_04_plot_mixednb_vs_pipeline.py` (``04_plot_mixednb_vs_pipeline.py``)
-     - 00:00.323
+     - 00:00.328
      - 0.0
