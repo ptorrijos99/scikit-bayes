@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:00.803** total execution time for 4 files **from auto_examples/mixednb**:
+**00:00.969** total execution time for 4 files **from auto_examples/mixednb**:
 
 .. container::
 
@@ -32,15 +32,15 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
+   * - :ref:`sphx_glr_auto_examples_mixednb_03_plot_categoricalnb_equivalence.py` (``03_plot_categoricalnb_equivalence.py``)
+     - 00:00.562
+     - 0.0
    * - :ref:`sphx_glr_auto_examples_mixednb_01_plot_gaussiannb_equivalence.py` (``01_plot_gaussiannb_equivalence.py``)
-     - 00:00.280
+     - 00:00.192
      - 0.0
    * - :ref:`sphx_glr_auto_examples_mixednb_04_plot_mixednb_vs_pipeline.py` (``04_plot_mixednb_vs_pipeline.py``)
-     - 00:00.265
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_mixednb_03_plot_categoricalnb_equivalence.py` (``03_plot_categoricalnb_equivalence.py``)
-     - 00:00.136
+     - 00:00.153
      - 0.0
    * - :ref:`sphx_glr_auto_examples_mixednb_02_plot_bernoullinb_equivalence.py` (``02_plot_bernoullinb_equivalence.py``)
-     - 00:00.122
+     - 00:00.063
      - 0.0
