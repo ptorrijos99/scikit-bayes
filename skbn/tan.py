@@ -194,13 +194,25 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         xg = np.ascontiguousarray(X[:, types["gaussian"]], dtype=np.float64)
         value_codes = self._value_codes(X)
         codes_t = np.ascontiguousarray(codes.T)
-        n_states = count_states(y_idx, codes_t, pa, strides, n_combos, n_classes)
-        state_off = np.concatenate([[0], np.cumsum(n_states)]).astype(np.int64)
         child_cards = np.where(kind[children] == DISCRETE, cards[children], 0)
-        disc_off = np.concatenate([[0], np.cumsum(n_states * child_cards)]).astype(
-            np.int64
+        # A discrete child whose table (states x values) would be much larger
+        # than the training data keeps only its non-empty cells (n_cells > 0)
+        n_states, n_cells = count_states(
+            y_idx,
+            codes_t,
+            pa,
+            strides,
+            n_combos,
+            n_classes,
+            value_codes,
+            children,
+            child_cards,
         )
-        keys, count, disc, mean, var = count_conditionals(
+        state_off = np.concatenate([[0], np.cumsum(n_states)]).astype(np.int64)
+        cell_off = np.concatenate([[0], np.cumsum(n_cells)]).astype(np.int64)
+        disc_size = np.where(n_cells > 0, n_cells, n_states * child_cards)
+        disc_off = np.concatenate([[0], np.cumsum(disc_size)]).astype(np.int64)
+        keys, count, disc, cell_keys, mean, var = count_conditionals(
             y_idx,
             codes_t,
             value_codes,
@@ -212,22 +224,33 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             n_classes,
             state_off,
             disc_off,
+            cell_off,
             kind,
             gidx,
             cards,
         )
 
-        # Discrete children: log((N(s, v) + alpha) / (N(s) + alpha * card))
-        entry = np.repeat(np.arange(n_factors), n_states * child_cards)
-        state = state_off[entry] + (
-            (np.arange(len(disc)) - disc_off[entry])
-            // np.maximum(child_cards, 1)[entry]
-        )
+        # Discrete children: log((N(s, v) + alpha) / (N(s) + alpha * card)),
+        # a factor at a time; unseen[s] is the value of N(s, v) = 0 for the
+        # factors that keep only their non-empty cells
+        unseen = np.zeros(len(count) if n_cells.any() else 0)
         with np.errstate(divide="ignore"):
-            disc = np.log(disc + self.alpha) - np.log(
-                count[state] + self.alpha * child_cards[entry]
-            )
+            for m in np.flatnonzero(child_cards):
+                o, card = state_off[m], child_cards[m]
+                lo, hi = disc_off[m], disc_off[m + 1]
+                if n_cells[m]:
+                    local = cell_keys[cell_off[m] : cell_off[m + 1]] // card
+                    states = slice(o, state_off[m + 1])
+                    unseen[states] = np.log(np.zeros(n_states[m]) + self.alpha) - (
+                        np.log(count[states] + self.alpha * card)
+                    )
+                else:
+                    local = np.arange(hi - lo) // card
+                disc[lo:hi] = np.log(disc[lo:hi] + self.alpha) - np.log(
+                    count[o + local] + self.alpha * card
+                )
         np.nan_to_num(disc, copy=False, nan=LOG_ZERO, neginf=LOG_ZERO)
+        np.nan_to_num(unseen, copy=False, nan=LOG_ZERO, neginf=LOG_ZERO)
 
         # Gaussian children: the variance of GaussianNB on the attribute (plus
         # var_smoothing times its variance), shrunk towards that variance
@@ -262,6 +285,9 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             keys,
             disc_off,
             disc,
+            cell_off,
+            cell_keys,
+            unseen,
             mean,
             var,
             kind,
@@ -274,15 +300,19 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         ``class_index * n_parent_combos + parent_key``, their training counts,
         and the log-probabilities of shape (n_states, n_values) of a discrete
         child or the mean and variance of a Gaussian one."""
-        _, _, _, children, _, state_off, keys, disc_off, disc, mean, var = self._tables[
-            :11
-        ]
-        kind, cards = self._tables[11], self._tables[13]
+        _, _, _, children, _, state_off, keys, disc_off, disc = self._tables[:9]
+        cell_off, cell_keys, unseen, mean, var, kind, _, cards = self._tables[9:]
         m = int(np.flatnonzero(children == i)[0])
         lo, hi = state_off[m], state_off[m + 1]
         out = {"keys": keys[lo:hi], "count": self._state_count[lo:hi]}
-        if kind[i] == DISCRETE:
-            out["log_prob"] = disc[disc_off[m] : disc_off[m + 1]].reshape(-1, cards[i])
+        values = disc[disc_off[m] : disc_off[m + 1]]
+        if kind[i] == DISCRETE and cell_off[m + 1] > cell_off[m]:
+            # Only the non-empty cells are stored
+            log_prob = np.repeat(unseen[lo:hi], cards[i])
+            log_prob[cell_keys[cell_off[m] : cell_off[m + 1]]] = values
+            out["log_prob"] = log_prob.reshape(-1, cards[i])
+        elif kind[i] == DISCRETE:
+            out["log_prob"] = values.reshape(-1, cards[i])
         else:
             out["mean"], out["var"] = mean[lo:hi], var[lo:hi]
         return out

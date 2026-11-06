@@ -2,6 +2,12 @@
 
 All notable changes to scikit-bayes are listed here. The project follows [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Performance
+
+- `TAN` and `KDB` on attributes of thousands of values: the conditional mutual information of a pair whose (class, value, value) table has more than four cells per training sample sums over its non-empty cells only, and a conditional whose (state, value) table would be that large keeps only its non-empty cells. The probabilities, the structure and the tables are the same as before. On one fold of KDD Cup 09 Upselling (11 attributes of more than 100 values, up to 13 333), with one CPU, TAN fits in 5.2 s instead of 101 s and peaks at 0.68 GB instead of 35 GB, and KDB with `k=2` fits in 5.6 s instead of 124 s and peaks at 0.70 GB instead of 52 GB. On Amazon Employee Access, TAN peaks at 0.31 GB instead of 2.7 GB. Data without such attributes fit as before.
+
 ## 1.3.1 (2026-11-06)
 
 A performance release: the API is unchanged and, on x86-64, every model predicts exactly as in 1.3.0. The times below are from one fold of the benchmark datasets on a laptop, comparing 1.3.0 and 1.3.1 in the same process.

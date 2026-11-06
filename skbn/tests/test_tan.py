@@ -361,6 +361,78 @@ def test_n_jobs_gives_the_same_model(categorical_data, n_jobs):
     np.testing.assert_allclose(threaded.predict_proba(X), serial.predict_proba(X))
 
 
+def _high_cardinality_data(n, seed):
+    """Attributes of hundreds of values next to small ones, coded with the
+    values ``0..card - 1`` all observed. The (class, a, b) tables of the
+    large pairs and the (state, value) tables of their children have many
+    more cells than samples, so they are counted on the non-empty cells."""
+    rng = np.random.RandomState(seed)
+    y = rng.randint(0, 3, size=n)
+    a0 = rng.randint(0, 200, size=n)
+    a1 = np.where(rng.rand(n) < 0.7, (3 * a0 + y) % 150, rng.randint(0, 150, size=n))
+    a2 = rng.randint(0, 3, size=n)
+    a3 = np.where(rng.rand(n) < 0.6, (a2 + y) % 4, rng.randint(0, 4, size=n))
+    a4 = np.where(rng.rand(n) < 0.5, a1 % 5, rng.randint(0, 5, size=n))
+    X = np.column_stack([a0, a1, a2, a3, a4])
+    X = np.column_stack([np.unique(col, return_inverse=True)[1] for col in X.T])
+    return X, y
+
+
+def test_high_cardinality_matches_reference():
+    X, y = _high_cardinality_data(300, 0)
+    model = TAN(categorical_features=range(5)).fit(X, y)
+    np.testing.assert_allclose(
+        model.conditional_mutual_info_, _reference_cmi(X, y), atol=1e-12
+    )
+    # Both layouts are in use: some discrete children keep only their
+    # non-empty cells, others the dense table
+    cell_off, disc_off = model._tables[9], model._tables[7]
+    sparse = np.diff(cell_off) > 0
+    assert sparse.any() and not sparse.all()
+    assert np.all(np.diff(disc_off)[sparse] <= len(y))
+    # Training rows and rows whose (parent, child) combinations were mostly
+    # never seen together
+    rng = np.random.RandomState(1)
+    X_test = np.vstack([X, np.column_stack([rng.permutation(c) for c in X.T])])
+    expected = _reference_proba(X, y, X_test, model.parents_)
+    np.testing.assert_allclose(model.predict_proba(X_test), expected, atol=1e-10)
+    for i in np.flatnonzero(model.parents_ >= 0):
+        p = model.parents_[i]
+        cond = model._conditional(i)
+        n_values = X[:, i].max() + 1
+        for key, log_prob in zip(cond["keys"], cond["log_prob"]):
+            c, a = divmod(key, X[:, p].max() + 1)
+            rows = (y == c) & (X[:, p] == a)
+            counts = np.bincount(X[rows, i], minlength=n_values)
+            np.testing.assert_allclose(
+                log_prob, np.log((counts + 1.0) / (rows.sum() + n_values)), atol=1e-12
+            )
+
+
+def test_high_cardinality_memory_follows_the_samples():
+    """Two attributes of 4000 values: a dense (class, a, b) table or child
+    table would have 16-32 million cells (128-256 MB); the fit allocates
+    a few MB. tracemalloc sees the NumPy arrays of the fit and, when the
+    kernels run as Python (NUMBA_DISABLE_JIT=1), those of the kernels."""
+    import tracemalloc
+
+    rng = np.random.RandomState(0)
+    n = 4000
+    y = rng.randint(0, 2, size=n)
+    a0 = rng.permutation(n)
+    a1 = np.where(rng.rand(n) < 0.8, (a0 + y) % n, rng.randint(0, n, size=n))
+    X = np.column_stack(
+        [a0, np.unique(a1, return_inverse=True)[1], rng.randint(0, 3, size=n)]
+    )
+    TAN(categorical_features=range(3)).fit(X[:50], y[:50])
+    tracemalloc.start()
+    model = TAN(categorical_features=range(3)).fit(X, y)
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    assert model.parents_.tolist() == [-1, 0, 0]
+    assert peak < 20 * 2**20
+
+
 def test_wide_data():
     """Many more attributes than samples, the shape of microarray data."""
     rng = np.random.RandomState(0)

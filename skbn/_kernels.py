@@ -187,15 +187,40 @@ def _state_index(keys, n_grid):
     return states[:n_states].copy(), index
 
 
+@nb.njit(cache=True)
+def _value_cells(index, codes, j, card, n_states):
+    """Cells ``index[r] * card + codes[r, j]`` (local state, value of
+    attribute ``j``) of the training rows, sorted and distinct, and the
+    position of every row among them."""
+    n = index.shape[0]
+    keys = np.empty(n, dtype=np.int64)
+    for r in range(n):
+        keys[r] = index[r] * card + codes[r, j]
+    return _state_index(keys, n_states * card)
+
+
 @_Kernel
-def count_states(y, pcodes_t, parents, strides, n_combos, n_classes):
-    """Number of augmented states observed in training by each component."""
+def count_states(
+    y, pcodes_t, parents, strides, n_combos, n_classes, codes, children, child_cards
+):
+    """Number of augmented states observed in training by each component
+    and, for a component whose discrete child ``children[m]`` has
+    ``child_cards[m]`` values and whose dense table (states x values) would
+    have more than ``_DENSE_CELLS_PER_ROW`` cells per training row, the
+    number of its non-empty (state, value) cells (0 for the others)."""
+    n = y.shape[0]
     n_models = parents.shape[0]
     n_states = np.empty(n_models, dtype=np.int64)
+    n_cells = np.zeros(n_models, dtype=np.int64)
     for m in nb.prange(n_models):
         keys = _augmented_keys(y, pcodes_t, parents[m], strides[m], n_combos[m])
-        n_states[m] = _state_index(keys, n_classes * n_combos[m])[0].shape[0]
-    return n_states
+        states, index = _state_index(keys, n_classes * n_combos[m])
+        n_states[m] = states.shape[0]
+        card = child_cards[m]
+        if n_states[m] * card > _DENSE_CELLS_PER_ROW * n + 1024:
+            cells = _value_cells(index, codes, children[m], card, n_states[m])
+            n_cells[m] = cells[0].shape[0]
+    return n_states, n_cells
 
 
 @_Kernel
@@ -1968,7 +1993,37 @@ def _weighted_arithmetic_gradient(
 # with stride 0). Its augmented states are stored as those of an SPnDE
 # (``state_off``, ``state_keys``); a discrete child keeps
 # ``disc[disc_off[m] + t * cards[j] + v]`` for its local state ``t``, and a
-# Gaussian child ``mean[s]`` and ``var[s]``.
+# Gaussian child ``mean[s]`` and ``var[s]``. A discrete child whose dense
+# table would be too large (``cell_off[m + 1] > cell_off[m]``) keeps only its
+# non-empty cells: their sorted keys ``t * cards[j] + v`` in
+# ``cell_keys[cell_off[m]:cell_off[m + 1]]``, their values from
+# ``disc[disc_off[m]]`` on, and ``cell_unseen[s]`` for the values never seen
+# with state ``s``.
+
+
+@nb.njit(cache=True)
+def _sparse_pair_cmi(base, card, x, size, n_c, marg, off_i, ci, off_j):
+    """``n * I(A_i; A_j | C)`` of a pair whose (c, a, b) table has ``size``
+    cells, too many to count densely: the cells ``base[r] * card + x[r]`` of
+    the samples are sorted, and the sum runs over the distinct ones in
+    increasing order, the order in which the dense table visits its
+    non-empty cells, so the result is the same."""
+    n = base.shape[0]
+    keys = np.empty(n, dtype=np.int64)
+    for r in range(n):
+        keys[r] = base[r] * card + x[r]
+    cells, index = _state_index(keys, size)
+    counts = np.zeros(cells.shape[0], dtype=np.int64)
+    for r in range(n):
+        counts[index[r]] += 1
+    total = 0.0
+    for t in range(cells.shape[0]):
+        ca, b = divmod(cells[t], card)
+        c, a = divmod(ca, ci)
+        n_cab = float(counts[t])
+        ratio = n_cab * n_c[c] / (marg[off_i + c * ci + a] * marg[off_j + c * card + b])
+        total += n_cab * np.log(ratio)
+    return total
 
 
 @_Kernel
@@ -1978,30 +2033,45 @@ def conditional_mutual_info(codes_t, y, cards, n_classes):
     ``codes_t`` holds the attribute codes transposed, shape (n_features, n).
     The (c, a) counts of every attribute are computed once; every pair counts
     its joint table and sums ``n_cab log(n_cab n_c / (n_ca n_cb))`` over its
-    non-empty cells, which is exactly 0 for a constant attribute.
+    non-empty cells, which is exactly 0 for a constant attribute. A table
+    with more than ``_DENSE_CELLS_PER_ROW`` cells per sample (attributes of
+    thousands of values) is counted on its non-empty cells only.
     """
     d, n = codes_t.shape
-    max_card = 1
-    for j in range(d):
-        max_card = max(max_card, cards[j])
+    max_cells = _DENSE_CELLS_PER_ROW * n + 1024
     n_c = np.zeros(n_classes)
     for r in range(n):
         n_c[y[r]] += 1.0
-    marg = np.zeros((d, n_classes, max_card))
+    # (c, a) counts of attribute j at marg[moff[j] + c * cards[j] + a]
+    moff = np.zeros(d + 1, dtype=np.int64)
+    for j in range(d):
+        moff[j + 1] = moff[j] + n_classes * cards[j]
+    marg = np.zeros(moff[d])
     for j in nb.prange(d):
         for r in range(n):
-            marg[j, y[r], codes_t[j, r]] += 1.0
+            marg[moff[j] + y[r] * cards[j] + codes_t[j, r]] += 1.0
     cmi = np.zeros((d, d))
     for i in nb.prange(d):
         ci = cards[i]
-        base = np.empty(n, dtype=np.int64)
+        mi, base = moff[i], np.empty(n, dtype=np.int64)
         for r in range(n):
             base[r] = y[r] * ci + codes_t[i, r]
-        table = np.empty(n_classes * ci * max_card, dtype=np.int64)
+        dense = 0
         for j in range(i + 1, d):
-            cj = cards[j]
+            if n_classes * ci * cards[j] <= max_cells:
+                dense = max(dense, n_classes * ci * cards[j])
+        table = np.empty(dense, dtype=np.int64)
+        for j in range(i + 1, d):
+            cj, mj = cards[j], moff[j]
+            size = n_classes * ci * cj
+            if size > max_cells:
+                total = _sparse_pair_cmi(
+                    base, cj, codes_t[j], size, n_c, marg, mi, ci, mj
+                )
+                cmi[i, j] = cmi[j, i] = max(total / n, 0.0)
+                continue
             # Integer counts, as count_pairs takes them
-            _histogram(base, cj, codes_t[j], table, n_classes * ci * cj)
+            _histogram(base, cj, codes_t[j], table, size)
             total = 0.0
             for c in range(n_classes):
                 for a in range(ci):
@@ -2009,7 +2079,8 @@ def conditional_mutual_info(codes_t, y, cards, n_classes):
                     for b in range(cj):
                         n_cab = float(table[row + b])
                         if n_cab > 0.0:
-                            ratio = n_cab * n_c[c] / (marg[i, c, a] * marg[j, c, b])
+                            n_ca, n_cb = marg[mi + c * ci + a], marg[mj + c * cj + b]
+                            ratio = n_cab * n_c[c] / (n_ca * n_cb)
                             total += n_cab * np.log(ratio)
             cmi[i, j] = cmi[j, i] = max(total / n, 0.0)
     return cmi
@@ -2028,19 +2099,22 @@ def count_conditionals(
     n_classes,
     state_off,
     disc_off,
+    cell_off,
     kind,
     gidx,
     cards,
 ):
     """Sufficient statistics of every factor: the state keys, the training
-    rows of every state, the value counts of a discrete child and the mean
-    and (biased) variance of a Gaussian one."""
+    rows of every state, the value counts of a discrete child (on its
+    non-empty cells, whose keys it also returns, when ``cell_off`` gives it
+    some) and the mean and (biased) variance of a Gaussian one."""
     n = y.shape[0]
     n_factors = parents.shape[0]
     n_total = state_off[n_factors]
     keys_out = np.empty(n_total, dtype=np.int64)
     count = np.zeros(n_total)
     disc = np.zeros(disc_off[n_factors])
+    cell_keys = np.empty(cell_off[n_factors], dtype=np.int64)
     mean = np.zeros(n_total)
     var = np.zeros(n_total)
     for m in nb.prange(n_factors):
@@ -2049,11 +2123,19 @@ def count_conditionals(
         o = state_off[m]
         keys_out[o : o + states.shape[0]] = states
         j = children[m]
+        sparse = cell_off[m + 1] > cell_off[m]
+        cell = index
+        if sparse:
+            cells, cell = _value_cells(index, codes, j, cards[j], states.shape[0])
+            cell_keys[cell_off[m] : cell_off[m + 1]] = cells
         for r in range(n):
             s = o + index[r]
             count[s] += 1.0
             if kind[j] == DISCRETE:
-                disc[disc_off[m] + index[r] * cards[j] + codes[r, j]] += 1.0
+                if sparse:
+                    disc[disc_off[m] + cell[r]] += 1.0
+                else:
+                    disc[disc_off[m] + index[r] * cards[j] + codes[r, j]] += 1.0
             elif kind[j] == GAUSSIAN:
                 mean[s] += xg[r, gidx[j]]
         if kind[j] != GAUSSIAN:
@@ -2066,7 +2148,7 @@ def count_conditionals(
             var[s] += diff * diff
         for s in range(o, o + states.shape[0]):
             var[s] /= count[s]
-    return keys_out, count, disc, mean, var
+    return keys_out, count, disc, cell_keys, mean, var
 
 
 @_Kernel
@@ -2085,6 +2167,9 @@ def conditional_scores(
     state_keys,
     disc_off,
     disc,
+    cell_off,
+    cell_keys,
+    cell_unseen,
     mean,
     var,
     kind,
@@ -2106,6 +2191,7 @@ def conditional_scores(
         for m in range(n_factors):
             j = children[m]
             o = state_off[m]
+            lo_cell, hi_cell = cell_off[m], cell_off[m + 1]
             for r in range(lo, hi):
                 key = 0
                 unseen = False
@@ -2123,8 +2209,15 @@ def conditional_scores(
                         out[r, c] += uninf[r, j]
                     elif kind[j] == DISCRETE:
                         code = codes[r, j]
-                        if code >= 0:
-                            out[r, c] += disc[disc_off[m] + (s - o) * cards[j] + code]
+                        cell = (s - o) * cards[j] + code
+                        if code >= 0 and hi_cell == lo_cell:
+                            out[r, c] += disc[disc_off[m] + cell]
+                        elif code >= 0:
+                            t = _find(cell_keys, lo_cell, hi_cell, cell)
+                            if t < 0:
+                                out[r, c] += cell_unseen[s]
+                            else:
+                                out[r, c] += disc[disc_off[m] + t - lo_cell]
                     elif kind[j] == GAUSSIAN:
                         v = var[s]
                         diff = xg[r, gidx[j]] - mean[s]

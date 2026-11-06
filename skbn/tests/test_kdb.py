@@ -405,6 +405,26 @@ def test_prediction_memory_does_not_grow_with_the_parent_states():
     assert peak < 50 * 2**20
 
 
+def test_high_cardinality_matches_reference():
+    """Children of hundreds of values under two parents keep only their
+    non-empty (state, value) cells, with the same posterior."""
+    rng = np.random.RandomState(0)
+    n = 300
+    y = rng.randint(0, 2, size=n)
+    a0 = rng.randint(0, 120, size=n)
+    a1 = np.where(rng.rand(n) < 0.7, (a0 + y) % 90, rng.randint(0, 90, size=n))
+    a2 = np.where(rng.rand(n) < 0.7, (a0 + a1) % 100, rng.randint(0, 100, size=n))
+    a3 = rng.randint(0, 3, size=n)
+    X = np.column_stack([a0, a1, a2, a3])
+    X = np.column_stack([np.unique(col, return_inverse=True)[1] for col in X.T])
+    model = KDB(k=2, categorical_features=range(4)).fit(X, y)
+    assert max(len(p) for p in model.parents_) == 2
+    assert (np.diff(model._tables[9]) > 0).any()
+    X_test = np.vstack([X, np.column_stack([rng.permutation(c) for c in X.T])])
+    expected = _reference_proba(X, y, X_test, model.parents_)
+    np.testing.assert_allclose(model.predict_proba(X_test), expected, atol=1e-10)
+
+
 def test_too_many_parent_states_raise_a_clear_error():
     rng = np.random.RandomState(0)
     X = rng.randint(0, 7, size=(300, 30))
