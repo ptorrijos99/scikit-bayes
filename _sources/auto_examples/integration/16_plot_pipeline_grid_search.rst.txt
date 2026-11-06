@@ -188,7 +188,7 @@ the score of every combination.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 0.785 seconds)
+   **Total running time of the script:** (0 minutes 0.818 seconds)
 
 
 .. _sphx_glr_download_auto_examples_integration_16_plot_pipeline_grid_search.py:
