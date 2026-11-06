@@ -4,6 +4,8 @@ weight layouts, zero-count handling, variance shrinkage and analytic gradients."
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
+import platform
+
 import numpy as np
 import pytest
 from scipy.special import logsumexp
@@ -387,9 +389,14 @@ def test_compiled_objective_equals_its_array_form(
     theta = model.coef_theta_ + rng.uniform(-0.3, 0.3, size=model.n_weights_)
     nll, grad = model._nll_and_grad(theta, design, Y)
     expected_nll, expected_grad = _array_objective(model, theta, design, Y)
-    if mean == "geometric":
+    if mean == "geometric" and platform.machine().lower() in ("x86_64", "amd64"):
         assert nll == expected_nll
         np.testing.assert_array_equal(grad, expected_grad)
+    elif mean == "geometric":
+        # On ARM, SciPy's compiled sparse product fuses each product and sum
+        # into one rounding (FMA), the kernels round twice: equal to rounding
+        np.testing.assert_allclose(nll, expected_nll, rtol=1e-13)
+        np.testing.assert_allclose(grad, expected_grad, rtol=1e-11, atol=1e-11)
     else:
         # The kernels follow SciPy's logsumexp from 1.15 on and take exp from
         # the compiler's math library, NumPy from its own: equal here, but
