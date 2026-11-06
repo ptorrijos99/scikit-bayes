@@ -1,0 +1,44 @@
+﻿DecisionTreeDiscretizer
+==========================================
+
+.. currentmodule:: skbn
+
+.. autoclass:: DecisionTreeDiscretizer
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      
+      
+        ~DecisionTreeDiscretizer.fit
+      
+      
+        ~DecisionTreeDiscretizer.fit_transform
+      
+      
+        ~DecisionTreeDiscretizer.get_metadata_routing
+      
+      
+        ~DecisionTreeDiscretizer.get_params
+      
+      
+        ~DecisionTreeDiscretizer.set_output
+      
+      
+        ~DecisionTreeDiscretizer.set_params
+      
+      
+        ~DecisionTreeDiscretizer.transform
+      
+   
+   
+
+.. include:: skbn.DecisionTreeDiscretizer.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

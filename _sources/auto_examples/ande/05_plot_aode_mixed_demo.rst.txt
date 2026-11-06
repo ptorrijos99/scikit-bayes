@@ -19,42 +19,33 @@
 
 
 =====================================================
-The Power of Mixed Data: Context-Dependent Logic
+Context-dependent rules on mixed data
 =====================================================
 
-This example demonstrates why **AnDE** shines with mixed data types
-(Continuous + Categorical) compared to Naive Bayes.
+A monitored system has a continuous measurement and a categorical operating
+mode with three values. An instance is an anomaly (class 1) under a rule that
+depends on the mode: the measurement is above 1 in mode 0, below -1 in mode 1
+and between -0.5 and 0.5 in mode 2. The mode and the measurement are
+independent of each other, and neither says much about the class on its own.
 
-We simulate a system with a **Continuous Feature (X)** and a
-**Categorical "Mode" (C)**. The definition of "Anomaly" (Class 1)
-changes completely depending on the mode.
+:class:`skbn.MixedNB` models the measurement with a single Gaussian per class,
+so it cannot place a different boundary in each mode. :class:`skbn.AnDE` with
+``n_dependence=1`` conditions the measurement on the mode and learns one
+boundary per mode. The figure shows the probability of an anomaly over the
+measurement for each mode, with the training accuracy in the titles.
 
-**Result:**
-- **MixedNB (Naive):** Fails. It smears probability across the range.
-- **AnDE (n=1):** Succeeds. It learns distinct boundaries per mode.
-
-.. GENERATED FROM PYTHON SOURCE LINES 17-168
+.. GENERATED FROM PYTHON SOURCE LINES 18-142
 
 
 
 .. image-sg:: /auto_examples/ande/images/sphx_glr_05_plot_aode_mixed_demo_001.png
-   :alt: Mixed Data Capabilities: Adapting Continuous Boundaries per Category, Naive Bayes (MixedNB) Accuracy: 0.747, AnDE (n=1, Context-Aware) Accuracy: 0.942
+   :alt: Anomaly rule that depends on the operating mode, MixedNB Training accuracy: 0.747, AnDE, $n = 1$ Training accuracy: 0.942
    :srcset: /auto_examples/ande/images/sphx_glr_05_plot_aode_mixed_demo_001.png
    :class: sphx-glr-single-img
 
 
-.. rst-class:: sphx-glr-script-out
-
- .. code-block:: none
-
-    Training models...
 
 
-
-
-
-
-|
 
 .. code-block:: Python
 
@@ -68,38 +59,26 @@ changes completely depending on the mode.
     import numpy as np
     from sklearn.metrics import accuracy_score
 
-    from skbn.ande import AnDE
-    from skbn.mixed_nb import MixedNB
+    from skbn import AnDE, MixedNB
 
-    # Suppress discretization warnings for this demo
     warnings.filterwarnings("ignore", category=UserWarning)
 
-    # --- 1. Generate Mixed Dataset ---
     np.random.seed(42)
     n_samples = 3000
 
-    # Feature 0: Continuous (Standard Normal)
     X_cont = np.random.randn(n_samples, 1) * 1.5
-    # Feature 1: Categorical (0, 1, 2)
     X_cat = np.random.randint(0, 3, size=(n_samples, 1))
 
-    # Stack them
     X = np.hstack([X_cont, X_cat])
 
-    # Logic:
+    # Anomaly rule per mode
     y = np.zeros(n_samples, dtype=int)
-    # Mode 0: Positive High (> 1)
     mask_0 = (X_cat.flatten() == 0) & (X_cont.flatten() > 1.0)
     y[mask_0] = 1
-    # Mode 1: Positive Low (< -1)
     mask_1 = (X_cat.flatten() == 1) & (X_cont.flatten() < -1.0)
     y[mask_1] = 1
-    # Mode 2: Positive Middle (-0.5 < x < 0.5)
     mask_2 = (X_cat.flatten() == 2) & (np.abs(X_cont.flatten()) < 0.5)
     y[mask_2] = 1
-
-    # --- 2. Fit Models ---
-    print("Training models...")
 
     mnb = MixedNB()
     mnb.fit(X, y)
@@ -108,41 +87,31 @@ changes completely depending on the mode.
     ande.fit(X, y)
 
     models = [mnb, ande]
-    titles = ["Naive Bayes (MixedNB)", "AnDE (n=1, Context-Aware)"]
+    titles = ["MixedNB", "AnDE, $n = 1$"]
 
-    # --- 3. Visualization ---
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.6), sharey=True)
 
-    # Grid for plotting
-    # We need CENTERS for prediction, but EDGES for pcolormesh plotting
+    # Cell centers are used for prediction and cell edges for pcolormesh
     n_points = 200
     x_centers = np.linspace(-4, 4, n_points)
 
-    # Create edges for X (must be length n_points + 1)
     step = x_centers[1] - x_centers[0]
     x_edges = np.concatenate([x_centers - step / 2, [x_centers[-1] + step / 2]])
 
-    # Y edges are manual (categorical bands)
     y_edges = np.array([-0.5, 0.5, 1.5, 2.5])
 
-    # Prediction loop
     for ax, model, title in zip(axes, models, titles):
         acc = accuracy_score(y, model.predict(X))
 
-        # Construct probability map
         prob_map = np.zeros((3, n_points))
 
         for cat_val in [0, 1, 2]:
-            # Create a batch of data: [x_centers, constant_cat]
             batch_cat = np.full((n_points, 1), cat_val)
             batch_X = np.hstack([x_centers.reshape(-1, 1), batch_cat])
 
-            # Predict
             probs = model.predict_proba(batch_X)[:, 1]
             prob_map[cat_val, :] = probs
 
-        # Plot Heatmap - VIRIDIS
-        # cmap='viridis': Purple (0.0) -> Yellow (1.0)
         pcm = ax.pcolormesh(
             x_edges,
             y_edges,
@@ -154,66 +123,61 @@ changes completely depending on the mode.
             alpha=0.8,
         )
 
-        # Overlay real data points
         mask_sub = np.random.choice(n_samples, 400, replace=False)
         X_sub = X[mask_sub]
         y_sub = y[mask_sub]
 
-        # Jitter Y for visibility
+        # Jitter the categorical axis so the points do not overlap
         y_jitter = X_sub[:, 1] + np.random.uniform(-0.2, 0.2, size=len(X_sub))
 
-        # Class 0 -> Indigo Circle (Low prob)
         ax.scatter(
             X_sub[y_sub == 0, 0],
             y_jitter[y_sub == 0],
             c="indigo",
             marker="o",
-            s=30,
+            s=20,
             alpha=0.6,
             edgecolors="w",
-            linewidth=0.8,
+            linewidth=0.6,
             label="Class 0",
         )
 
-        # Class 1 -> Gold Triangle (High prob)
-        # Black edge for contrast against yellow background
         ax.scatter(
             X_sub[y_sub == 1, 0],
             y_jitter[y_sub == 1],
             c="gold",
             marker="^",
-            s=30,
+            s=20,
             alpha=0.8,
             edgecolors="k",
-            linewidth=0.5,
+            linewidth=0.4,
             label="Class 1",
         )
 
-        ax.set_title(f"{title}\nAccuracy: {acc:.3f}")
-        ax.set_xlabel("Continuous Feature Value")
-        ax.set_yticks([0, 1, 2])
-        ax.set_yticklabels(["Mode 0\n(High)", "Mode 1\n(Low)", "Mode 2\n(Band)"])
+        ax.set_title(f"{title}\nTraining accuracy: {acc:.3f}")
+        ax.set_xlabel("Measurement")
+        ax.set_xlim(x_edges[0], x_edges[-1])
+        ax.set_yticks(
+            [0, 1, 2],
+            ["Mode 0\nAbove 1", "Mode 1\nBelow $-1$", "Mode 2\nWithin $\\pm 0.5$"],
+        )
 
-        # Reference lines
+        # Anomaly thresholds of each mode
         ax.vlines(1.0, -0.5, 0.5, colors="black", linestyles="--", alpha=0.5)
         ax.vlines(-1.0, 0.5, 1.5, colors="black", linestyles="--", alpha=0.5)
         ax.vlines([-0.5, 0.5], 1.5, 2.5, colors="black", linestyles="--", alpha=0.5)
 
-    axes[0].set_ylabel("Categorical Feature (Context)")
-    cbar = fig.colorbar(
-        pcm, ax=axes.ravel().tolist(), orientation="horizontal", fraction=0.05, pad=0.15
-    )
-    cbar.set_label("Predicted Probability of Anomaly (Class 1)")
+    axes[0].set_ylabel("Operating mode")
+    fig.colorbar(pcm, ax=axes, label="Probability of an anomaly")
+    fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=2)
 
-    fig.suptitle(
-        "Mixed Data Capabilities: Adapting Continuous Boundaries per Category", fontsize=16
-    )
+    fig.suptitle("Anomaly rule that depends on the operating mode")
     plt.show()
 
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 6.857 seconds)
+   **Total running time of the script:** (0 minutes 5.988 seconds)
 
 
 .. _sphx_glr_download_auto_examples_ande_05_plot_aode_mixed_demo.py:

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>AnDE &#8212; scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation</title>
+    <title>AnDE &#8212; scikit-bayes 1.3.1.post1.dev5 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=426729a5"></script>
+    <script src="../_static/documentation_options.js?v=34d86f33"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
@@ -57,7 +57,7 @@
     <link rel="prev" title="MixedNB" href="skbn.MixedNB.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.2.2" />
+  <meta name="docsearch:version" content="1.3.1" />
   </head>
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
-    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.3.1.post1.dev5 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.3.1.post1.dev5 documentation - Home"/>
   
   
 </a></div>
@@ -345,9 +345,8 @@
 <li class="toctree-l1"><a class="reference internal" href="skbn.KDB.html">KDB</a></li>
 </ul>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="skbn.utils.discovery.all_estimators.html">skbn.utils.discovery.all_estimators</a></li>
-<li class="toctree-l1"><a class="reference internal" href="skbn.utils.discovery.all_displays.html">skbn.utils.discovery.all_displays</a></li>
-<li class="toctree-l1"><a class="reference internal" href="skbn.utils.discovery.all_functions.html">skbn.utils.discovery.all_functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.MDLPDiscretizer.html">MDLPDiscretizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.DecisionTreeDiscretizer.html">DecisionTreeDiscretizer</a></li>
 </ul>
 </div>
 </nav></div>
@@ -793,36 +792,36 @@ parameters and not others.</p>
 
 <section id="examples-using-skbn-ande">
 <h2>Examples using <code class="docutils literal notranslate"><span class="pre">skbn.AnDE</span></code><a class="headerlink" href="#examples-using-skbn-ande" title="Link to this heading">#</a></h2>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates why AnDE shines with mixed data types (Continuous + Categorical) compared to Naive Bayes."><img alt="" src="../_images/sphx_glr_05_plot_aode_mixed_demo_thumb.png" />
-<p><a class="reference internal" href="../auto_examples/ande/05_plot_aode_mixed_demo.html"><span class="doc">The Power of Mixed Data: Context-Dependent Logic</span></a></p>
-  <div class="sphx-glr-thumbnail-title">The Power of Mixed Data: Context-Dependent Logic</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates the limitations of the independence assumption in Naive Bayes and how Averaged n-Dependence Estimators (AnDE) overcome them."><img alt="" src="../_images/sphx_glr_06_plot_aode_xor_thumb.png" />
-<p><a class="reference internal" href="../auto_examples/ande/06_plot_aode_xor.html"><span class="doc">Solving the XOR Problem: AnDE vs Naive Bayes</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Solving the XOR Problem: AnDE vs Naive Bayes</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="While 3D visualizations show the global structure, taking a 2D slice (fixing one feature) allows for a precise analysis of the decision boundary."><img alt="" src="../_images/sphx_glr_07_plot_a2de_xor_slice_thumb.png" />
-<p><a class="reference internal" href="../auto_examples/ande/07_plot_a2de_xor_slice.html"><span class="doc">Analytic View: 2D Slice of the 3D XOR Problem</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Analytic View: 2D Slice of the 3D XOR Problem</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="To visualize the 3D decision boundaries clearly, we plot a dense cloud of points (voxels) colored by the predicted class probability."><img alt="" src="../_images/sphx_glr_08_plot_a2de_xor_3d_thumb.png" />
-<p><a class="reference internal" href="../auto_examples/ande/08_plot_a2de_xor_3d.html"><span class="doc">3D Voxel-Cloud Visualization: XOR Structure</span></a></p>
-  <div class="sphx-glr-thumbnail-title">3D Voxel-Cloud Visualization: XOR Structure</div>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="A monitored system has a continuous measurement and a categorical operating mode with three values. An instance is an anomaly (class 1) under a rule that depends on the mode: the measurement is above 1 in mode 0, below -1 in mode 1 and between -0.5 and 0.5 in mode 2. The mode and the measurement are independent of each other, and neither says much about the class on its own."><img alt="" src="../_images/sphx_glr_05_plot_aode_mixed_demo_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/ande/05_plot_aode_mixed_demo.html"><span class="doc">Context-dependent rules on mixed data</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Context-dependent rules on mixed data</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="The XOR dataset has two continuous features. Class 0 lies in the first and third quadrants (both features with the same sign) and class 1 in the second and fourth. Each feature taken alone has the same distribution in both classes, centered at 0, so Naive Bayes has nothing to learn from and stays near chance level."><img alt="" src="../_images/sphx_glr_06_plot_aode_xor_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/ande/06_plot_aode_xor.html"><span class="doc">XOR problem: AnDE and Naive Bayes</span></a></p>
+  <div class="sphx-glr-thumbnail-title">XOR problem: AnDE and Naive Bayes</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="In the three-dimensional XOR problem the class is the parity of the signs of three features: class 1 when the product of the signs is positive. Fixing one feature turns it into a two-dimensional problem. At z = 1 the class is 1 when x and y have the same sign, a checkerboard of four quadrants in the (x, y) plane."><img alt="" src="../_images/sphx_glr_07_plot_a2de_xor_slice_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/ande/07_plot_a2de_xor_slice.html"><span class="doc">Slice of the three-dimensional XOR problem</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Slice of the three-dimensional XOR problem</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="skbn.AnDE can pool its components in two ways:"><img alt="" src="../_images/sphx_glr_09_plot_arithmetic_vs_geometric_mean_thumb.png" />
-<p><a class="reference internal" href="../auto_examples/ande/09_plot_arithmetic_vs_geometric_mean.html"><span class="doc">Arithmetic or Geometric Mean: A Sensor That Fails</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Arithmetic or Geometric Mean: A Sensor That Fails</div>
+<p><a class="reference internal" href="../auto_examples/ande/09_plot_arithmetic_vs_geometric_mean.html"><span class="doc">Arithmetic or geometric mean with a failing sensor</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Arithmetic or geometric mean with a failing sensor</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="An AnDE component estimates one distribution per combination of class and super-parent value. When a combination is rare, or never appears in the training data, that estimate is unreliable. Two parameters control what the ensemble does about it."><img alt="" src="../_images/sphx_glr_10_plot_unseen_states_thumb.png" />
-<p><a class="reference internal" href="../auto_examples/ande/10_plot_unseen_states.html"><span class="doc">Rare and Unseen Parent Values</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Rare and Unseen Parent Values</div>
+<p><a class="reference internal" href="../auto_examples/ande/10_plot_unseen_states.html"><span class="doc">Rare and unseen parent values</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Rare and unseen parent values</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="An AnDE of order $n$ has one component for every set of $n$ attributes, so an ensemble over $d$ attributes has $\binom{d}{n}$ components:"><img alt="" src="../_images/sphx_glr_11_plot_order_cost_thumb.png" />
-<p><a class="reference internal" href="../auto_examples/ande/11_plot_order_cost.html"><span class="doc">The Cost of the Order of Dependence</span></a></p>
-  <div class="sphx-glr-thumbnail-title">The Cost of the Order of Dependence</div>
+<p><a class="reference internal" href="../auto_examples/ande/11_plot_order_cost.html"><span class="doc">Cost of the order of dependence</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Cost of the order of dependence</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="skbn.AnJE and skbn.ALR are defined on discrete attributes, so they discretize every continuous attribute into n_bins bins. skbn.GaussianAnJE and skbn.GaussianALR build the same models on the factors of the SPnDEs: only the super-parents are discretized, and every attribute keeps a Gaussian distribution as a child, as in HAODE. GaussianAnJE(n_dependence=1) is the counterpart of AnJE(n_join=2)."><img alt="" src="../_images/sphx_glr_20_plot_gaussian_children_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/anje/20_plot_gaussian_children.html"><span class="doc">Gaussian children or discretized attributes</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Gaussian children or discretized attributes</div>
 </div><div class="sphx-glr-thumbcontainer" tooltip="skbn.WeightedAnDE learns discriminative weights on top of AnDE. weight_scope decides what a weight multiplies:"><img alt="" src="../_images/sphx_glr_12_plot_weight_scope_thumb.png" />
-<p><a class="reference internal" href="../auto_examples/hybrid/12_plot_weight_scope.html"><span class="doc">Component or Factor Weights: Data Efficiency and Cost</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Component or Factor Weights: Data Efficiency and Cost</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="This example shows how the component weights of skbn.WeightedAnDE act as an embedded feature selection. With weight_level=1 every SPODE, identified by its super-parent, gets one weight; with the geometric mean (``mean=&quot;geometric&quot;``) the weights scale the log-joints of the SPODEs and stay non-negative, so they read as the importance of each super-parent."><img alt="" src="../_images/sphx_glr_13_plot_compare_ande_interpretability_thumb.png" />
-<p><a class="reference internal" href="../auto_examples/hybrid/13_plot_compare_ande_interpretability.html"><span class="doc">Interpreting Component Weights: Feature Selection via Weights</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Interpreting Component Weights: Feature Selection via Weights</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="A classifier is calibrated when, among the instances to which it gives a probability of 0.8, about 80% belong to the predicted class. This example draws the reliability diagrams of five models of the library."><img alt="" src="../_images/sphx_glr_14_plot_calibration_thumb.png" />
-<p><a class="reference internal" href="../auto_examples/hybrid/14_plot_calibration.html"><span class="doc">Calibration: Generative vs Hybrid Models</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Calibration: Generative vs Hybrid Models</div>
+<p><a class="reference internal" href="../auto_examples/hybrid/12_plot_weight_scope.html"><span class="doc">Component or factor weights: data efficiency and cost</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Component or factor weights: data efficiency and cost</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="The component weights of skbn.WeightedAnDE act as an embedded selection of attributes. With n_dependence=1 and weight_level=1 every SPODE, identified by its super-parent, gets one weight. With the geometric mean (``mean=&quot;geometric&quot;``) the weights scale the log-joints of the SPODEs and stay non-negative, so they read as the importance of each super-parent."><img alt="" src="../_images/sphx_glr_13_plot_compare_ande_interpretability_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/hybrid/13_plot_compare_ande_interpretability.html"><span class="doc">Component weights as a selection of super-parents</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Component weights as a selection of super-parents</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="A classifier is calibrated when, among the instances to which it gives a probability of 0.8, about 80% belong to the predicted class. The figure draws the reliability diagrams of five models of the library."><img alt="" src="../_images/sphx_glr_14_plot_calibration_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/hybrid/14_plot_calibration.html"><span class="doc">Calibration of generative and weighted models</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Calibration of generative and weighted models</div>
 </div></div><div style='clear:both'></div></section>
 </section>
 

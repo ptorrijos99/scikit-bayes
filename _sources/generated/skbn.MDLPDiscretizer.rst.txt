@@ -1,0 +1,44 @@
+﻿MDLPDiscretizer
+==================================
+
+.. currentmodule:: skbn
+
+.. autoclass:: MDLPDiscretizer
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      
+      
+        ~MDLPDiscretizer.fit
+      
+      
+        ~MDLPDiscretizer.fit_transform
+      
+      
+        ~MDLPDiscretizer.get_metadata_routing
+      
+      
+        ~MDLPDiscretizer.get_params
+      
+      
+        ~MDLPDiscretizer.set_output
+      
+      
+        ~MDLPDiscretizer.set_params
+      
+      
+        ~MDLPDiscretizer.transform
+      
+   
+   
+
+.. include:: skbn.MDLPDiscretizer.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

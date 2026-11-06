@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Getting Started &#8212; scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation</title>
+    <title>Getting Started &#8212; scikit-bayes 1.3.1.post1.dev5 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/documentation_options.js?v=426729a5"></script>
+    <script src="_static/documentation_options.js?v=34d86f33"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/design-tabs.js?v=f930bc37"></script>
@@ -56,7 +56,7 @@
     <link rel="prev" title="scikit-bayes" href="index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.2.2" />
+  <meta name="docsearch:version" content="1.3.1" />
   </head>
   
   
@@ -122,8 +122,8 @@
       
     
     
-    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
-    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.3.1.post1.dev5 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.3.1.post1.dev5 documentation - Home"/>
   
   
 </a></div>
@@ -375,8 +375,8 @@
 <span id="quick-start"></span><h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading">#</a></h1>
 <section id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
-<section id="from-pypi-recommended">
-<h3>From PyPI (Recommended)<a class="headerlink" href="#from-pypi-recommended" title="Link to this heading">#</a></h3>
+<section id="from-pypi">
+<h3>From PyPI<a class="headerlink" href="#from-pypi" title="Link to this heading">#</a></h3>
 <p>scikit-bayes needs Python 3.10 or later, NumPy, SciPy, Numba and
 scikit-learn 1.6 or later. Install it from PyPI with pip:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><style type="text/css">
@@ -385,24 +385,25 @@ span.prompt1:before {
 }
 </style><span class="prompt1">pip<span class="w"> </span>install<span class="w"> </span>scikit-bayes</span>
 </pre></div></div></section>
-<section id="from-source">
-<h3>From Source<a class="headerlink" href="#from-source" title="Link to this heading">#</a></h3>
-<p>To install the development version directly from GitHub:</p>
+<section id="from-github">
+<h3>From GitHub<a class="headerlink" href="#from-github" title="Link to this heading">#</a></h3>
+<p>The development version:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span class="prompt1">pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/ptorrijos99/scikit-bayes.git</span>
 </pre></div></div></section>
 </section>
-<section id="quick-examples">
-<h2>Quick Examples<a class="headerlink" href="#quick-examples" title="Link to this heading">#</a></h2>
-<section id="mixednb-handling-mixed-data-types">
-<h3>MixedNB: Handling Mixed Data Types<a class="headerlink" href="#mixednb-handling-mixed-data-types" title="Link to this heading">#</a></h3>
-<p><a class="reference internal" href="generated/skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.MixedNB</span></code></a> automatically detects and handles datasets with
-Gaussian (continuous), Categorical, and Bernoulli (binary) features:</p>
+<section id="first-models">
+<h2>First models<a class="headerlink" href="#first-models" title="Link to this heading">#</a></h2>
+<section id="mixednb-on-mixed-data">
+<h3>MixedNB on mixed data<a class="headerlink" href="#mixednb-on-mixed-data" title="Link to this heading">#</a></h3>
+<p><a class="reference internal" href="generated/skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.MixedNB</span></code></a> takes Gaussian (continuous), categorical and Bernoulli
+(binary) features in one table, and infers the type of each one from its
+values:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <span class="n">MixedNB</span>
 
-<span class="c1"># Data: [Gaussian, Bernoulli, Categorical]</span>
+<span class="c1"># Columns: Gaussian, Bernoulli, categorical</span>
 <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
-    <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>   <span class="c1"># continuous, binary, categories 0-2</span>
+    <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
     <span class="p">[</span><span class="o">-</span><span class="mf">1.2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
     <span class="p">[</span><span class="mf">0.6</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
     <span class="p">[</span><span class="o">-</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
@@ -411,38 +412,34 @@ Gaussian (continuous), Categorical, and Bernoulli (binary) features:</p>
 
 <span class="n">clf</span> <span class="o">=</span> <span class="n">MixedNB</span><span class="p">()</span>
 <span class="n">clf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">clf</span><span class="o">.</span><span class="n">predict</span><span class="p">([[</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]))</span>  <span class="c1"># Output: [1]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">clf</span><span class="o">.</span><span class="n">predict</span><span class="p">([[</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]))</span>  <span class="c1"># [1]</span>
 </pre></div>
 </div>
 </section>
-<section id="ande-solving-problems-naive-bayes-cannot">
-<h3>AnDE: Solving Problems Naive Bayes Cannot<a class="headerlink" href="#ande-solving-problems-naive-bayes-cannot" title="Link to this heading">#</a></h3>
-<p><a class="reference internal" href="generated/skbn.AnDE.html#skbn.AnDE" title="skbn.AnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.AnDE</span></code></a> relaxes the independence assumption of Naive Bayes,
-allowing it to capture feature dependencies like the XOR problem:</p>
+<section id="ande-on-xor">
+<h3>AnDE on XOR<a class="headerlink" href="#ande-on-xor" title="Link to this heading">#</a></h3>
+<p><a class="reference internal" href="generated/skbn.AnDE.html#skbn.AnDE" title="skbn.AnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.AnDE</span></code></a> relaxes the independence assumption of Naive Bayes, so it
+learns dependencies between features such as XOR, where the class depends
+on whether the two features have the same sign:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnDE</span>
 
-<span class="c1"># XOR problem: class depends on interaction of features</span>
 <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]])</span>
-<span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>  <span class="c1"># XOR: same sign → 0, different → 1</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>  <span class="c1"># 0 for the same sign, 1 otherwise</span>
 
-<span class="c1"># Naive Bayes fails (~50% accuracy), AnDE succeeds</span>
+<span class="c1"># MixedNB predicts one class everywhere; AnDE gets all four right</span>
 <span class="n">clf</span> <span class="o">=</span> <span class="n">AnDE</span><span class="p">(</span><span class="n">n_dependence</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="n">clf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">clf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>  <span class="c1"># Output: [0, 1, 1, 0] ✓</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">clf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>  <span class="c1"># [0 1 1 0]</span>
 </pre></div>
 </div>
 </section>
 </section>
 <section id="development-setup">
-<h2>Development Setup<a class="headerlink" href="#development-setup" title="Link to this heading">#</a></h2>
-<p>This project uses <a class="reference external" href="https://pixi.sh">pixi</a> for environment management.</p>
-<section id="install-pixi">
-<h3>Install pixi<a class="headerlink" href="#install-pixi" title="Link to this heading">#</a></h3>
-<p>Follow the instructions at <a class="reference external" href="https://pixi.sh/latest/#installation">https://pixi.sh/latest/#installation</a></p>
-</section>
-<section id="common-commands">
-<h3>Common Commands<a class="headerlink" href="#common-commands" title="Link to this heading">#</a></h3>
+<h2>Development setup<a class="headerlink" href="#development-setup" title="Link to this heading">#</a></h2>
+<p>The development environments are managed with <a class="reference external" href="https://pixi.sh">pixi</a>.
+After <a class="reference external" href="https://pixi.sh/latest/#installation">installing pixi</a>, the common
+tasks are:</p>
 <p>Run tests:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span class="prompt1">pixi<span class="w"> </span>run<span class="w"> </span><span class="nb">test</span></span>
 </pre></div></div><p>Run linter:</p>
@@ -451,16 +448,18 @@ allowing it to capture feature dependencies like the XOR problem:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span class="prompt1">pixi<span class="w"> </span>run<span class="w"> </span>build-doc</span>
 </pre></div></div><p>Activate development environment:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span class="prompt1">pixi<span class="w"> </span>shell<span class="w"> </span>-e<span class="w"> </span>dev</span>
-</pre></div></div><p>This activates an environment with all dependencies for testing, linting,
-and building documentation.</p>
+</pre></div></div><p>The last one opens a shell with the dependencies of the tests, the linter
+and the documentation.</p>
 </section>
-</section>
-<section id="what-s-next">
-<h2>What’s Next?<a class="headerlink" href="#what-s-next" title="Link to this heading">#</a></h2>
+<section id="further-reading">
+<h2>Further reading<a class="headerlink" href="#further-reading" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="user_guide.html#user-guide"><span class="std std-ref">User Guide</span></a> - Detailed documentation of all estimators</p></li>
-<li><p><a class="reference internal" href="api.html#api"><span class="std std-ref">API Reference</span></a> - Complete API documentation</p></li>
-<li><p><a class="reference internal" href="auto_examples/index.html#general-examples"><span class="std std-ref">Examples</span></a> - Gallery of usage examples</p></li>
+<li><p><a class="reference internal" href="user_guide.html#user-guide"><span class="std std-ref">User guide</span></a>: how each model is defined and estimated,
+and how to choose its parameters.</p></li>
+<li><p><a class="reference internal" href="api.html#api"><span class="std std-ref">API reference</span></a>: parameters, attributes and methods of every
+class.</p></li>
+<li><p><a class="reference internal" href="auto_examples/index.html#general-examples"><span class="std std-ref">Example gallery</span></a>: what each model captures, shown
+on small datasets with plots.</p></li>
 </ul>
 </section>
 </section>
@@ -513,21 +512,17 @@ and building documentation.</p>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#from-pypi-recommended">From PyPI (Recommended)</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#from-source">From Source</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#from-pypi">From PyPI</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#from-github">From GitHub</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-examples">Quick Examples</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mixednb-handling-mixed-data-types">MixedNB: Handling Mixed Data Types</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ande-solving-problems-naive-bayes-cannot">AnDE: Solving Problems Naive Bayes Cannot</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#first-models">First models</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mixednb-on-mixed-data">MixedNB on mixed data</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ande-on-xor">AnDE on XOR</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#development-setup">Development Setup</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#install-pixi">Install pixi</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#common-commands">Common Commands</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-s-next">What’s Next?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#development-setup">Development setup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#further-reading">Further reading</a></li>
 </ul>
   </nav></div>
 

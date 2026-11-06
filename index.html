@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>scikit-bayes &#8212; scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation</title>
+    <title>scikit-bayes &#8212; scikit-bayes 1.3.1.post1.dev5 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/documentation_options.js?v=426729a5"></script>
+    <script src="_static/documentation_options.js?v=34d86f33"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/design-tabs.js?v=f930bc37"></script>
@@ -55,7 +55,7 @@
     <link rel="next" title="Getting Started" href="quick_start.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.2.2" />
+  <meta name="docsearch:version" content="1.3.1" />
   </head>
   
   
@@ -121,8 +121,8 @@
       
     
     
-    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
-    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.3.1.post1.dev5 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.3.1.post1.dev5 documentation - Home"/>
   
   
 </a></div>
@@ -350,20 +350,26 @@
                   
   <section id="scikit-bayes">
 <h1>scikit-bayes<a class="headerlink" href="#scikit-bayes" title="Link to this heading">#</a></h1>
-<p><strong>Date</strong>: Nov 06, 2026 <strong>Version</strong>: 1.2.2</p>
+<p><strong>Date</strong>: Nov 06, 2026 <strong>Version</strong>: 1.3.1</p>
 <p><strong>Useful links</strong>:
 <a class="reference external" href="https://github.com/ptorrijos99/scikit-bayes">Source Repository</a> |
 <a class="reference external" href="https://github.com/ptorrijos99/scikit-bayes/issues">Issues &amp; Ideas</a> |</p>
-<p><strong>scikit-bayes</strong> is a Python package that extends <code class="docutils literal notranslate"><span class="pre">scikit-learn</span></code> with a suite of
-Bayesian Network Classifiers. It provides <code class="docutils literal notranslate"><span class="pre">scikit-learn</span></code>-compatible implementations
-of higher-order and hybrid Bayesian models that are missing from the core library.</p>
-<p><strong>Key Features:</strong></p>
+<p>scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model
+follows the scikit-learn estimator API and takes tables that mix continuous,
+categorical and binary attributes.</p>
 <ul class="simple">
-<li><p><strong>MixedNB</strong>: Naive Bayes for mixed data types (Gaussian, Categorical, Bernoulli)</p></li>
-<li><p><strong>AnDE Family</strong>: Averaged n-Dependence Estimators that relax the independence assumption</p></li>
-<li><p><strong>TAN</strong>: Tree Augmented Naive Bayes with a Chow-Liu tree of attribute dependencies</p></li>
-<li><p><strong>KDB</strong>: K-Dependence Bayesian classifier with at most k attribute parents per attribute</p></li>
-<li><p><strong>Hybrid Models</strong>: ALR, GaussianALR and WeightedAnDE for discriminative learning</p></li>
+<li><p><a class="reference internal" href="generated/skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>: Naive Bayes for continuous, categorical and binary
+attributes in one model.</p></li>
+<li><p><a class="reference internal" href="generated/skbn.AnDE.html#skbn.AnDE" title="skbn.AnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">AnDE</span></code></a>: Averaged n-Dependence Estimators (AODE, A2DE).</p></li>
+<li><p><a class="reference internal" href="generated/skbn.AnJE.html#skbn.AnJE" title="skbn.AnJE"><code class="xref py py-class docutils literal notranslate"><span class="pre">AnJE</span></code></a> and <a class="reference internal" href="generated/skbn.GaussianAnJE.html#skbn.GaussianAnJE" title="skbn.GaussianAnJE"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianAnJE</span></code></a>: Averaged n-Join
+Estimators.</p></li>
+<li><p><a class="reference internal" href="generated/skbn.TAN.html#skbn.TAN" title="skbn.TAN"><code class="xref py py-class docutils literal notranslate"><span class="pre">TAN</span></code></a> and <a class="reference internal" href="generated/skbn.KDB.html#skbn.KDB" title="skbn.KDB"><code class="xref py py-class docutils literal notranslate"><span class="pre">KDB</span></code></a>: a single network in which every
+attribute has one (TAN) or up to k (KDB) attribute parents.</p></li>
+<li><p><a class="reference internal" href="generated/skbn.WeightedAnDE.html#skbn.WeightedAnDE" title="skbn.WeightedAnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">WeightedAnDE</span></code></a>, <a class="reference internal" href="generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR"><code class="xref py py-class docutils literal notranslate"><span class="pre">ALR</span></code></a> and
+<a class="reference internal" href="generated/skbn.GaussianALR.html#skbn.GaussianALR" title="skbn.GaussianALR"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianALR</span></code></a>: weights learned discriminatively on top of the
+generative models.</p></li>
+<li><p><a class="reference internal" href="generated/skbn.MDLPDiscretizer.html#skbn.MDLPDiscretizer" title="skbn.MDLPDiscretizer"><code class="xref py py-class docutils literal notranslate"><span class="pre">MDLPDiscretizer</span></code></a> and <a class="reference internal" href="generated/skbn.DecisionTreeDiscretizer.html#skbn.DecisionTreeDiscretizer" title="skbn.DecisionTreeDiscretizer"><code class="xref py py-class docutils literal notranslate"><span class="pre">DecisionTreeDiscretizer</span></code></a>:
+supervised discretization of continuous attributes.</p></li>
 </ul>
 <div class="sd-container-fluid sd-sphinx-override sd-mb-4 sd-pt-2 sd-pb-2 sd-pl-0 sd-pr-0 sd-text-center docutils">
 <div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-4 sd-g-xs-4 sd-g-sm-4 sd-g-md-4 sd-g-lg-4 docutils">
@@ -373,7 +379,7 @@ of higher-order and hybrid Bayesian models that are missing from the core librar
 <div class="sd-card-body docutils">
 <div class="sd-card-title sd-font-weight-bold docutils">
 Getting started</div>
-<p class="sd-card-text">Information about installation and basic usage of scikit-bayes.</p>
+<p class="sd-card-text">Installation and a first model.</p>
 </div>
 <div class="sd-card-footer docutils">
 <p class="sd-card-text"><span class="sd-d-grid"><a class="sd-sphinx-override sd-btn sd-text-wrap sd-btn-secondary sd-stretched-link reference internal" href="quick_start.html#quick-start"><span class="std std-ref">To the getting started guideline</span></a></span></p>
@@ -399,7 +405,7 @@ User guide</div>
 <div class="sd-card-body docutils">
 <div class="sd-card-title sd-font-weight-bold docutils">
 API reference</div>
-<p class="sd-card-text">Complete reference documentation for all estimators and utilities.</p>
+<p class="sd-card-text">Parameters, attributes and methods of every class.</p>
 </div>
 <div class="sd-card-footer docutils">
 <p class="sd-card-text"><span class="sd-d-grid"><a class="sd-sphinx-override sd-btn sd-text-wrap sd-btn-secondary sd-stretched-link reference internal" href="api.html#api"><span class="std std-ref">To the reference guide</span></a></span></p>
@@ -412,7 +418,7 @@ API reference</div>
 <div class="sd-card-body docutils">
 <div class="sd-card-title sd-font-weight-bold docutils">
 Examples</div>
-<p class="sd-card-text">Gallery of examples demonstrating AnDE, MixedNB, and more.</p>
+<p class="sd-card-text">What each model captures, shown on small datasets with plots.</p>
 </div>
 <div class="sd-card-footer docutils">
 <p class="sd-card-text"><span class="sd-d-grid"><a class="sd-sphinx-override sd-btn sd-text-wrap sd-btn-secondary sd-stretched-link reference internal" href="auto_examples/index.html#general-examples"><span class="std std-ref">To the gallery of examples</span></a></span></p>

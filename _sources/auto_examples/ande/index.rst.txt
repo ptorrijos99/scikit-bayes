@@ -20,7 +20,7 @@ how their components are combined, and what the order of dependence costs.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates why AnDE shines with mixed data types (Continuous + Categorical) compared to Naive Bayes.">
+    <div class="sphx-glr-thumbcontainer" tooltip="A monitored system has a continuous measurement and a categorical operating mode with three values. An instance is an anomaly (class 1) under a rule that depends on the mode: the measurement is above 1 in mode 0, below -1 in mode 1 and between -0.5 and 0.5 in mode 2. The mode and the measurement are independent of each other, and neither says much about the class on its own.">
 
 .. only:: html
 
@@ -31,13 +31,13 @@ how their components are combined, and what the order of dependence costs.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">The Power of Mixed Data: Context-Dependent Logic</div>
+      <div class="sphx-glr-thumbnail-title">Context-dependent rules on mixed data</div>
     </div>
 
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates the limitations of the independence assumption in Naive Bayes and how Averaged n-Dependence Estimators (AnDE) overcome them.">
+    <div class="sphx-glr-thumbcontainer" tooltip="The XOR dataset has two continuous features. Class 0 lies in the first and third quadrants (both features with the same sign) and class 1 in the second and fourth. Each feature taken alone has the same distribution in both classes, centered at 0, so Naive Bayes has nothing to learn from and stays near chance level.">
 
 .. only:: html
 
@@ -48,13 +48,13 @@ how their components are combined, and what the order of dependence costs.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Solving the XOR Problem: AnDE vs Naive Bayes</div>
+      <div class="sphx-glr-thumbnail-title">XOR problem: AnDE and Naive Bayes</div>
     </div>
 
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="While 3D visualizations show the global structure, taking a 2D slice (fixing one feature) allows for a precise analysis of the decision boundary.">
+    <div class="sphx-glr-thumbcontainer" tooltip="In the three-dimensional XOR problem the class is the parity of the signs of three features: class 1 when the product of the signs is positive. Fixing one feature turns it into a two-dimensional problem. At z = 1 the class is 1 when x and y have the same sign, a checkerboard of four quadrants in the (x, y) plane.">
 
 .. only:: html
 
@@ -65,24 +65,7 @@ how their components are combined, and what the order of dependence costs.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Analytic View: 2D Slice of the 3D XOR Problem</div>
-    </div>
-
-
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="To visualize the 3D decision boundaries clearly, we plot a dense cloud of points (voxels) colored by the predicted class probability.">
-
-.. only:: html
-
-  .. image:: /auto_examples/ande/images/thumb/sphx_glr_08_plot_a2de_xor_3d_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/ande/08_plot_a2de_xor_3d`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">3D Voxel-Cloud Visualization: XOR Structure</div>
+      <div class="sphx-glr-thumbnail-title">Slice of the three-dimensional XOR problem</div>
     </div>
 
 
@@ -99,7 +82,7 @@ how their components are combined, and what the order of dependence costs.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Arithmetic or Geometric Mean: A Sensor That Fails</div>
+      <div class="sphx-glr-thumbnail-title">Arithmetic or geometric mean with a failing sensor</div>
     </div>
 
 
@@ -116,7 +99,7 @@ how their components are combined, and what the order of dependence costs.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Rare and Unseen Parent Values</div>
+      <div class="sphx-glr-thumbnail-title">Rare and unseen parent values</div>
     </div>
 
 
@@ -133,7 +116,7 @@ how their components are combined, and what the order of dependence costs.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">The Cost of the Order of Dependence</div>
+      <div class="sphx-glr-thumbnail-title">Cost of the order of dependence</div>
     </div>
 
 
@@ -150,7 +133,6 @@ how their components are combined, and what the order of dependence costs.
    /auto_examples/ande/05_plot_aode_mixed_demo
    /auto_examples/ande/06_plot_aode_xor
    /auto_examples/ande/07_plot_a2de_xor_slice
-   /auto_examples/ande/08_plot_a2de_xor_3d
    /auto_examples/ande/09_plot_arithmetic_vs_geometric_mean
    /auto_examples/ande/10_plot_unseen_states
    /auto_examples/ande/11_plot_order_cost

@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:00.439** total execution time for 1 file **from auto_examples/discretization**:
+**00:01.081** total execution time for 2 files **from auto_examples/discretization**:
 
 .. container::
 
@@ -32,6 +32,9 @@ Computation times
    * - Example
      - Time
      - Mem (MB)
+   * - :ref:`sphx_glr_auto_examples_discretization_21_plot_supervised_discretization.py` (``21_plot_supervised_discretization.py``)
+     - 00:00.768
+     - 0.0
    * - :ref:`sphx_glr_auto_examples_discretization_15_plot_mdlp_discretizer.py` (``15_plot_mdlp_discretizer.py``)
-     - 00:00.439
+     - 00:00.313
      - 0.0

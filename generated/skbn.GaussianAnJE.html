@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>GaussianAnJE &#8212; scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation</title>
+    <title>GaussianAnJE &#8212; scikit-bayes 1.3.1.post1.dev5 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=426729a5"></script>
+    <script src="../_static/documentation_options.js?v=34d86f33"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
@@ -57,7 +57,7 @@
     <link rel="prev" title="ALR" href="skbn.ALR.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.2.2" />
+  <meta name="docsearch:version" content="1.3.1" />
   </head>
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
-    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.3.1.post1.dev5 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.3.1.post1.dev5 documentation - Home"/>
   
   
 </a></div>
@@ -345,9 +345,8 @@
 <li class="toctree-l1"><a class="reference internal" href="skbn.KDB.html">KDB</a></li>
 </ul>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="skbn.utils.discovery.all_estimators.html">skbn.utils.discovery.all_estimators</a></li>
-<li class="toctree-l1"><a class="reference internal" href="skbn.utils.discovery.all_displays.html">skbn.utils.discovery.all_displays</a></li>
-<li class="toctree-l1"><a class="reference internal" href="skbn.utils.discovery.all_functions.html">skbn.utils.discovery.all_functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.MDLPDiscretizer.html">MDLPDiscretizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.DecisionTreeDiscretizer.html">DecisionTreeDiscretizer</a></li>
 </ul>
 </div>
 </nav></div>
@@ -768,7 +767,13 @@ parameters and not others.</p>
 
 </dd></dl>
 
-<div style='clear:both'></div></section>
+<section id="examples-using-skbn-gaussiananje">
+<h2>Examples using <code class="docutils literal notranslate"><span class="pre">skbn.GaussianAnJE</span></code><a class="headerlink" href="#examples-using-skbn-gaussiananje" title="Link to this heading">#</a></h2>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="skbn.AnJE and skbn.ALR are defined on discrete attributes, so they discretize every continuous attribute into n_bins bins. skbn.GaussianAnJE and skbn.GaussianALR build the same models on the factors of the SPnDEs: only the super-parents are discretized, and every attribute keeps a Gaussian distribution as a child, as in HAODE. GaussianAnJE(n_dependence=1) is the counterpart of AnJE(n_join=2)."><img alt="" src="../_images/sphx_glr_20_plot_gaussian_children_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/anje/20_plot_gaussian_children.html"><span class="doc">Gaussian children or discretized attributes</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Gaussian children or discretized attributes</div>
+</div></div><div style='clear:both'></div></section>
+</section>
 
 
                 </article>
@@ -829,6 +834,7 @@ parameters and not others.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.GaussianAnJE.set_score_request"><code class="docutils literal notranslate"><span class="pre">GaussianAnJE.set_score_request()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-skbn-gaussiananje">Examples using <code class="docutils literal notranslate"><span class="pre">skbn.GaussianAnJE</span></code></a></li>
 </ul>
   </nav></div>
 

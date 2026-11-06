@@ -1,0 +1,68 @@
+
+
+.. _sphx_glr_auto_examples_anje:
+
+.. _anje_examples:
+
+Averaged n-join estimators
+--------------------------
+
+AnJE and ALR, on discretized attributes or with Gaussian children: what the
+discriminative weights add to the generative model, and how much data they
+need.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="skbn.AnJE and skbn.ALR use the same statistics, the joint distributions of every pair of attributes given the class (``n_join=2``). AnJE pools them with fixed weights. ALR learns one weight per pair, value and class by maximising the conditional log-likelihood, as in Zaidi et al. (2016).">
+
+.. only:: html
+
+  .. image:: /auto_examples/anje/images/thumb/sphx_glr_19_plot_anje_vs_alr_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/anje/19_plot_anje_vs_alr`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">AnJE or ALR: generative and discriminative n-joins</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="skbn.AnJE and skbn.ALR are defined on discrete attributes, so they discretize every continuous attribute into n_bins bins. skbn.GaussianAnJE and skbn.GaussianALR build the same models on the factors of the SPnDEs: only the super-parents are discretized, and every attribute keeps a Gaussian distribution as a child, as in HAODE. GaussianAnJE(n_dependence=1) is the counterpart of AnJE(n_join=2).">
+
+.. only:: html
+
+  .. image:: /auto_examples/anje/images/thumb/sphx_glr_20_plot_gaussian_children_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/anje/20_plot_gaussian_children`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Gaussian children or discretized attributes</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /auto_examples/anje/19_plot_anje_vs_alr
+   /auto_examples/anje/20_plot_gaussian_children
+

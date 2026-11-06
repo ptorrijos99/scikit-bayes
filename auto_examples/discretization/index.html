@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Discretization &#8212; scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation</title>
+    <title>Discretization &#8212; scikit-bayes 1.3.1.post1.dev5 documentation</title>
   
   
   
@@ -45,18 +45,18 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=426729a5"></script>
+    <script src="../../_static/documentation_options.js?v=34d86f33"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'auto_examples/discretization/index';</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Supervised Discretization: Where the Cuts Fall" href="15_plot_mdlp_discretizer.html" />
-    <link rel="prev" title="Calibration: Generative vs Hybrid Models" href="../hybrid/14_plot_calibration.html" />
+    <link rel="next" title="Supervised discretization: where the cuts fall" href="15_plot_mdlp_discretizer.html" />
+    <link rel="prev" title="Calibration of generative and weighted models" href="../hybrid/14_plot_calibration.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.2.2" />
+  <meta name="docsearch:version" content="1.3.1" />
   </head>
   
   
@@ -122,8 +122,8 @@
       
     
     
-    <img src="../../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
-    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.2.2.dev31+g4ea7fa920 documentation - Home"/>
+    <img src="../../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.3.1.post1.dev5 documentation - Home"/>
+    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.3.1.post1.dev5 documentation - Home"/>
   
   
 </a></div>
@@ -326,42 +326,45 @@
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="../mixednb/index.html">Mixed Naive Bayes</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../mixednb/01_plot_gaussiannb_equivalence.html">MixedNB Equivalence with GaussianNB</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../mixednb/02_plot_bernoullinb_equivalence.html">MixedNB Equivalence with BernoulliNB</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../mixednb/03_plot_categoricalnb_equivalence.html">MixedNB Equivalence with CategoricalNB</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../mixednb/04_plot_mixednb_vs_pipeline.html">Handling Mixed Data Types with MixedNB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mixednb/01_plot_mixednb_equivalence.html">MixedNB on single-type data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mixednb/04_plot_mixednb_vs_pipeline.html">MixedNB on mixed continuous and categorical data</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../ande/index.html">Generative AnDE Models</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../ande/05_plot_aode_mixed_demo.html">The Power of Mixed Data: Context-Dependent Logic</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../ande/06_plot_aode_xor.html">Solving the XOR Problem: AnDE vs Naive Bayes</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../ande/07_plot_a2de_xor_slice.html">Analytic View: 2D Slice of the 3D XOR Problem</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../ande/08_plot_a2de_xor_3d.html">3D Voxel-Cloud Visualization: XOR Structure</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../ande/09_plot_arithmetic_vs_geometric_mean.html">Arithmetic or Geometric Mean: A Sensor That Fails</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../ande/10_plot_unseen_states.html">Rare and Unseen Parent Values</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../ande/11_plot_order_cost.html">The Cost of the Order of Dependence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ande/05_plot_aode_mixed_demo.html">Context-dependent rules on mixed data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ande/06_plot_aode_xor.html">XOR problem: AnDE and Naive Bayes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ande/07_plot_a2de_xor_slice.html">Slice of the three-dimensional XOR problem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ande/09_plot_arithmetic_vs_geometric_mean.html">Arithmetic or geometric mean with a failing sensor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ande/10_plot_unseen_states.html">Rare and unseen parent values</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ande/11_plot_order_cost.html">Cost of the order of dependence</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../anje/index.html">Averaged n-join estimators</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../anje/19_plot_anje_vs_alr.html">AnJE or ALR: generative and discriminative n-joins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../anje/20_plot_gaussian_children.html">Gaussian children or discretized attributes</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../tan/index.html">Tree Augmented Naive Bayes</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../tan/17_plot_tan_structure.html">Learning the Tree: TAN vs Naive Bayes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tan/17_plot_tan_structure.html">Learning the tree: TAN and naive Bayes</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../kdb/index.html">K-Dependence Bayesian Classifier</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../kdb/18_plot_kdb_k_dependence.html">Choosing k: KDB with Increasing Dependence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kdb/18_plot_kdb_k_dependence.html">Choosing k: KDB with increasing dependence</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../hybrid/index.html">Hybrid Models</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../hybrid/12_plot_weight_scope.html">Component or Factor Weights: Data Efficiency and Cost</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../hybrid/13_plot_compare_ande_interpretability.html">Interpreting Component Weights: Feature Selection via Weights</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../hybrid/14_plot_calibration.html">Calibration: Generative vs Hybrid Models</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../hybrid/index.html">Discriminatively weighted models</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../hybrid/12_plot_weight_scope.html">Component or factor weights: data efficiency and cost</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hybrid/13_plot_compare_ande_interpretability.html">Component weights as a selection of super-parents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hybrid/14_plot_calibration.html">Calibration of generative and weighted models</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Discretization</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="15_plot_mdlp_discretizer.html">Supervised Discretization: Where the Cuts Fall</a></li>
+<li class="toctree-l2"><a class="reference internal" href="15_plot_mdlp_discretizer.html">Supervised discretization: where the cuts fall</a></li>
+<li class="toctree-l2"><a class="reference internal" href="21_plot_supervised_discretization.html">Supervised discretization before a model</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../integration/index.html">Working with scikit-learn</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../integration/16_plot_pipeline_grid_search.html">Pipelines and Model Selection with scikit-learn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../integration/16_plot_pipeline_grid_search.html">Pipelines and model selection with scikit-learn</a></li>
 </ul>
 </details></li>
 </ul>
@@ -427,9 +430,12 @@
   <section id="discretization">
 <span id="discretization-examples"></span><span id="sphx-glr-auto-examples-discretization"></span><h1>Discretization<a class="headerlink" href="#discretization" title="Link to this heading">#</a></h1>
 <p>Supervised discretizers for continuous attributes.</p>
-<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="This example compares where three discretizers place their cut-points on the same continuous attribute."><img alt="" src="../../_images/sphx_glr_15_plot_mdlp_discretizer_thumb.png" />
-<p><a class="reference internal" href="15_plot_mdlp_discretizer.html"><span class="doc">Supervised Discretization: Where the Cuts Fall</span></a></p>
-  <div class="sphx-glr-thumbnail-title">Supervised Discretization: Where the Cuts Fall</div>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="The figure compares where three discretizers place their cut-points on the same continuous attribute. The attribute is skewed (most values are small) and the class changes at two thresholds, $x = 2$ and $x = 6$, with some label noise. The discretizers are:"><img alt="" src="../../_images/sphx_glr_15_plot_mdlp_discretizer_thumb.png" />
+<p><a class="reference internal" href="15_plot_mdlp_discretizer.html"><span class="doc">Supervised discretization: where the cuts fall</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Supervised discretization: where the cuts fall</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="The models of the library discretize their continuous attributes into n_bins bins of equal frequency (``strategy=&quot;quantile&quot;``), without looking at the class. skbn.MDLPDiscretizer and skbn.DecisionTreeDiscretizer place the cut-points where the class changes instead, and go before the model in a pipeline. The discretized attributes hold small integer codes, which the model then reads as categorical."><img alt="" src="../../_images/sphx_glr_21_plot_supervised_discretization_thumb.png" />
+<p><a class="reference internal" href="21_plot_supervised_discretization.html"><span class="doc">Supervised discretization before a model</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Supervised discretization before a model</div>
 </div></div><div class="toctree-wrapper compound">
 </div>
 </section>
@@ -450,7 +456,7 @@
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Calibration: Generative vs Hybrid Models</p>
+        <p class="prev-next-title">Calibration of generative and weighted models</p>
       </div>
     </a>
     <a class="right-next"
@@ -458,7 +464,7 @@
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Supervised Discretization: Where the Cuts Fall</p>
+        <p class="prev-next-title">Supervised discretization: where the cuts fall</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

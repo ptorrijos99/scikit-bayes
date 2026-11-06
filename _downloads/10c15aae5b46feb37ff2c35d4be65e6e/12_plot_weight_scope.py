@@ -1,6 +1,6 @@
 """
 ====================================================================
-Component or Factor Weights: Data Efficiency and Cost
+Component or factor weights: data efficiency and cost
 ====================================================================
 
 :class:`skbn.WeightedAnDE` learns discriminative weights on top of AnDE.
@@ -15,21 +15,16 @@ Component or Factor Weights: Data Efficiency and Cost
     class; level 4 also the value of the super-parent. These weights can
     discount an attribute that the SPODEs count several times.
 
-**The Scenario:**
-Ten attributes, four of them redundant linear combinations of the
-informative ones. The models are trained on increasing sample sizes.
+The data have ten attributes, four of them redundant linear combinations of
+the informative ones, and the models are trained on samples of increasing
+size.
 
-**Observations:**
-
--   **Small N (100):** AnDE leads. The hybrids overfit, and the more
-    weights they have, the more they do.
--   **Medium N (500-2000):** Component weights match or beat AnDE, while
-    factor weights still lag behind.
--   **Large N (10000):** Factor weights give the lowest log loss and the
-    highest accuracy. Component weights cannot undo the redundancy, which
-    every SPODE shares.
--   **Time:** Every model trains in a few seconds. Factor weights cost
-    somewhat more than component weights.
+With 100 samples AnDE leads and every weighted model overfits. Between 500
+and 2000 samples the component weights of level 3 match or beat AnDE, while
+the factor weights still lag behind. With 10,000 samples the factor weights
+give the lowest log loss and the highest accuracy, since the component weights cannot undo the
+redundancy that every SPODE shares. The factor weights also take longer to
+train than the component weights.
 """
 
 # Author: The scikit-bayes Developers
@@ -39,7 +34,7 @@ import time
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import NullLocator, ScalarFormatter
+from matplotlib.ticker import NullLocator, StrMethodFormatter
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score, log_loss
 from sklearn.model_selection import train_test_split
@@ -49,34 +44,45 @@ from skbn import AnDE, WeightedAnDE
 seeds = [1, 2, 3]
 sizes = [100, 500, 2000, 10000]
 
-# Name, factory, colour, marker
+# Name, factory, colour, line style, marker: one colour per weight scope,
+# solid for level 3 and dashed for level 4
 models_config = [
-    ("AnDE", lambda: AnDE(n_dependence=1), "royalblue", "o"),
+    ("AnDE", lambda: AnDE(n_dependence=1), "#0072B2", "-", "o"),
     (
-        "Component Weights, Level 3",
+        "Component weights, level 3",
         lambda: WeightedAnDE(weight_level=3, l2_reg=1e-3),
-        "sandybrown",
+        "#CC79A7",
+        "-",
         "s",
     ),
     (
-        "Component Weights, Level 4",
+        "Component weights, level 4",
         lambda: WeightedAnDE(weight_level=4, l2_reg=1e-3),
-        "saddlebrown",
+        "#CC79A7",
+        "--",
         "D",
     ),
     (
-        "Factor Weights, Level 3",
+        "Factor weights, level 3",
         lambda: WeightedAnDE(weight_scope="factor", weight_level=3, l2_reg=1e-3),
-        "mediumseagreen",
+        "#7E2F8E",
+        "-",
         "^",
     ),
     (
-        "Factor Weights, Level 4",
+        "Factor weights, level 4",
         lambda: WeightedAnDE(weight_scope="factor", weight_level=4, l2_reg=1e-3),
-        "darkgreen",
+        "#7E2F8E",
+        "--",
         "v",
     ),
 ]
+
+# Fit each model once so that the times below exclude the compilation of
+# the kernels on their first use
+X_small, y_small = make_classification(n_samples=200, n_features=10, random_state=0)
+for _, factory, *_ in models_config:
+    factory().fit(X_small, y_small)
 
 # Results: [seed, size, model]
 shape = (len(seeds), len(sizes), len(models_config))
@@ -94,7 +100,7 @@ for i, seed in enumerate(seeds):
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, train_size=n_train, test_size=5000, random_state=seed
         )
-        for k, (_, factory, _, _) in enumerate(models_config):
+        for k, (_, factory, _, _, _) in enumerate(models_config):
             start = time.perf_counter()
             clf = factory().fit(X_train, y_train)
             res_time[i, j, k] = time.perf_counter() - start
@@ -104,33 +110,30 @@ for i, seed in enumerate(seeds):
     print(f"Seed {seed} done.")
 
 mean_ll, mean_acc, mean_time = (r.mean(axis=0) for r in (res_ll, res_acc, res_time))
-for k, (name, _, _, _) in enumerate(models_config):
+for k, (name, *_) in enumerate(models_config):
     print(f"{name:28s} log loss {np.round(mean_ll[:, k], 3)}")
 
-# --- Visualization ---
-fig, axes = plt.subplots(1, 3, figsize=(20, 6), layout="constrained")
+fig, axes = plt.subplots(1, 3, figsize=(13, 4.6))
 panels = [
-    (mean_ll, "Test Log Loss (Lower Is Better)", "Probability Quality"),
-    (mean_acc, "Test Accuracy (Higher Is Better)", "Classification Accuracy"),
-    (mean_time, "Training Time (s)", "Computational Cost"),
+    (mean_ll, "Test log loss"),
+    (mean_acc, "Test accuracy"),
+    (mean_time, "Training time (s)"),
 ]
-for ax, (values, ylabel, title) in zip(axes, panels):
-    for k, (name, _, color, marker) in enumerate(models_config):
-        ax.plot(sizes, values[:, k], marker=marker, color=color, lw=2, label=name)
-    ax.set_ylabel(ylabel, fontsize=12)
-    ax.set_title(title, fontsize=14)
-    ax.set_xlabel("Training Set Size", fontsize=12)
+for ax, (values, ylabel) in zip(axes, panels):
+    for k, (name, _, color, style, marker) in enumerate(models_config):
+        ax.plot(sizes, values[:, k], ls=style, marker=marker, color=color, label=name)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel("Training set size")
     ax.set_xscale("log")
     ax.set_xticks(sizes)
-    ax.get_xaxis().set_major_formatter(ScalarFormatter())
+    ax.xaxis.set_major_formatter(StrMethodFormatter("{x:g}"))
     ax.xaxis.set_minor_locator(NullLocator())
-    ax.grid(True, alpha=0.3)
-axes[0].set_yscale("log")
-axes[0].set_yticks([0.2, 0.3, 0.5, 1.0, 2.0])
-axes[0].yaxis.set_major_formatter(ScalarFormatter())
-axes[0].yaxis.set_minor_locator(NullLocator())
-axes[2].set_yscale("log")
-axes[0].legend(fontsize=10)
+for ax in (axes[0], axes[2]):
+    ax.set_yscale("log")
+    ax.yaxis.set_major_formatter(StrMethodFormatter("{x:g}"))
+    ax.yaxis.set_minor_locator(NullLocator())
+axes[0].set_yticks([0.2, 0.3, 0.5, 1, 2])
+fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=5)
 
-fig.suptitle("Component Weights vs Factor Weights in WeightedAnDE", fontsize=18)
+fig.suptitle("Component and factor weights in WeightedAnDE")
 plt.show()

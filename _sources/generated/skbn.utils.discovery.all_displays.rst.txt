@@ -1,6 +1,0 @@
-﻿skbn.utils.discovery.all\_displays
-==================================
-
-.. currentmodule:: skbn.utils.discovery
-
-.. autofunction:: all_displays

@@ -30,7 +30,7 @@ Pipelines, preprocessing and model selection around the estimators.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Pipelines and Model Selection with scikit-learn</div>
+      <div class="sphx-glr-thumbnail-title">Pipelines and model selection with scikit-learn</div>
     </div>
 
 

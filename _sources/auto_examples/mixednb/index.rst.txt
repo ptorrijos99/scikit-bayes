@@ -20,58 +20,24 @@ attributes, and its equivalence with the scikit-learn estimators.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.GaussianNB when all features are continuous (Gaussian).">
+    <div class="sphx-glr-thumbcontainer" tooltip="On a table whose features all have one type, skbn.MixedNB fits the same model as the Naive Bayes estimator of scikit-learn for that type: GaussianNB for continuous features, BernoulliNB for binary ones and CategoricalNB for discrete ones. MixedNB infers the type of each feature from its values, so no type is declared here.">
 
 .. only:: html
 
-  .. image:: /auto_examples/mixednb/images/thumb/sphx_glr_01_plot_gaussiannb_equivalence_thumb.png
+  .. image:: /auto_examples/mixednb/images/thumb/sphx_glr_01_plot_mixednb_equivalence_thumb.png
     :alt:
 
-  :doc:`/auto_examples/mixednb/01_plot_gaussiannb_equivalence`
+  :doc:`/auto_examples/mixednb/01_plot_mixednb_equivalence`
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">MixedNB Equivalence with GaussianNB</div>
+      <div class="sphx-glr-thumbnail-title">MixedNB on single-type data</div>
     </div>
 
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.BernoulliNB when all features are binary (Bernoulli).">
-
-.. only:: html
-
-  .. image:: /auto_examples/mixednb/images/thumb/sphx_glr_02_plot_bernoullinb_equivalence_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/mixednb/02_plot_bernoullinb_equivalence`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">MixedNB Equivalence with BernoulliNB</div>
-    </div>
-
-
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="This example demonstrates that skbn.mixed_nb.MixedNB produces identical results to sklearn.naive_bayes.CategoricalNB when all features are discrete (categorical).">
-
-.. only:: html
-
-  .. image:: /auto_examples/mixednb/images/thumb/sphx_glr_03_plot_categoricalnb_equivalence_thumb.png
-    :alt:
-
-  :doc:`/auto_examples/mixednb/03_plot_categoricalnb_equivalence`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">MixedNB Equivalence with CategoricalNB</div>
-    </div>
-
-
-.. raw:: html
-
-    <div class="sphx-glr-thumbcontainer" tooltip="This example compares three strategies for handling a dataset with mixed continuous (Gaussian) and discrete (Categorical) features.">
+    <div class="sphx-glr-thumbcontainer" tooltip="A dataset has one continuous feature and one categorical feature with three categories. Each class generates both: the continuous feature is Gaussian with unit variance, centered at -1 for class 0 and at 1 for class 1, and the category follows a different distribution per class (class 0 mostly draws category 0, class 1 mostly category 2).">
 
 .. only:: html
 
@@ -82,7 +48,7 @@ attributes, and its equivalence with the scikit-learn estimators.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Handling Mixed Data Types with MixedNB</div>
+      <div class="sphx-glr-thumbnail-title">MixedNB on mixed continuous and categorical data</div>
     </div>
 
 
@@ -96,8 +62,6 @@ attributes, and its equivalence with the scikit-learn estimators.
 .. toctree::
    :hidden:
 
-   /auto_examples/mixednb/01_plot_gaussiannb_equivalence
-   /auto_examples/mixednb/02_plot_bernoullinb_equivalence
-   /auto_examples/mixednb/03_plot_categoricalnb_equivalence
+   /auto_examples/mixednb/01_plot_mixednb_equivalence
    /auto_examples/mixednb/04_plot_mixednb_vs_pipeline
 

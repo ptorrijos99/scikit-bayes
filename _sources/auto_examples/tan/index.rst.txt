@@ -20,7 +20,7 @@ on at most one other attribute: how the tree is learned and what it captures.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="skbn.TAN (Tree Augmented Naive Bayes) lets every attribute depend on the class and on at most one other attribute. The dependencies form a tree, learned from the data with the Chow-Liu procedure: the conditional mutual information $I(A_i; A_j \mid C)$ is computed for every pair of attributes, and the tree of maximum total weight is kept.">
+    <div class="sphx-glr-thumbcontainer" tooltip="skbn.TAN (tree augmented naive Bayes) lets every attribute depend on the class and on at most one other attribute. The dependencies form a tree, learned from the data with the Chow-Liu procedure: the conditional mutual information $I(A_i; A_j \mid C)$ is computed for every pair of attributes, and the tree of maximum total weight is kept.">
 
 .. only:: html
 
@@ -31,7 +31,7 @@ on at most one other attribute: how the tree is learned and what it captures.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Learning the Tree: TAN vs Naive Bayes</div>
+      <div class="sphx-glr-thumbnail-title">Learning the tree: TAN and naive Bayes</div>
     </div>
 
 

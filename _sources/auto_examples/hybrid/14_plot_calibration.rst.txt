@@ -19,42 +19,40 @@
 
 
 =====================================================
-Calibration: Generative vs Hybrid Models
+Calibration of generative and weighted models
 =====================================================
 
 A classifier is calibrated when, among the instances to which it gives a
-probability of 0.8, about 80% belong to the predicted class. This example
+probability of 0.8, about 80% belong to the predicted class. The figure
 draws the reliability diagrams of five models of the library.
 
-**The Scenario:**
-A binary problem with a few informative attributes and many redundant
-copies of them. Redundant attributes are counted several times by a model
-that assumes independence, which pushes its probabilities towards 0 and 1.
+The problem is binary, with a few informative attributes and many redundant
+copies of them. A model that assumes independence counts the redundant
+attributes several times, which pushes its probabilities towards 0 and 1.
+The models are:
 
-**The Models:**
-
-1.  :class:`skbn.MixedNB`: Naive Bayes, the most affected.
+1.  :class:`skbn.MixedNB`, Naive Bayes, the most affected.
 2.  :class:`skbn.AnDE`: conditioning on a super-parent absorbs part of the
     redundancy.
-3.  :class:`skbn.WeightedAnDE` with component weights: one weight per SPODE
-    and class. It decides how much each SPODE is trusted, but every SPODE
+3.  :class:`skbn.WeightedAnDE` with component weights, one weight per SPODE
+    and class. They decide how much each SPODE is trusted, but every SPODE
     still counts the redundant children several times.
-4.  :class:`skbn.WeightedAnDE` with factor weights: one weight per factor,
+4.  :class:`skbn.WeightedAnDE` with factor weights, one weight per factor,
     value and class inside each SPODE, which can discount each redundant
     child.
-5.  :class:`skbn.ALR`: one weight per pair of attributes over the pairwise
-    joins of the AnJE, which also discounts redundant pairs.
+5.  :class:`skbn.ALR`, one weight per pair of attributes over the pairwise
+    joins of AnJE, which also discounts redundant pairs.
 
 A curve below the diagonal on the right and above it on the left means
 overconfidence. The histograms show how often each model predicts each
 probability.
 
-.. GENERATED FROM PYTHON SOURCE LINES 33-124
+.. GENERATED FROM PYTHON SOURCE LINES 31-122
 
 
 
 .. image-sg:: /auto_examples/hybrid/images/sphx_glr_14_plot_calibration_001.png
-   :alt: Redundant Attributes Make Generative Models Overconfident, Reliability Diagram, Distribution of the Predicted Probabilities
+   :alt: Calibration with redundant attributes, Reliability diagram, Predicted probabilities
    :srcset: /auto_examples/hybrid/images/sphx_glr_14_plot_calibration_001.png
    :class: sphx-glr-single-img
 
@@ -63,11 +61,11 @@ probability.
 
  .. code-block:: none
 
-    Naive Bayes        log loss 0.844   Brier 0.259
-    AnDE               log loss 0.530   Brier 0.169
-    Component Weights  log loss 0.478   Brier 0.154
-    Factor Weights     log loss 0.398   Brier 0.122
-    ALR (Pairs)        log loss 0.434   Brier 0.136
+    MixedNB                  log loss 0.844   Brier 0.259
+    AnDE                     log loss 0.530   Brier 0.169
+    WeightedAnDE, component  log loss 0.478   Brier 0.154
+    WeightedAnDE, factor     log loss 0.398   Brier 0.122
+    ALR                      log loss 0.434   Brier 0.136
 
 
 
@@ -84,6 +82,7 @@ probability.
 
     import matplotlib.pyplot as plt
     import numpy as np
+    from matplotlib.ticker import NullLocator, StrMethodFormatter
     from sklearn.calibration import calibration_curve
     from sklearn.datasets import make_classification
     from sklearn.metrics import brier_score_loss, log_loss
@@ -91,7 +90,6 @@ probability.
 
     from skbn import ALR, AnDE, MixedNB, WeightedAnDE
 
-    # --- 1. Generate Data with Redundant Attributes ---
     X, y = make_classification(
         n_samples=12000,
         n_features=14,
@@ -106,37 +104,35 @@ probability.
         X, y, test_size=0.5, random_state=42
     )
 
-    # --- 2. Fit Models ---
+    # Name: model, colour, line style, marker
     models = {
-        "Naive Bayes": (MixedNB(), "gray", "s"),
-        "AnDE": (AnDE(n_dependence=1), "teal", "o"),
-        "Component Weights": (WeightedAnDE(weight_level=3), "sandybrown", "^"),
-        "Factor Weights": (
+        "MixedNB": (MixedNB(), "#6E6E6E", "-", "s"),
+        "AnDE": (AnDE(n_dependence=1), "#0072B2", "-", "o"),
+        "WeightedAnDE, component": (WeightedAnDE(weight_level=3), "#CC79A7", "-", "^"),
+        "WeightedAnDE, factor": (
             WeightedAnDE(weight_scope="factor", weight_level=3),
-            "mediumseagreen",
+            "#CC79A7",
+            "--",
             "v",
         ),
-        "ALR (Pairs)": (ALR(n_join=2, weight_level=1), "indigo", "D"),
+        "ALR": (ALR(n_join=2, weight_level=1), "#D55E00", "-", "D"),
     }
 
     probas = {}
-    for name, (model, _, _) in models.items():
+    for name, (model, *_) in models.items():
         model.fit(X_train, y_train)
         probas[name] = model.predict_proba(X_test)[:, 1]
         print(
-            f"{name:18s} log loss {log_loss(y_test, probas[name]):.3f}   "
+            f"{name:24s} log loss {log_loss(y_test, probas[name]):.3f}   "
             f"Brier {brier_score_loss(y_test, probas[name]):.3f}"
         )
 
-    # --- 3. Plotting ---
-    fig, (ax_rel, ax_hist) = plt.subplots(
-        2, 1, figsize=(9, 10), sharex=True, gridspec_kw={"height_ratios": [3, 1.2]}
-    )
+    fig, (ax_rel, ax_hist) = plt.subplots(1, 2, figsize=(12, 5))
 
-    ax_rel.plot([0, 1], [0, 1], color="black", linestyle="--", label="Perfect Calibration")
+    ax_rel.plot([0, 1], [0, 1], color="#1A1A1A", ls=":", lw=1, label="Perfect calibration")
     bins = np.linspace(0, 1, 21)
 
-    for name, (_, color, marker) in models.items():
+    for name, (_, color, style, marker) in models.items():
         frac_pos, mean_pred = calibration_curve(
             y_test, probas[name], n_bins=12, strategy="quantile"
         )
@@ -145,35 +141,37 @@ probability.
             mean_pred,
             frac_pos,
             color=color,
+            ls=style,
             marker=marker,
-            markersize=6,
-            linewidth=2,
-            label=f"{name} (Log Loss {ll:.3f})",
+            label=f"{name}, log loss {ll:.3f}",
         )
-        ax_hist.hist(
-            probas[name], bins=bins, histtype="step", color=color, linewidth=2, label=name
-        )
+        ax_hist.hist(probas[name], bins=bins, histtype="step", color=color, ls=style)
 
-    ax_rel.set_ylabel("Observed Fraction of Class 1")
-    ax_rel.set_title("Reliability Diagram", fontsize=13)
-    ax_rel.legend(loc="upper left")
-    ax_rel.grid(alpha=0.3)
+    ax_rel.set_xlabel("Predicted probability of class 1")
+    ax_rel.set_ylabel("Observed fraction of class 1")
+    ax_rel.set_xlim(0, 1)
+    ax_rel.set_ylim(0, 1)
+    ax_rel.set_box_aspect(1)
+    ax_rel.set_title("Reliability diagram")
 
-    ax_hist.set_xlabel("Predicted Probability of Class 1")
-    ax_hist.set_ylabel("Test Instances")
+    ax_hist.set_xlabel("Predicted probability of class 1")
+    ax_hist.set_ylabel("Test instances")
+    ax_hist.set_xlim(0, 1)
     ax_hist.set_yscale("log")
-    ax_hist.set_title("Distribution of the Predicted Probabilities", fontsize=13)
-    ax_hist.grid(alpha=0.3)
+    ax_hist.set_yticks([100, 200, 500, 1000])
+    ax_hist.set_ylim(90, 1400)
+    ax_hist.yaxis.set_major_formatter(StrMethodFormatter("{x:g}"))
+    ax_hist.yaxis.set_minor_locator(NullLocator())
+    ax_hist.set_title("Predicted probabilities")
 
-    fig.suptitle("Redundant Attributes Make Generative Models Overconfident", fontsize=15)
-    plt.tight_layout()
-    plt.subplots_adjust(top=0.92)
+    fig.legend(*ax_rel.get_legend_handles_labels(), loc="outside lower center", ncol=3)
+    fig.suptitle("Calibration with redundant attributes")
     plt.show()
 
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 6.967 seconds)
+   **Total running time of the script:** (0 minutes 1.987 seconds)
 
 
 .. _sphx_glr_download_auto_examples_hybrid_14_plot_calibration.py:

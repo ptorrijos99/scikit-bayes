@@ -4,11 +4,12 @@
 
 .. _hybrid_examples:
 
-Hybrid Models
--------------
+Discriminatively weighted models
+--------------------------------
 
-Generative components with discriminatively learned weights: granularity of
-the weights, their interpretation and their effect on calibration.
+Generative components with weights learned discriminatively: the
+granularity of the weights, how to read them and their effect on
+calibration.
 
 
 
@@ -31,13 +32,13 @@ the weights, their interpretation and their effect on calibration.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Component or Factor Weights: Data Efficiency and Cost</div>
+      <div class="sphx-glr-thumbnail-title">Component or factor weights: data efficiency and cost</div>
     </div>
 
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This example shows how the component weights of skbn.WeightedAnDE act as an embedded feature selection. With weight_level=1 every SPODE, identified by its super-parent, gets one weight; with the geometric mean (``mean=&quot;geometric&quot;``) the weights scale the log-joints of the SPODEs and stay non-negative, so they read as the importance of each super-parent.">
+    <div class="sphx-glr-thumbcontainer" tooltip="The component weights of skbn.WeightedAnDE act as an embedded selection of attributes. With n_dependence=1 and weight_level=1 every SPODE, identified by its super-parent, gets one weight. With the geometric mean (``mean=&quot;geometric&quot;``) the weights scale the log-joints of the SPODEs and stay non-negative, so they read as the importance of each super-parent.">
 
 .. only:: html
 
@@ -48,13 +49,13 @@ the weights, their interpretation and their effect on calibration.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Interpreting Component Weights: Feature Selection via Weights</div>
+      <div class="sphx-glr-thumbnail-title">Component weights as a selection of super-parents</div>
     </div>
 
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="A classifier is calibrated when, among the instances to which it gives a probability of 0.8, about 80% belong to the predicted class. This example draws the reliability diagrams of five models of the library.">
+    <div class="sphx-glr-thumbcontainer" tooltip="A classifier is calibrated when, among the instances to which it gives a probability of 0.8, about 80% belong to the predicted class. The figure draws the reliability diagrams of five models of the library.">
 
 .. only:: html
 
@@ -65,7 +66,7 @@ the weights, their interpretation and their effect on calibration.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Calibration: Generative vs Hybrid Models</div>
+      <div class="sphx-glr-thumbnail-title">Calibration of generative and weighted models</div>
     </div>
 
 

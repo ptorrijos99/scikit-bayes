@@ -1,6 +1,0 @@
-﻿skbn.utils.discovery.all\_functions
-===================================
-
-.. currentmodule:: skbn.utils.discovery
-
-.. autofunction:: all_functions

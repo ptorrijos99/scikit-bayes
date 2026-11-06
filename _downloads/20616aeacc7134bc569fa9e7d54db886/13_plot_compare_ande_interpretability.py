@@ -1,17 +1,19 @@
 """
 ====================================================================
-Interpreting Component Weights: Feature Selection via Weights
+Component weights as a selection of super-parents
 ====================================================================
 
-This example shows how the component weights of :class:`skbn.WeightedAnDE`
-act as an embedded feature selection. With ``weight_level=1`` every SPODE,
-identified by its super-parent, gets one weight; with the geometric mean
-(``mean="geometric"``) the weights scale the log-joints of the SPODEs and
-stay non-negative, so they read as the importance of each super-parent.
+The component weights of :class:`skbn.WeightedAnDE` act as an embedded
+selection of attributes. With ``n_dependence=1`` and ``weight_level=1``
+every SPODE, identified by its super-parent, gets one weight. With the
+geometric mean (``mean="geometric"``) the weights scale the log-joints of
+the SPODEs and stay non-negative, so they read as the importance of each
+super-parent.
 
-**The Result:**
-The SPODEs rooted at noise attributes are down-weighted, which lowers the
-log loss and raises the accuracy.
+The class depends on two attributes, one categorical and one continuous,
+and eight more attributes are noise. AnDE gives the same weight to every
+SPODE. The weighted model drives the weights of the SPODEs rooted at noise
+attributes to zero, which lowers the log loss and raises the accuracy.
 """
 
 # Author: The scikit-bayes Developers
@@ -24,116 +26,78 @@ from sklearn.model_selection import train_test_split
 
 from skbn import AnDE, WeightedAnDE
 
-# --- 1. Generate Dataset with Heavy Noise ---
 np.random.seed(42)
-n_samples = 20000  # Large sample size to allow convergence of weights
+n_samples = 20000  # Many samples, so that the weights converge
 n_features = 10
 
-# A. Informative Features (Mixed Type)
+# Informative attributes: one categorical and one continuous
 X_cat = np.random.randint(0, 3, size=(n_samples, 1))
 X_cont = np.random.randn(n_samples, 1)
 
-# Logic: Cat=0 & X>0.5 OR Cat=1 & X<-0.5 -> Class 1
+# Class 1 when (cat = 0 and x > 0.5) or (cat = 1 and x < -0.5)
 y = np.zeros(n_samples, dtype=int)
 mask_0 = (X_cat.flatten() == 0) & (X_cont.flatten() > 0.5)
 mask_1 = (X_cat.flatten() == 1) & (X_cont.flatten() < -0.5)
 y[mask_0 | mask_1] = 1
 
-# B. Noise Features
 X_noise = np.random.randn(n_samples, 8)
 X = np.hstack([X_cat, X_cont, X_noise])
 
-# Split
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.3, random_state=42
 )
 
-# --- 2. Fit and Evaluate ---
 print("Training models...")
 
-# Model 1: AnDE
 ande = AnDE(n_dependence=1)
 ande.fit(X_train, y_train)
 acc_ande = accuracy_score(y_test, ande.predict(X_test))
 ll_ande = log_loss(y_test, ande.predict_proba(X_test))
 
-# Model 2: one weight per SPODE (higher regularization for a clearer picture)
+# One weight per SPODE, with a strong penalty for a clearer picture
 wande = WeightedAnDE(n_dependence=1, mean="geometric", l2_reg=0.05, max_iter=200)
 wande.fit(X_train, y_train)
 acc_wande = accuracy_score(y_test, wande.predict(X_test))
 ll_wande = log_loss(y_test, wande.predict_proba(X_test))
 
-# --- 3. Visualization ---
-features = [f"F{i}\n(Signal)" if i < 2 else f"F{i}\n(Noise)" for i in range(n_features)]
+features = [f"F{i}\n{'Signal' if i < 2 else 'Noise'}" for i in range(n_features)]
 indices = np.arange(n_features)
-
-ande_weights = np.ones(n_features)
 # One weight per SPODE (weight_level=1); the last one is shared by unseen states
 wande_weights = wande.learned_weights_[:n_features]
 
-fig, axes = plt.subplots(1, 2, figsize=(16, 7), sharey=True)
+fig, (ax_score, ax_w) = plt.subplots(
+    1, 2, figsize=(12, 4.4), gridspec_kw={"width_ratios": [1, 2.4]}
+)
 
-
-# Helper for info box (MOVED TO RIGHT)
-def add_score_box(ax, acc, ll):
-    textstr = "\n".join(
-        (r"$\bf{Performance\ (Test):}$", f"Accuracy: {acc:.3f}", f"Log Loss: {ll:.3f}")
+# Test scores of both models
+width = 0.38
+for k, (name, color, scores) in enumerate(
+    [
+        ("AnDE", "#0072B2", (acc_ande, ll_ande)),
+        ("WeightedAnDE", "#CC79A7", (acc_wande, ll_wande)),
+    ]
+):
+    bars = ax_score.bar(
+        np.arange(2) + (k - 0.5) * width, scores, width, color=color, label=name
     )
-    props = dict(boxstyle="round", facecolor="white", alpha=0.9, edgecolor="gray")
-    ax.text(
-        0.95,
-        0.95,
-        textstr,
-        transform=ax.transAxes,
-        fontsize=12,
-        verticalalignment="top",
-        horizontalalignment="right",
-        bbox=props,
-    )
+    ax_score.bar_label(bars, fmt="%.3f", padding=2)
+ax_score.set_xticks([0, 1], ["Accuracy", "Log loss"])
+ax_score.set_ylim(0, 1.12)
+ax_score.set_title("Test scores")
 
+# Weights of the SPODEs; AnDE gives every SPODE a weight of 1
+bars = ax_w.bar(indices, wande_weights, color="#CC79A7")
+ax_w.bar_label(
+    bars, labels=[f"{w:.2f}" if w > 0.1 else "" for w in wande_weights], padding=2
+)
+ax_w.axhline(1.0, color="#0072B2", ls="--", label="Weight of every SPODE in AnDE")
+ax_w.set_xticks(indices, features)
+ax_w.set_xlabel("Super-parent attribute")
+ax_w.set_ylabel("Component weight")
+ax_w.set_ylim(0, 1.12 * wande_weights.max())
+ax_w.set_title("Weights of the SPODEs in WeightedAnDE")
 
-# Plot AnDE (Generative)
-axes[0].bar(indices, ande_weights, color="lightgray", edgecolor="gray")
-axes[0].set_title("AnDE (Generative)\nStrategy: Uniform Attention", fontsize=14)
-axes[0].set_xlabel("Feature (as Super-Parent)", fontsize=12)
-axes[0].set_ylabel("Weight Magnitude", fontsize=12)
-axes[0].set_xticks(indices)
-axes[0].set_xticklabels(features, rotation=45, ha="right")
-
-# Highlight Signal Features with GOLD (to show ground truth importance)
-axes[0].patches[0].set_facecolor("gold")
-axes[0].patches[0].set_edgecolor("orange")
-axes[0].patches[1].set_facecolor("gold")
-axes[0].patches[1].set_edgecolor("orange")
-
-add_score_box(axes[0], acc_ande, ll_ande)
-
-# Plot the weighted model
-# Use INDIGO for learned weights
-bars = axes[1].bar(indices, wande_weights, color="indigo", edgecolor="black", alpha=0.8)
-axes[1].set_title("WeightedAnDE (Hybrid)\nStrategy: Learned Attention", fontsize=14)
-axes[1].set_xlabel("Feature (as Super-Parent)", fontsize=12)
-axes[1].set_xticks(indices)
-axes[1].set_xticklabels(features, rotation=45, ha="right")
-
-add_score_box(axes[1], acc_wande, ll_wande)
-
-# Annotate the learned weights
-for bar in bars:
-    height = bar.get_height()
-    if height > 0.1:
-        axes[1].annotate(
-            f"{height:.2f}",
-            xy=(bar.get_x() + bar.get_width() / 2, height),
-            xytext=(0, 3),
-            textcoords="offset points",
-            ha="center",
-            va="bottom",
-            fontweight="bold",
-            color="indigo",
-        )
-
-fig.suptitle("Impact of Noise on Model Weights and Performance", fontsize=18)
-plt.tight_layout()
-plt.subplots_adjust(top=0.85)
+handles = ax_score.get_legend_handles_labels()[0] + ax_w.get_legend_handles_labels()[0]
+fig.legend(handles=handles, loc="outside lower center", ncol=3)
+fig.suptitle("AnDE and WeightedAnDE with eight noise attributes")
 plt.show()

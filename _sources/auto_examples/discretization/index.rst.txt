@@ -19,7 +19,7 @@ Supervised discretizers for continuous attributes.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="This example compares where three discretizers place their cut-points on the same continuous attribute.">
+    <div class="sphx-glr-thumbcontainer" tooltip="The figure compares where three discretizers place their cut-points on the same continuous attribute. The attribute is skewed (most values are small) and the class changes at two thresholds, $x = 2$ and $x = 6$, with some label noise. The discretizers are:">
 
 .. only:: html
 
@@ -30,7 +30,24 @@ Supervised discretizers for continuous attributes.
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Supervised Discretization: Where the Cuts Fall</div>
+      <div class="sphx-glr-thumbnail-title">Supervised discretization: where the cuts fall</div>
+    </div>
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="The models of the library discretize their continuous attributes into n_bins bins of equal frequency (``strategy=&quot;quantile&quot;``), without looking at the class. skbn.MDLPDiscretizer and skbn.DecisionTreeDiscretizer place the cut-points where the class changes instead, and go before the model in a pipeline. The discretized attributes hold small integer codes, which the model then reads as categorical.">
+
+.. only:: html
+
+  .. image:: /auto_examples/discretization/images/thumb/sphx_glr_21_plot_supervised_discretization_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/discretization/21_plot_supervised_discretization`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Supervised discretization before a model</div>
     </div>
 
 
@@ -45,4 +62,5 @@ Supervised discretizers for continuous attributes.
    :hidden:
 
    /auto_examples/discretization/15_plot_mdlp_discretizer
+   /auto_examples/discretization/21_plot_supervised_discretization
 

@@ -1,19 +1,16 @@
 """
 =====================================================
-Pipelines and Model Selection with scikit-learn
+Pipelines and model selection with scikit-learn
 =====================================================
 
 The estimators of the library follow the scikit-learn interface, so they
 can be combined with its preprocessing, pipelines and model selection.
 
-**The Scenario:**
-A table with numeric and text columns and some missing values, as it would
-come out of a database. The example builds a single
-:class:`sklearn.pipeline.Pipeline` that:
-
-1.  imputes the missing values and encodes the text columns as integers
-    (:class:`sklearn.compose.ColumnTransformer`), and
-2.  fits an :class:`skbn.ALR`, told which columns are categorical.
+The data are a table with numeric and text columns and some missing values,
+as it would come out of a database. A single
+:class:`sklearn.pipeline.Pipeline` imputes the missing values and encodes
+the text columns as integers (:class:`sklearn.compose.ColumnTransformer`),
+and then fits an :class:`skbn.ALR`, told which columns are categorical.
 
 A :class:`sklearn.model_selection.GridSearchCV` then chooses the size of
 the attribute subsets of ALR (``n_join``) and the granularity of its
@@ -34,7 +31,7 @@ from sklearn.preprocessing import OrdinalEncoder
 
 from skbn import ALR
 
-# --- 1. Build a Mixed Table with Missing Values ---
+# A mixed table with missing values
 rng = np.random.RandomState(42)
 n_samples = 3000
 
@@ -65,7 +62,7 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.3, stratify=y, random_state=42
 )
 
-# --- 2. Pipeline: Preprocessing + ALR ---
+# Preprocessing and ALR in one pipeline
 preprocess = ColumnTransformer(
     [
         ("num", SimpleImputer(strategy="median"), numeric),
@@ -86,7 +83,7 @@ pipe = Pipeline(
     ]
 )
 
-# --- 3. Model Selection ---
+# Grid search over the join size and the weight level
 orders = [1, 2, 3]
 levels = [1, 2, 3]
 search = GridSearchCV(
@@ -110,31 +107,28 @@ for params, score in zip(
     j = levels.index(params["model__weight_level"])
     scores[i, j] = -score
 
-# --- 4. Plotting ---
-fig, ax = plt.subplots(figsize=(8, 5.5))
-im = ax.imshow(scores, cmap="viridis_r", aspect="auto")
+fig, ax = plt.subplots(figsize=(6.5, 4.6))
+im = ax.imshow(scores, cmap="viridis_r")
 
 for i in range(len(orders)):
     for j in range(len(levels)):
-        best = scores[i, j] == scores.min()
         ax.text(
             j,
             i,
             f"{scores[i, j]:.3f}",
             ha="center",
             va="center",
-            color="white" if scores[i, j] > scores.mean() else "black",
-            fontweight="bold" if best else "normal",
-            fontsize=12,
+            color="white" if scores[i, j] > scores.mean() else "#1A1A1A",
         )
+# Frame the best combination
+i, j = np.unravel_index(scores.argmin(), scores.shape)
+ax.add_patch(plt.Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False, color="#D55E00", lw=3))
 
-ax.set_xticks(range(len(levels)))
-ax.set_xticklabels([f"Level {k}" for k in levels])
-ax.set_yticks(range(len(orders)))
-ax.set_yticklabels([f"n = {n}" for n in orders])
-ax.set_xlabel("Weight Granularity")
-ax.set_ylabel("Join Size")
-ax.set_title("Cross-Validated Log Loss of ALR (Lower Is Better)", fontsize=13)
-fig.colorbar(im, ax=ax, label="Log Loss")
-plt.tight_layout()
+ax.set_xticks(range(len(levels)), [str(k) for k in levels])
+ax.set_yticks(range(len(orders)), [str(n) for n in orders])
+ax.set_xlabel("Weight level")
+ax.set_ylabel("Join size")
+ax.grid(False)
+ax.set_title("Cross-validated log loss of ALR")
+fig.colorbar(im, ax=ax, label="Log loss")
 plt.show()
