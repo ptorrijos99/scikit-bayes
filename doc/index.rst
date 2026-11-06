@@ -12,17 +12,22 @@ scikit-bayes
 `Source Repository <https://github.com/ptorrijos99/scikit-bayes>`__ |
 `Issues & Ideas <https://github.com/ptorrijos99/scikit-bayes/issues>`__ |
 
-**scikit-bayes** is a Python package that extends `scikit-learn` with a suite of 
-Bayesian Network Classifiers. It provides `scikit-learn`-compatible implementations 
-of higher-order and hybrid Bayesian models that are missing from the core library.
+scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model
+follows the scikit-learn estimator API and takes tables that mix continuous,
+categorical and binary attributes.
 
-**Key Features:**
-
-* **MixedNB**: Naive Bayes for mixed data types (Gaussian, Categorical, Bernoulli)
-* **AnDE Family**: Averaged n-Dependence Estimators that relax the independence assumption
-* **TAN**: Tree Augmented Naive Bayes with a Chow-Liu tree of attribute dependencies
-* **KDB**: K-Dependence Bayesian classifier with at most k attribute parents per attribute
-* **Hybrid Models**: ALR, GaussianALR and WeightedAnDE for discriminative learning
+* :class:`~skbn.MixedNB`: Naive Bayes for continuous, categorical and binary
+  attributes in one model.
+* :class:`~skbn.AnDE`: Averaged n-Dependence Estimators (AODE, A2DE).
+* :class:`~skbn.AnJE` and :class:`~skbn.GaussianAnJE`: Averaged n-Join
+  Estimators.
+* :class:`~skbn.TAN` and :class:`~skbn.KDB`: a single network in which every
+  attribute has one (TAN) or up to k (KDB) attribute parents.
+* :class:`~skbn.WeightedAnDE`, :class:`~skbn.ALR` and
+  :class:`~skbn.GaussianALR`: weights learned discriminatively on top of the
+  generative models.
+* :class:`~skbn.MDLPDiscretizer` and :class:`~skbn.DecisionTreeDiscretizer`:
+  supervised discretization of continuous attributes.
 
 
 .. grid:: 1 2 2 2
@@ -35,7 +40,7 @@ of higher-order and hybrid Bayesian models that are missing from the core librar
         :class-card: intro-card
         :shadow: md
 
-        Information about installation and basic usage of scikit-bayes.
+        Installation and a first model.
 
         +++
 
@@ -69,7 +74,7 @@ of higher-order and hybrid Bayesian models that are missing from the core librar
         :class-card: intro-card
         :shadow: md
 
-        Complete reference documentation for all estimators and utilities.
+        Parameters, attributes and methods of every class.
 
         +++
 
@@ -86,7 +91,7 @@ of higher-order and hybrid Bayesian models that are missing from the core librar
         :class-card: intro-card
         :shadow: md
 
-        Gallery of examples demonstrating AnDE, MixedNB, and more.
+        What each model captures, shown on small datasets with plots.
 
         +++
 

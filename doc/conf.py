@@ -8,13 +8,28 @@ import sys
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
-from importlib.metadata import version as get_version
-
 project = "scikit-bayes"
 copyright = "2025, Pablo Torrijos"
 author = "Pablo Torrijos"
-release = get_version('scikit-bayes')
-version = ".".join(release.split(".")[:3])
+
+# The version comes from the git tags, not from the installed metadata: pixi
+# installs the package with the version written in pixi.lock when it was
+# locked, which can be several releases old. Between releases, ``version`` is
+# the last release and ``release`` says that it is later (1.3.1.post1.dev0).
+try:
+    from setuptools_scm import get_version
+
+    release = get_version(
+        root="..",
+        relative_to=__file__,
+        version_scheme="no-guess-dev",
+        local_scheme="no-local-version",
+    )
+except (ImportError, LookupError):
+    from importlib.metadata import version as get_version
+
+    release = get_version("scikit-bayes")
+version = release.split(".post")[0].split(".dev")[0]
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

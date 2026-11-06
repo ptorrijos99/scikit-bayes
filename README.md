@@ -7,42 +7,40 @@
 [![DOI](https://zenodo.org/badge/1081042310.svg)](https://doi.org/10.5281/zenodo.23950884)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green.svg)](LICENSE)
 
-**scikit-bayes** is a Python package that extends `scikit-learn` with a suite of Bayesian Network Classifiers.
+scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model follows the scikit-learn estimator API, so it works in pipelines, cross-validation and grid search, and takes tables that mix continuous, categorical and binary attributes. Counting and prediction run in compiled Numba kernels.
 
-The primary goal of this package is to provide robust, `scikit-learn`-compatible implementations of advanced Bayesian classifiers that are not available in the core library.
+## Models
 
-## Key Features
+- `MixedNB`: Naive Bayes with Gaussian, categorical and Bernoulli attributes in one model.
+- `AnDE`: Averaged n-Dependence Estimators (AODE, A2DE), pooled with the arithmetic or the geometric mean.
+- `WeightedAnDE`: AnDE with discriminative weights, one per component or one per factor of each component (the weighted CCBN of Zaidi et al., 2017), at four levels of granularity, fitted jointly or one component at a time (which gives the AnDE<sup>w</sup> of FedAnDE).
+- `AnJE` and `ALR`: Averaged n-Join Estimators and Accelerated Logistic Regression as defined by Zaidi et al. (2016), trained by default with the protocol of the paper.
+- `GaussianAnJE` and `GaussianALR`: AnJE and ALR built on the factors of the SPnDEs, so that continuous attributes keep Gaussian conditionals, as in HAODE.
+- `TAN`: Tree Augmented Naive Bayes, with a Chow-Liu tree of attribute dependencies.
+- `KDB`: K-Dependence Bayesian classifier, in which every attribute has at most k attribute parents chosen by conditional mutual information.
+- `MDLPDiscretizer` and `DecisionTreeDiscretizer`: supervised discretization of continuous attributes, to place before a model in a pipeline.
 
-- **MixedNB**: Naive Bayes for mixed data types (Gaussian + Categorical + Bernoulli) in a single model
-- **AnDE**: Averaged n-Dependence Estimators (AODE, A2DE) that relax the independence assumption, pooled with the arithmetic or the geometric mean
-- **WeightedAnDE**: AnDE with discriminative weights, one per component or one per factor of each component (weighted CCBN), at four levels of granularity, fitted jointly or one component at a time (the AnDE<sup>w</sup> of FedAnDE)
-- **AnJE and ALR**: Averaged n-Join Estimators and Accelerated Logistic Regression, as defined by Zaidi et al. (2016), with the training protocol of the paper by default
-- **GaussianAnJE and GaussianALR**: AnJE and ALR built on the factors of the SPnDEs, so that continuous attributes keep Gaussian conditionals as in HAODE
-- **TAN**: Tree Augmented Naive Bayes, a tree of attribute dependencies learned with the Chow-Liu procedure
-- **KDB**: K-Dependence Bayesian classifier, in which every attribute has at most k attribute parents chosen by conditional mutual information
-- **Full scikit-learn API**: Compatible with pipelines, cross-validation, and grid search
-
-## Quick Start
+## Quick start
 
 ```python
 import numpy as np
 from skbn import MixedNB, AnDE
 
-# MixedNB: Handle mixed data types automatically
+# A Gaussian, a binary and a categorical column; the types are inferred
 X = np.array([[1.5, 0, 2], [-0.5, 1, 0], [2.1, 1, 1], [-1.2, 0, 2]])
 y = np.array([0, 1, 1, 0])
 
 clf = MixedNB()
 clf.fit(X, y)
-print(clf.predict([[0.5, 1, 1]]))  # Automatically handles Gaussian, Bernoulli, Categorical
+print(clf.predict([[0.5, 1, 1]]))  # [1]
 
-# AnDE: Solve problems Naive Bayes cannot (XOR)
+# XOR, which Naive Bayes cannot learn
 X_xor = np.array([[-1, -1], [-1, 1], [1, -1], [1, 1]])
 y_xor = np.array([0, 1, 1, 0])
 
 clf = AnDE(n_dependence=1, n_bins=2)
 clf.fit(X_xor, y_xor)
-print(clf.predict(X_xor))  # [0, 1, 1, 0] ✓
+print(clf.predict(X_xor))  # [0 1 1 0]
 ```
 
 ## Installation
@@ -51,7 +49,7 @@ print(clf.predict(X_xor))  # [0, 1, 1, 0] ✓
 pip install scikit-bayes
 ```
 
-Or install from source:
+The development version installs from GitHub:
 
 ```bash
 pip install git+https://github.com/ptorrijos99/scikit-bayes.git
@@ -59,13 +57,13 @@ pip install git+https://github.com/ptorrijos99/scikit-bayes.git
 
 ## Documentation
 
-- 📖 [User Guide](https://ptorrijos99.github.io/scikit-bayes/user_guide.html) - Detailed documentation
-- 📚 [API Reference](https://ptorrijos99.github.io/scikit-bayes/api.html) - Complete API docs
-- 🎨 [Examples Gallery](https://ptorrijos99.github.io/scikit-bayes/auto_examples/index.html) - Visual examples
+- [User guide](https://ptorrijos99.github.io/scikit-bayes/user_guide.html): how each model is defined and estimated, and how to choose its parameters.
+- [API reference](https://ptorrijos99.github.io/scikit-bayes/api.html): parameters, attributes and methods of every class.
+- [Example gallery](https://ptorrijos99.github.io/scikit-bayes/auto_examples/index.html): what each model captures, shown on small datasets with plots.
 
 ## Development
 
-This project uses [pixi](https://pixi.sh) for environment management.
+The development environments are managed with [pixi](https://pixi.sh):
 
 ```bash
 # Run tests

@@ -6,8 +6,8 @@
 User Guide
 ==========
 
-This guide provides comprehensive documentation for scikit-bayes estimators,
-including theoretical background and practical usage examples.
+This guide describes how each model of scikit-bayes is defined and
+estimated, and how to choose its parameters.
 
 .. contents:: Table of Contents
    :local:
@@ -16,56 +16,39 @@ including theoretical background and practical usage examples.
 Introduction
 ============
 
-What are Bayesian Network Classifiers?
---------------------------------------
+Bayesian network classifiers
+----------------------------
 
-Bayesian Network Classifiers (BNCs) compute class probabilities using Bayes' theorem. The most common is Naive Bayes, which assumes features are conditionally independent given the class:
+Bayesian network classifiers (BNCs) compute class probabilities with Bayes' theorem. The simplest is Naive Bayes, which assumes the features independent given the class:
 
 .. math::
 
     P(y|\mathbf{x}) \propto P(y) \prod_{i=1}^{n} P(x_i|y)
 
-This assumption is rarely true, but Naive Bayes scales well and works as a baseline. When feature dependencies are strong (e.g., in a parity problem like XOR), it produces inaccurate probabilities.
+The assumption rarely holds, but Naive Bayes scales well and is a sound baseline. When the features depend strongly on each other, as in a parity problem like XOR, its probabilities are wrong.
 
-Why scikit-bayes?
------------------
+What the library adds to scikit-learn
+-------------------------------------
 
-While scikit-learn includes standard Naive Bayes classes, they require some manual workarounds for complex datasets:
-
-1. **Heterogeneous data**: You cannot pass a matrix with Gaussian, Categorical, and Bernoulli features directly into a single estimator without using a `ColumnTransformer` to split them.
-2. **Feature dependencies**: There are no out-of-the-box implementations of n-dependence estimators like AODE or A2DE.
-3. **Hybrid optimization**: Scikit-learn does not implement discriminatively-weighted Bayesian classifiers like ALR, which use generative models as preconditioners.
-
-`scikit-bayes` implements these architectures while passing standard scikit-learn estimator checks.
+The Naive Bayes classes of scikit-learn each take one type of feature, so a table with continuous, categorical and binary columns has to be split with a ``ColumnTransformer`` and the probabilities of the parts combined by hand; :class:`skbn.MixedNB` takes the whole table. Beyond Naive Bayes, scikit-learn has no Bayesian network classifier that models dependencies between features. scikit-bayes adds the AnDE family (AODE, A2DE), TAN and KDB, and the models that learn discriminative weights on top of them, such as ALR and WeightedAnDE. Every estimator passes the scikit-learn estimator checks, so all of them work in pipelines, cross-validation and grid search.
 
 
 .. _mixed_naive_bayes:
 
-MixedNB: Mixed Data Naive Bayes
-===============================
+MixedNB: Naive Bayes for mixed data
+===================================
 
 :class:`skbn.MixedNB` handles datasets with heterogeneous feature types
 by internally combining scikit-learn's specialized Naive Bayes estimators.
 
-The Problem
------------
+A table of patients may hold the age (continuous, Gaussian), the sex
+(binary, Bernoulli) and the education level coded 0 to 3 (categorical). With
+scikit-learn this takes three Naive Bayes classifiers, one per type of
+feature, and a sum of their log-probabilities. MixedNB fits one model on the
+whole table.
 
-Consider a dataset with:
-
-* **Feature 0**: Age (continuous) → Gaussian
-* **Feature 1**: Gender (binary) → Bernoulli
-* **Feature 2**: Education Level (0, 1, 2, 3) → Categorical
-
-With sklearn, you'd need to:
-
-1. Split features by type
-2. Fit separate NB classifiers
-3. Combine probabilities manually
-
-MixedNB does this automatically.
-
-Feature Type Detection
-----------------------
+Feature types
+-------------
 
 MixedNB types every feature not declared by the user during ``fit()``, from
 its training values. Every other estimator of the library uses the same rule
@@ -107,8 +90,8 @@ Each type is estimated as follows:
   their range, so that two values such as {1, 2} stay apart.
 * **Gaussian** features with zero variance in training are ignored.
 
-Usage Example
--------------
+Example
+-------
 
 .. code-block:: python
 
@@ -131,29 +114,31 @@ Usage Example
 
     # Inspect detected types
     print(clf.feature_types_)
-    # {'gaussian': [0], 'bernoulli': [1], 'categorical': [2]}
+    # {'gaussian': [0], 'categorical': [2], 'bernoulli': [1]}
 
     # Predict
     print(clf.predict([[1.0, 1, 1]]))  # [1]
-    print(clf.predict_proba([[1.0, 1, 1]]))  # [[0.xx, 0.xx]]
+    print(clf.predict_proba([[1.0, 1, 1]]))  # [[0.14 0.86]]
 
 Parameters
 ----------
 
-* ``alpha``: Smoothing parameter (Laplace smoothing) for Categorical/Bernoulli. Default: 1.0
-* ``var_smoothing``: Variance smoothing for Gaussian features. Default: 1e-9
-* ``categorical_features``: List of indices to treat as categorical
-* ``bernoulli_features``: List of indices to treat as Bernoulli
+* ``alpha``: Laplace smoothing of the categorical and Bernoulli features. Default: 1.0
+* ``var_smoothing``: variance smoothing of the Gaussian features. Default: 1e-9
+* ``categorical_features``: indices or boolean mask of the categorical features
+* ``bernoulli_features``: indices or boolean mask of the Bernoulli features
+* ``gaussian_features``: indices or boolean mask of the Gaussian features
 
 
-AnDE Family: Relaxing Independence
-==================================
+The AnDE family
+===============
 
-The **Averaged n-Dependence Estimators (AnDE)** family relaxes the independence
-assumption by conditioning on "super-parent" features.
+The Averaged n-Dependence Estimators (AnDE) relax the independence
+assumption by conditioning every feature on the class and on ``n``
+"super-parent" features.
 
-The Independence Problem
-------------------------
+Where Naive Bayes fails
+-----------------------
 
 Consider the XOR problem:
 
@@ -179,26 +164,25 @@ Consider the XOR problem:
 Looking at X1 alone: P(X1|Y=0) = P(X1|Y=1) (symmetric distributions).
 Looking at X2 alone: P(X2|Y=0) = P(X2|Y=1) (symmetric distributions).
 
-**Naive Bayes cannot learn this.** It achieves ~50% accuracy (random guessing).
+Naive Bayes cannot learn this problem, and its accuracy stays at chance level.
+AnDE models P(X2 | Y, X1) instead of P(X2 | Y), and the dependence on X1 is
+what separates the classes.
 
-AnDE solves this by modeling **P(X2 | Y, X1)** instead of just P(X2 | Y).
+Super-parents
+-------------
 
-The Super-Parent Strategy
--------------------------
-
-An SPnDE (Super-Parent n-Dependence Estimator) conditions all child features
-on the class **and** n parent features:
+An SPnDE (Super-Parent n-Dependence Estimator) conditions every child
+feature on the class and on ``n`` parent features:
 
 .. math::
 
     P(y, \mathbf{x}) = P(Y^*) \prod_{i \in children} P(x_i | Y^*)
 
-Where :math:`Y^* = (y, x_{p1}, x_{p2}, ..., x_{pn})` is the "augmented super-class".
+where :math:`Y^* = (y, x_{p1}, x_{p2}, ..., x_{pn})` is the augmented
+super-class. AnDE averages the SPnDEs of every set of ``n`` parents.
 
-AnDE averages over all possible parent combinations.
-
-AnDE (Arithmetic Mean)
-----------------------
+AnDE
+----
 
 :class:`skbn.AnDE` is the standard generative model described by Webb et al. [1]_ [2]_.
 
@@ -206,18 +190,15 @@ AnDE (Arithmetic Mean)
 
     P(y|\mathbf{x}) \propto \sum_{m} P_m(y, \mathbf{x})
 
-**Key Parameters:**
+Main parameters:
 
-* ``n_dependence``: Order of dependence
+* ``n_dependence``: order of dependence. ``0`` is Naive Bayes
+  (:class:`skbn.MixedNB`), ``1`` is AODE and ``2`` is A2DE.
+* ``n_bins``: number of bins of the continuous super-parents.
+* ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``,
+  ``'kmeans'``).
 
-  - n=0: Equivalent to Naive Bayes (MixedNB)
-  - n=1: AODE (Averaged One-Dependence Estimators)
-  - n=2: A2DE (common choice for higher accuracy)
-
-* ``n_bins``: Discretization bins for continuous super-parents
-* ``strategy``: Discretization strategy ('uniform', 'quantile', 'kmeans')
-
-**Example:**
+Example:
 
 .. code-block:: python
 
@@ -227,7 +208,7 @@ AnDE (Arithmetic Mean)
     clf = AnDE(n_dependence=1, n_bins=5)
     clf.fit(X, y)
 
-    # A2DE (n=2) - higher accuracy, more computation
+    # A2DE (n=2): more components, and more data needed per estimate
     clf = AnDE(n_dependence=2, n_bins=5)
 
 With ``mean="geometric"`` the components are pooled with the geometric mean,
@@ -336,8 +317,8 @@ class by maximising the conditional log-likelihood, a convex problem:
 A1JE is Naive Bayes, and AnJE uses the same statistics as A(n-1)DE, so
 ``AnJE(n_join=2)`` is comparable to ``AnDE(n_dependence=1)``. Both models are
 defined on discrete attributes: continuous attributes are discretized into
-``n_bins`` bins (the paper uses MDL discretization, available as
-:class:`skbn.MDLPDiscretizer`). Probabilities are m-estimates with
+``n_bins`` bins. The paper uses MDL discretization instead, which is
+:class:`skbn.MDLPDiscretizer` in a pipeline (see :ref:`discretization`). Probabilities are m-estimates with
 ``m = alpha``.
 
 ``weight_level=3`` (the default) is the model of the paper. Levels 1 (one
@@ -414,7 +395,7 @@ parents.
 Where :math:`r` is the root of the tree and :math:`\pi(i)` the parent of
 attribute :math:`i`.
 
-Learning the Tree
+Learning the tree
 -----------------
 
 The structure is learned with the Chow-Liu procedure [7]_:
@@ -428,10 +409,10 @@ The structure is learned with the Chow-Liu procedure [7]_:
 The choice of root does not change which attributes are connected, only the
 direction of the edges.
 
-Mixed Data
+Mixed data
 ----------
 
-TAN uses the same strategy as the AnDE family. Continuous attributes are
+TAN handles mixed data as the AnDE family does. Continuous attributes are
 discretized (``n_bins``, ``strategy``) to compute the mutual information and
 when they act as parents; as children they remain continuous and are modeled
 by Gaussian distributions. Every conditional :math:`P(x_i | y, x_{\pi(i)})` is
@@ -439,14 +420,14 @@ Naive Bayes on the augmented class :math:`(y, x_{\pi(i)})`, with the
 estimates of :class:`skbn.MixedNB`, so discrete children use Laplace
 smoothing (``alpha``).
 
-**Key Parameters:**
+Main parameters:
 
-* ``root``: Index of the root attribute. Default: 0
-* ``alpha``: Laplace smoothing for discrete attributes. Default: 1.0
-* ``n_bins``: Discretization bins for continuous attributes
-* ``strategy``: Discretization strategy ('uniform', 'quantile', 'kmeans')
+* ``root``: index of the root attribute. Default: 0
+* ``alpha``: Laplace smoothing of the discrete attributes. Default: 1.0
+* ``n_bins``: number of bins of the continuous attributes
+* ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``, ``'kmeans'``)
 
-**Example:**
+Example:
 
 .. code-block:: python
 
@@ -461,7 +442,7 @@ smoothing (``alpha``).
 
 .. _kdb:
 
-KDB: K-Dependence Bayesian Classifier
+KDB: K-dependence Bayesian classifier
 =====================================
 
 :class:`skbn.KDB` [8]_ generalizes Naive Bayes and TAN with a single
@@ -475,7 +456,7 @@ as parents.
 Where :math:`\Pi(i)` is the set of attribute parents of attribute :math:`i`.
 With ``k=0`` the model is Naive Bayes.
 
-Learning the Structure
+Learning the structure
 ----------------------
 
 The structure is learned greedily [8]_:
@@ -502,14 +483,14 @@ with ``k``, so they need more data to be estimated. ``k=1`` (the default)
 gives a network of the same complexity as TAN; ``k=2`` or more pays off with
 large training sets. Choose ``k`` by cross-validation.
 
-**Key Parameters:**
+Main parameters:
 
-* ``k``: Maximum number of attribute parents. Default: 1
-* ``alpha``: Laplace smoothing for discrete attributes. Default: 1.0
-* ``n_bins``: Discretization bins for continuous attributes
-* ``strategy``: Discretization strategy ('uniform', 'quantile', 'kmeans')
+* ``k``: maximum number of attribute parents. Default: 1
+* ``alpha``: Laplace smoothing of the discrete attributes. Default: 1.0
+* ``n_bins``: number of bins of the continuous attributes
+* ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``, ``'kmeans'``)
 
-**Example:**
+Example:
 
 .. code-block:: python
 
@@ -524,29 +505,75 @@ large training sets. Choose ``k`` by cross-validation.
     clf.conditional_mutual_info_   # I(A_i; A_j | C), used to choose parents
 
 
-Parameter Tuning Guide
-======================
+.. _discretization:
 
-Choosing n_dependence
----------------------
+Supervised discretization
+=========================
 
-* **n=1 (AODE)**: Good default. Captures pairwise interactions.
-* **n=2 (A2DE)**: Better accuracy, but O(n²) models. Use for <50 features.
-* **n≥3**: Rarely needed. Computational cost grows combinatorially.
+The models discretize their continuous attributes with
+:class:`~sklearn.preprocessing.KBinsDiscretizer` (``n_bins``, ``strategy``),
+which does not look at the class. Two supervised discretizers place the
+cut-points where the class changes instead, and go before the model in a
+pipeline:
 
-Discretization Strategy
------------------------
+* :class:`skbn.MDLPDiscretizer` is the entropy discretization of Fayyad and
+  Irani (1993), the usual choice in the AnDE and ALR literature. It splits
+  each attribute recursively at the cut-point of least class entropy and
+  stops when the gain no longer pays for the cut under the MDL criterion, so
+  the number of bins is not fixed. An attribute without any accepted cut
+  becomes constant, and the models then ignore it.
+* :class:`skbn.DecisionTreeDiscretizer` uses the thresholds of a decision
+  tree fitted on each attribute, with at most ``n_bins`` leaves.
 
-For continuous super-parents:
+The discretized attributes hold small integer codes, which the models type
+as categorical (or Bernoulli, with two bins):
 
-* **'quantile'** (default): Equal-frequency bins. Robust to outliers.
-* **'uniform'**: Equal-width bins. Good for uniform distributions.
-* **'kmeans'**: Data-driven bins. Best for multi-modal distributions.
+.. code-block:: python
 
-``n_bins`` typically 3-10. More bins = more precision but fewer samples per bin.
+    from sklearn.pipeline import make_pipeline
+    from skbn import ALR, MDLPDiscretizer
 
-Regularization in Hybrid Models
--------------------------------
+    # ALR^2 with the discretization of Zaidi et al. (2016)
+    clf = make_pipeline(MDLPDiscretizer(), ALR(n_join=2))
+    clf.fit(X, y)
+
+
+Choosing the parameters
+=======================
+
+Order of dependence
+-------------------
+
+AnDE of order ``n`` has one component for every set of ``n`` attributes,
+:math:`\binom{d}{n}` of them over ``d`` attributes, and each component
+estimates its children on more cells as ``n`` grows.
+
+* ``n=1`` (AODE) is the usual default: ``d`` components, and its estimates
+  need little data.
+* ``n=2`` (A2DE) has :math:`d(d-1)/2` components (1,225 with 50
+  attributes) and pays off on large training sets. Components whose parents
+  are constant in training share their tables, so the cost grows with the
+  informative attributes. On a laptop, A2DE fits 90% of Census-Income (41
+  attributes) in about 9 s and of Covertype (54 attributes, 520,000 rows) in
+  about 40 s.
+* ``n>=3`` rarely pays for its cost, which grows combinatorially.
+
+Discretization
+--------------
+
+The super-parents of AnDE and the attributes of AnJE, ALR, TAN and KDB are
+discretized when continuous:
+
+* ``'quantile'`` (default): bins of equal frequency, robust to outliers.
+* ``'uniform'``: bins of equal width.
+* ``'kmeans'``: bins around the clusters of one-dimensional k-means.
+
+``n_bins`` is usually between 3 and 10: more bins give finer cuts but fewer
+samples per estimate. A supervised discretizer in a pipeline (see
+:ref:`discretization`) chooses the number of bins of each attribute itself.
+
+Regularization of the weights
+-----------------------------
 
 ``l2_reg`` is the strength of the penalty :math:`\lambda \|\mathbf{w} - 1\|^2`
 added to the *summed* conditional log-likelihood, so its effect weakens as the
@@ -555,22 +582,22 @@ Component weights are few and barely react to it; factor weights are many
 and overfit small datasets with a weak penalty, so for them values between
 0.1 and 10, chosen by cross-validation, are the safe range.
 
-Computational Considerations
+Computational considerations
 ----------------------------
 
-* The counting and the evaluation of the SPnDEs, of the n-joins and of the
-  conditionals of TAN and KDB run in compiled Numba kernels. They are
-  compiled on the first use of each model and cached on disk: after
-  installing or upgrading the package, the first fit of a model takes
-  several seconds longer (on a laptop, from about 4 s for WeightedAnDE to
-  15 s for AnDE), and later sessions load the compiled code in a fraction of
-  a second.
+* The counting and the evaluation of the SPnDEs, of the n-joins, of the
+  weighted objectives and of the conditionals of TAN and KDB run in compiled
+  Numba kernels. They are compiled on the first use of each model and cached
+  on disk: after installing or upgrading the package, the first fit of a
+  model takes longer (on a laptop, a few seconds for MixedNB, AnJE or TAN,
+  and 15 to 30 s for AnDE and WeightedAnDE), and later sessions load the
+  compiled code in a fraction of a second.
 * ``n_jobs`` sets the number of threads of those kernels (1 by default,
   ``-1`` for all processors). The threaded version of a kernel is compiled
   the first time it is used, so a model run with several threads for the
-  first time pays that compilation once more. The weights of the hybrid
-  models are optimized in a single thread, with the objective of ALR
-  evaluated in ``n_jobs`` threads.
+  first time pays that compilation once more. The weights of the weighted
+  models are optimized by L-BFGS-B in a single thread, with the objective of
+  ALR evaluated in ``n_jobs`` threads.
 * TAN and KDB compute the conditional mutual information of every pair of
   attributes: the time grows with :math:`n d^2` and the matrix
   ``conditional_mutual_info_`` holds :math:`d^2` values (800 MB for 10,000
@@ -580,8 +607,7 @@ Computational Considerations
   the cardinalities of the attributes.
 * The cost of an optimization step grows with the number of weights each
   sample touches: one per component with component weights, one per factor
-  with factor weights and one per n-join in ALR
-* A2DE with n_features=50 creates ~1,225 sub-models
+  with factor weights and one per n-join in ALR.
 
 
 References

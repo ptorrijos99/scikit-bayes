@@ -4,7 +4,7 @@
 API Reference
 #############
 
-This is the API documentation for the scikit-bayes package.
+Every class below can be imported from ``skbn``.
 
 .. currentmodule:: skbn
 
@@ -77,13 +77,15 @@ Bayesian network in which every attribute has at most k attribute parents.
    KDB
 
 
-Utilities
-=========
+Discretization
+==============
+
+Supervised discretizers of continuous attributes, to place before a model in
+a pipeline.
 
 .. autosummary::
    :toctree: generated/
-   :template: functions.rst
+   :template: class.rst
 
-     utils.discovery.all_estimators
-     utils.discovery.all_displays
-     utils.discovery.all_functions
+   MDLPDiscretizer
+   DecisionTreeDiscretizer
