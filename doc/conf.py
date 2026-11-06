@@ -6,6 +6,9 @@
 import os
 import sys
 
+# gallery_style.py, next to this file, sets the style of the example figures
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 project = "scikit-bayes"
@@ -132,6 +135,7 @@ sphinx_gallery_conf = {
     "subsection_order": [
         "../examples/mixednb",
         "../examples/ande",
+        "../examples/anje",
         "../examples/tan",
         "../examples/kdb",
         "../examples/hybrid",
@@ -139,4 +143,7 @@ sphinx_gallery_conf = {
         "../examples/integration",
     ],
     "within_subsection_order": "FileNameSortKey",
+    # One look for every figure (dark grid, Computer Modern text, one colour
+    # per model), set before each example; see gallery_style.py
+    "reset_modules": ("matplotlib", "gallery_style.reset_style"),
 }

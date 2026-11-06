@@ -96,7 +96,7 @@ titles = [
     "Binning + CategoricalNB",
 ]
 
-fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
+fig, axes = plt.subplots(1, 3, figsize=(12.5, 4.6), sharey=True)
 
 h = 0.05
 x_min, x_max = X[:, 0].min() - 0.5, X[:, 0].max() + 0.5
@@ -112,7 +112,7 @@ for ax, model, title in zip(axes, models, titles):
     acc = accuracy_score(y_test, model.predict(X_test))
     ll = log_loss(y_test, model.predict_proba(X_test))
 
-    ax.imshow(
+    image = ax.imshow(
         Z,
         extent=(x_min, x_max, y_min, y_max),
         origin="lower",
@@ -151,15 +151,13 @@ for ax, model, title in zip(axes, models, titles):
         label="Class 1",
     )
 
-    ax.set_title(f"{title}\nAccuracy: {acc:.3f}, log loss: {ll:.3f}", fontsize=12)
+    ax.set_title(f"{title}\nAccuracy {acc:.3f}, log loss {ll:.3f}")
     ax.set_xlabel("Continuous feature")
     ax.set_yticks([0, 1, 2])
 
 axes[0].set_ylabel("Categorical feature")
-handles, labels = axes[0].get_legend_handles_labels()
-fig.legend(handles, labels, loc="lower center", ncol=2, bbox_to_anchor=(0.5, 0.02))
+fig.colorbar(image, ax=axes, label="Probability of class 1")
+fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=2)
 
-fig.suptitle("MixedNB and scikit-learn pipelines on mixed data", fontsize=16)
-plt.tight_layout()
-plt.subplots_adjust(top=0.80, bottom=0.15)
+fig.suptitle("MixedNB and scikit-learn pipelines on mixed data")
 plt.show()

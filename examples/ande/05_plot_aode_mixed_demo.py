@@ -53,9 +53,9 @@ ande = AnDE(n_dependence=1)
 ande.fit(X, y)
 
 models = [mnb, ande]
-titles = ["MixedNB", "AnDE (n=1)"]
+titles = ["MixedNB", "AnDE, $n = 1$"]
 
-fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
+fig, axes = plt.subplots(1, 2, figsize=(11, 4.6), sharey=True)
 
 # Cell centers are used for prediction and cell edges for pcolormesh
 n_points = 200
@@ -101,10 +101,10 @@ for ax, model, title in zip(axes, models, titles):
         y_jitter[y_sub == 0],
         c="indigo",
         marker="o",
-        s=30,
+        s=20,
         alpha=0.6,
         edgecolors="w",
-        linewidth=0.8,
+        linewidth=0.6,
         label="Class 0",
     )
 
@@ -113,17 +113,20 @@ for ax, model, title in zip(axes, models, titles):
         y_jitter[y_sub == 1],
         c="gold",
         marker="^",
-        s=30,
+        s=20,
         alpha=0.8,
         edgecolors="k",
-        linewidth=0.5,
+        linewidth=0.4,
         label="Class 1",
     )
 
-    ax.set_title(f"{title}\nAccuracy: {acc:.3f}")
-    ax.set_xlabel("Continuous feature")
-    ax.set_yticks([0, 1, 2])
-    ax.set_yticklabels(["Mode 0\n(Above 1)", "Mode 1\n(Below -1)", "Mode 2\n(Band)"])
+    ax.set_title(f"{title}\nTraining accuracy: {acc:.3f}")
+    ax.set_xlabel("Measurement")
+    ax.set_xlim(x_edges[0], x_edges[-1])
+    ax.set_yticks(
+        [0, 1, 2],
+        ["Mode 0\nAbove 1", "Mode 1\nBelow $-1$", "Mode 2\nWithin $\\pm 0.5$"],
+    )
 
     # Anomaly thresholds of each mode
     ax.vlines(1.0, -0.5, 0.5, colors="black", linestyles="--", alpha=0.5)
@@ -131,10 +134,8 @@ for ax, model, title in zip(axes, models, titles):
     ax.vlines([-0.5, 0.5], 1.5, 2.5, colors="black", linestyles="--", alpha=0.5)
 
 axes[0].set_ylabel("Operating mode")
-cbar = fig.colorbar(
-    pcm, ax=axes.ravel().tolist(), orientation="horizontal", fraction=0.05, pad=0.15
-)
-cbar.set_label("Predicted probability of anomaly (class 1)")
+fig.colorbar(pcm, ax=axes, label="Probability of an anomaly")
+fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=2)
 
-fig.suptitle("Anomaly rule that depends on the operating mode", fontsize=16)
+fig.suptitle("Anomaly rule that depends on the operating mode")
 plt.show()

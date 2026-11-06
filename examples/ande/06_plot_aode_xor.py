@@ -42,14 +42,14 @@ ande = AnDE(n_dependence=1, n_bins=4)
 ande.fit(X, y)
 
 models = [mnb, ande]
-titles = ["MixedNB", "AnDE (n=1)"]
+titles = ["MixedNB", "AnDE, $n = 1$"]
 
-fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
+fig, axes = plt.subplots(1, 2, figsize=(10, 4.8), sharey=True)
 
 for ax, model, title in zip(axes, models, titles):
     acc = accuracy_score(y, model.predict(X))
 
-    DecisionBoundaryDisplay.from_estimator(
+    display = DecisionBoundaryDisplay.from_estimator(
         model,
         X,
         response_method="predict_proba",
@@ -67,10 +67,10 @@ for ax, model, title in zip(axes, models, titles):
         X[y == 0, 1],
         c="indigo",
         marker="o",
-        s=40,
+        s=25,
         alpha=0.8,
         edgecolors="w",
-        linewidth=0.8,
+        linewidth=0.6,
         label="Class 0",
     )
 
@@ -79,23 +79,23 @@ for ax, model, title in zip(axes, models, titles):
         X[y == 1, 1],
         c="gold",
         marker="^",
-        s=40,
+        s=25,
         alpha=0.9,
         edgecolors="k",
-        linewidth=0.5,
+        linewidth=0.4,
         label="Class 1",
     )
 
-    ax.set_title(f"{title}\nAccuracy: {acc:.2f}", fontsize=12)
+    ax.set_title(f"{title}\nTraining accuracy: {acc:.2f}")
     ax.set_xlabel("Feature 1")
+    ax.set_ylabel("")
 
     ax.axvline(0, color="white", linestyle="--", alpha=0.3)
     ax.axhline(0, color="white", linestyle="--", alpha=0.3)
 
 axes[0].set_ylabel("Feature 2")
-axes[0].legend(loc="lower left")
+fig.colorbar(display.surface_, ax=axes, label="Probability of class 1")
+fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=2)
 
-fig.suptitle("XOR problem: probability of class 1", fontsize=16)
-plt.tight_layout()
-plt.subplots_adjust(top=0.85)
+fig.suptitle("XOR problem")
 plt.show()
