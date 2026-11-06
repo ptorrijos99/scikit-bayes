@@ -21,8 +21,8 @@ size.
 
 With 100 samples AnDE leads and every weighted model overfits. Between 500
 and 2000 samples the component weights of level 3 match or beat AnDE, while
-the factor weights still lag behind. With 10,000 samples the factor weights give the lowest log loss and
-the highest accuracy, since the component weights cannot undo the
+the factor weights still lag behind. With 10,000 samples the factor weights
+give the lowest log loss and the highest accuracy, since the component weights cannot undo the
 redundancy that every SPODE shares. The factor weights also take longer to
 train than the component weights.
 """
@@ -44,7 +44,8 @@ from skbn import AnDE, WeightedAnDE
 seeds = [1, 2, 3]
 sizes = [100, 500, 2000, 10000]
 
-# Name, factory, colour, line style, marker
+# Name, factory, colour, line style, marker: one colour per weight scope,
+# solid for level 3 and dashed for level 4
 models_config = [
     ("AnDE", lambda: AnDE(n_dependence=1), "#0072B2", "-", "o"),
     (
@@ -58,20 +59,20 @@ models_config = [
         "Component weights, level 4",
         lambda: WeightedAnDE(weight_level=4, l2_reg=1e-3),
         "#CC79A7",
-        "-",
+        "--",
         "D",
     ),
     (
         "Factor weights, level 3",
         lambda: WeightedAnDE(weight_scope="factor", weight_level=3, l2_reg=1e-3),
-        "#CC79A7",
-        "--",
+        "#7E2F8E",
+        "-",
         "^",
     ),
     (
         "Factor weights, level 4",
         lambda: WeightedAnDE(weight_scope="factor", weight_level=4, l2_reg=1e-3),
-        "#CC79A7",
+        "#7E2F8E",
         "--",
         "v",
     ),
@@ -112,7 +113,7 @@ mean_ll, mean_acc, mean_time = (r.mean(axis=0) for r in (res_ll, res_acc, res_ti
 for k, (name, *_) in enumerate(models_config):
     print(f"{name:28s} log loss {np.round(mean_ll[:, k], 3)}")
 
-fig, axes = plt.subplots(1, 3, figsize=(13, 4.4))
+fig, axes = plt.subplots(1, 3, figsize=(13, 4.6))
 panels = [
     (mean_ll, "Test log loss"),
     (mean_acc, "Test accuracy"),

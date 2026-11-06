@@ -16,6 +16,7 @@ MixedNB, Naive Bayes   #6E6E6E
 AnDE (A1DE)            #0072B2
 A2DE                   #56B4E9
 WeightedAnDE           #CC79A7
+WeightedAnDE, factor   #7E2F8E
 AnJE                   #009E73
 GaussianAnJE           #44AA99
 ALR                    #D55E00
