@@ -94,7 +94,7 @@ def add_score_box(ax, acc, ll):
 
 # Plot AnDE (Generative)
 axes[0].bar(indices, ande_weights, color="lightgray", edgecolor="gray")
-axes[0].set_title("AnDE (Generative)\nStrategy: Uniform Attention", fontsize=14)
+axes[0].set_title("AnDE (generative)\nUniform weights", fontsize=14)
 axes[0].set_xlabel("Feature (as Super-Parent)", fontsize=12)
 axes[0].set_ylabel("Weight Magnitude", fontsize=12)
 axes[0].set_xticks(indices)
@@ -111,7 +111,7 @@ add_score_box(axes[0], acc_ande, ll_ande)
 # Plot the weighted model
 # Use INDIGO for learned weights
 bars = axes[1].bar(indices, wande_weights, color="indigo", edgecolor="black", alpha=0.8)
-axes[1].set_title("WeightedAnDE (Hybrid)\nStrategy: Learned Attention", fontsize=14)
+axes[1].set_title("WeightedAnDE\nLearned weights", fontsize=14)
 axes[1].set_xlabel("Feature (as Super-Parent)", fontsize=12)
 axes[1].set_xticks(indices)
 axes[1].set_xticklabels(features, rotation=45, ha="right")

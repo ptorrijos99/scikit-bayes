@@ -1,15 +1,20 @@
 """
 =====================================================
-3D Voxel-Cloud Visualization: XOR Structure
+Three-dimensional XOR problem
 =====================================================
 
-To visualize the 3D decision boundaries clearly, we plot a dense cloud of points
-(voxels) colored by the predicted class probability.
+The class is the parity of the signs of three features: class 1 when the
+product of the signs is positive, which splits the cube into eight octants
+alternating between the two classes. Each feature alone and each pair of
+features is independent of the class.
 
-This reveals the internal geometry of the classifier:
-- A0DE: Shows a uniform blob (fails to separate). Accuracy ~0.5.
-- A1DE: Also fails to find structure (linear/planar cuts insufficient for 3D parity). Accuracy ~0.5.
-- A2DE: Shows a distinct 3D Checkerboard pattern (perfect solution).
+The figure shows the probability of class 1 predicted by
+:class:`skbn.MixedNB` (A0DE), :class:`skbn.AnDE` with ``n_dependence=1``
+(A1DE) and with ``n_dependence=2`` (A2DE) on a regular grid of points, with a
+sample of the training instances on top. Only the grid points where the
+probability differs from 0.5 by more than 0.1 are drawn. A0DE and A1DE
+cannot represent the parity and stay near chance level, whereas A2DE
+conditions on pairs of features and recovers the octants.
 """
 
 # Author: The scikit-bayes Developers
@@ -20,20 +25,15 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 from sklearn.metrics import accuracy_score
 
-from skbn.ande import AnDE
-from skbn.mixed_nb import MixedNB
+from skbn import AnDE, MixedNB
 
-# --- 1. Generate 3D XOR Dataset ---
 np.random.seed(42)
 n_samples = 2000
 X = np.random.randn(n_samples, 3)
-# 3D Parity Logic: Class 1 if product of signs is positive
 y = (np.sign(X[:, 0]) * np.sign(X[:, 1]) * np.sign(X[:, 2]) > 0).astype(int)
 
-# --- 2. Fit Models ---
-print("Training models...")
 models = [MixedNB(), AnDE(n_dependence=1, n_bins=4), AnDE(n_dependence=2, n_bins=4)]
-names = ["A0DE (Naive Bayes)", "A1DE (AODE)", "A2DE (n=2)"]
+names = ["A0DE (MixedNB)", "A1DE (n=1)", "A2DE (n=2)"]
 
 fitted_models = []
 scores = []
@@ -43,26 +43,19 @@ for model in models:
     fitted_models.append(model)
     scores.append(acc)
 
-# --- 3. Generate Prediction Grid ---
-print("Generating volumetric grid...")
-# Create a simpler grid for visualization (less dense than before for clarity)
 n_grid = 15
 grid_range = np.linspace(-2.2, 2.2, n_grid)
 xx, yy, zz = np.meshgrid(grid_range, grid_range, grid_range)
 X_grid = np.column_stack([xx.ravel(), yy.ravel(), zz.ravel()])
 
-# --- 4. Plotting ---
 fig = plt.figure(figsize=(18, 6))
 
 for i, (model, name, score) in enumerate(zip(fitted_models, names, scores)):
     ax = fig.add_subplot(1, 3, i + 1, projection="3d")
 
-    # Predict probabilities
     probs = model.predict_proba(X_grid)[:, 1]
 
-    # Visualization Trick:
-    # Plot points where the model is confident.
-    # High prob (Yellow) and Low prob (Purple).
+    # Draw only the grid points where the model is not close to 0.5
     mask = np.abs(probs - 0.5) > 0.1
 
     xs = X_grid[mask, 0]
@@ -70,8 +63,6 @@ for i, (model, name, score) in enumerate(zip(fitted_models, names, scores)):
     zs = X_grid[mask, 2]
     c_vals = probs[mask]
 
-    # 1. Plot Voxel Cloud (Model Belief)
-    # cmap='viridis' matches our theme: 0 (Purple) -> 1 (Yellow)
     p = ax.scatter(
         xs,
         ys,
@@ -84,13 +75,11 @@ for i, (model, name, score) in enumerate(zip(fitted_models, names, scores)):
         marker="s",
     )
 
-    # 2. Overlay Real Data Points (Ground Truth)
-    # Subsample to avoid cluttering the 3D view
+    # Subsample the training points to keep the 3D view readable
     mask_sub = np.random.choice(n_samples, 100, replace=False)
     X_sub = X[mask_sub]
     y_sub = y[mask_sub]
 
-    # Class 0 -> Indigo Circle
     ax.scatter(
         X_sub[y_sub == 0, 0],
         X_sub[y_sub == 0, 1],
@@ -103,7 +92,6 @@ for i, (model, name, score) in enumerate(zip(fitted_models, names, scores)):
         label="Class 0",
     )
 
-    # Class 1 -> Gold Triangle
     ax.scatter(
         X_sub[y_sub == 1, 0],
         X_sub[y_sub == 1, 1],
@@ -116,7 +104,6 @@ for i, (model, name, score) in enumerate(zip(fitted_models, names, scores)):
         label="Class 1",
     )
 
-    # Add axes lines crossing at zero for reference
     ax.plot([-2.5, 2.5], [0, 0], [0, 0], "k-", lw=1, alpha=0.3)
     ax.plot([0, 0], [-2.5, 2.5], [0, 0], "k-", lw=1, alpha=0.3)
     ax.plot([0, 0], [0, 0], [-2.5, 2.5], "k-", lw=1, alpha=0.3)
@@ -126,7 +113,6 @@ for i, (model, name, score) in enumerate(zip(fitted_models, names, scores)):
     ax.set_ylabel("Y")
     ax.set_zlabel("Z")
 
-    # Cleaner look
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_zticks([])
@@ -134,13 +120,11 @@ for i, (model, name, score) in enumerate(zip(fitted_models, names, scores)):
     ax.set_ylim(-2.5, 2.5)
     ax.set_zlim(-2.5, 2.5)
 
-# Add colorbar
 cbar_ax = fig.add_axes([0.92, 0.15, 0.01, 0.7])
-fig.colorbar(p, cax=cbar_ax, label="P(Class 1)")
+fig.colorbar(p, cax=cbar_ax, label="Probability of class 1")
 
-# Add legend to the first plot only (to save space)
 axes_3d = fig.get_axes()[0]
 axes_3d.legend(loc="lower left", fontsize=9)
 
-plt.suptitle("3D Volumetric Decision Boundaries: Solving the XOR Problem", fontsize=16)
+plt.suptitle("Three-dimensional XOR problem: probability of class 1", fontsize=16)
 plt.show()

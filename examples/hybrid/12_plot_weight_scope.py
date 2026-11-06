@@ -21,7 +21,7 @@ informative ones. The models are trained on increasing sample sizes.
 
 **Observations:**
 
--   **Small N (100):** AnDE leads. The hybrids overfit, and the more
+-   **Small N (100):** AnDE leads. The weighted models overfit, and the more
     weights they have, the more they do.
 -   **Medium N (500-2000):** Component weights match or beat AnDE, while
     factor weights still lag behind.

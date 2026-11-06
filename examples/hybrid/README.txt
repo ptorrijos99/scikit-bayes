@@ -1,7 +1,8 @@
 .. _hybrid_examples:
 
-Hybrid Models
--------------
+Discriminatively weighted models
+--------------------------------
 
-Generative components with discriminatively learned weights: granularity of
-the weights, their interpretation and their effect on calibration.
+Generative components with weights learned discriminatively: the
+granularity of the weights, how to read them and their effect on
+calibration.

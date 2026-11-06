@@ -1,6 +1,6 @@
 """
 =====================================================
-Calibration: Generative vs Hybrid Models
+Calibration: generative vs weighted models
 =====================================================
 
 A classifier is calibrated when, among the instances to which it gives a
