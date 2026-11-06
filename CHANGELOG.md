@@ -2,6 +2,40 @@
 
 All notable changes to scikit-bayes are listed here. The project follows [semantic versioning](https://semver.org/).
 
+## 1.3.1 (2026-11-06)
+
+A performance release: the API is unchanged and, on x86-64, every model predicts exactly as in 1.3.0. The times below are from one fold of the benchmark datasets on a laptop, comparing 1.3.0 and 1.3.1 in the same process.
+
+### Performance
+
+- `AnDE`:
+  - Components whose parents differ only in constant attributes share their tables, so they are counted and scored once.
+  - A1DE counts the children of each pair of attributes once, and A2DE those of each triple, instead of once per component.
+  - Augmented states seen in at most 16 training rows keep those rows instead of a dense row of counts.
+  - The training codes are kept in narrow integers, and the categorical attributes are encoded once per fit.
+  - Prediction looks up the states of every class first and then reads each child once.
+  - On Covertype, A1DE fits in 2.1 s instead of 8.4 s, predicts in 0.29 s instead of 9.2 s, and peaks at 0.70 GB instead of 1.26 GB. On Census, A2DE fits in 8.6 s instead of 36 s and predicts in 0.37 s instead of 8.9 s. A2DE on First-order theorem proving peaks at 0.63 GB instead of 2.5 GB, and A1DE predicts Bioresponse in 0.33 s instead of 290 s.
+- `WeightedAnDE`: the objective and its gradient are Numba kernels for both means and both weight scopes, in place of sparse products and samples x classes x components arrays. The kernels add in the same order as NumPy and SciPy did. With the default settings it fits Nomao in 27 s instead of 159 s and Census in 79 s instead of 255 s, and predicts about 20 times faster.
+- `AnJE` and `ALR`:
+  - The n-joins are counted in one pass, and the prediction buffer is bounded.
+  - The two-class ALR objective scores four samples at a time.
+  - A2JE fits Covertype in 2.3 s instead of 9.4 s, and fits GINA in 3.7 s instead of 17 s using 0.41 GB instead of 1.26 GB. ALR fits about 3 times faster.
+- `TAN` and `KDB` count the attribute pairs of the conditional mutual information as integers and fit about twice as fast (TAN on Covertype: 3.8 s instead of 7.6 s).
+- Importing `skbn` no longer loads `sklearn.tree` and `sklearn.impute`, which only the discretizers use. The import now adds 5 MB to scikit-learn and Numba instead of 15 MB.
+
+### Numerical note
+
+The weighted models now compute in Numba arithmetic that 1.3.0 left to NumPy and SciPy, so a few platforms can show rounding-level differences:
+
+- The arithmetic mean of `WeightedAnDE` reproduces the log-sum-exp of SciPy 1.15 and later. With an older SciPy, its fitted weights can differ from 1.3.0 by rounding, as 1.3.0 already differed between SciPy versions.
+- On ARM processors, including Apple silicon, SciPy's sparse product fuses multiplications and additions and the kernels do not, so the geometric objective can differ in the last bit.
+
+### Development
+
+- The gradient tests compare directional derivatives along a few random directions instead of approximating every partial derivative.
+- The scikit-learn API checks run with a few optimizer iterations.
+- With these changes the test suite runs in about a minute, and the coverage job, which runs the kernels as Python, in about four.
+
 ## 1.3.0 (2026-11-04)
 
 ### New estimators
