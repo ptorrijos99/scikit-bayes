@@ -567,6 +567,82 @@ follows has no continuous children.
     clf.fit(X, y)
 
 
+.. _choosing_a_model:
+
+Choosing a model
+================
+
+The table sums up the sections above, with ``d`` attributes and ``n``
+training samples. The generative models are fitted by counting; the weighted
+ones then run L-BFGS-B on the conditional log-likelihood, starting at the
+generative model.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 16 32 24 28
+
+   * - Model
+     - What it assumes or captures
+     - Training cost
+     - When to use it
+   * - :class:`~skbn.MixedNB`
+     - Features independent given the class; continuous, categorical and
+       binary features in one table.
+     - Counting, one estimate per feature and class.
+     - A baseline that scales well; fails when features depend strongly on
+       each other, as in XOR.
+   * - :class:`~skbn.AnDE`, ``n_dependence=1`` (AODE)
+     - Every child conditioned on the class and one super-parent, averaged
+       over the ``d`` super-parents.
+     - Counting, ``d`` components.
+     - The usual default: it captures pairwise dependencies and its
+       estimates need little data.
+   * - :class:`~skbn.AnDE`, ``n_dependence=2`` (A2DE)
+     - Every child conditioned on the class and two super-parents.
+     - Counting, :math:`d(d-1)/2` components, each estimated on more cells.
+     - Large training sets; orders of 3 or more rarely pay for their cost.
+   * - :class:`~skbn.WeightedAnDE`
+     - The SPnDEs of AnDE with discriminative weights on each component or
+       on each factor.
+     - AnDE, then L-BFGS-B; a step costs one weight per component, or per
+       factor, for each sample.
+     - To learn how much each SPnDE is trusted (component weights), or to
+       correct a dependence between children that every SPnDE shares, such
+       as a duplicated attribute (factor weights). Factor weights overfit
+       small datasets with a weak ``l2_reg``.
+   * - :class:`~skbn.AnJE` / :class:`~skbn.ALR`
+     - Joint distributions of every subset of ``n_join`` attributes given
+       the class; ALR adds one weight per n-join, value and class (a convex
+       problem). Continuous attributes are discretized.
+     - Counting of the :math:`\binom{d}{n}` n-joins; ALR then runs L-BFGS-B
+       with one weight per n-join touched by each sample.
+     - Discrete data, or data discretized with :class:`~skbn.MDLPDiscretizer`
+       as in Zaidi et al. [4]_. Unpenalized ALR overfits small samples;
+       ``l2_reg`` adds the penalty the paper suggests for them.
+   * - :class:`~skbn.GaussianAnJE` / :class:`~skbn.GaussianALR`
+     - The same pool as AnJE, written on the factors of the SPnDEs of order
+       ``n_dependence``: only the super-parents are discretized and
+       continuous children stay Gaussian.
+     - Counting as AnDE of the same order; GaussianALR then runs L-BFGS-B
+       with one weight per factor, value, class and parent instantiation.
+     - Mixed data where continuous attributes should not lose their values
+       as children, as in HAODE.
+   * - :class:`~skbn.TAN`
+     - A single network in which every attribute has the class and at most
+       one other attribute as parents (a tree).
+     - Conditional mutual information of every pair of attributes, time
+       growing with :math:`n d^2`, then counting.
+     - A single network whose structure can be read (``parents_``), instead
+       of an average of many; KDB with ``k=1`` has the same complexity.
+   * - :class:`~skbn.KDB`
+     - A single network in which every attribute has the class and at most
+       ``k`` other attributes as parents.
+     - As TAN, plus the mutual information with the class; the tables grow
+       exponentially with ``k``.
+     - Interactions between more than two attributes; ``k=2`` or more pays
+       off with large training sets. Choose ``k`` by cross-validation.
+
+
 Choosing the parameters
 =======================
 
@@ -613,6 +689,8 @@ training set grows. The default of :class:`skbn.WeightedAnDE` is 1.0.
 Component weights are few and barely react to it; factor weights are many
 and overfit small datasets with a weak penalty, so for them values between
 0.1 and 10, chosen by cross-validation, are the safe range.
+
+.. _computational_considerations:
 
 Computational considerations
 ----------------------------
