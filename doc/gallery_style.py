@@ -27,6 +27,7 @@ KDB                      #332288
 WeightedKDB              #228833
 DecisionTreeDiscretizer  #999933
 MDLPDiscretizer          #661100
+scikit-learn baselines   #1A1A1A
 =======================  =========
 """
 
