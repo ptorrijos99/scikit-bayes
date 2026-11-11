@@ -171,6 +171,20 @@ class AnJE(ClassifierMixin, BaseEstimator):
     .. [1] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., &
            Cerquides, J. (2016). ALR^n: Accelerated higher-order logistic
            regression. Machine Learning, 104(2-3), 151-194.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skbn import AnJE
+    >>> rng = np.random.RandomState(0)
+    >>> x0 = rng.randint(0, 2, size=200)
+    >>> x1 = rng.randint(0, 2, size=200)
+    >>> x2 = rng.randint(0, 3, size=200)  # noise
+    >>> y = x0 ^ x1  # exclusive or: no attribute is informative on its own
+    >>> X = np.column_stack([x0, x1, x2])
+    >>> clf = AnJE(n_join=2).fit(X, y)
+    >>> clf.score(X, y)
+    1.0
     """
 
     _parameter_constraints: dict = {
@@ -569,6 +583,20 @@ class ALR(AnJE):
     .. [2] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., Buntine, W.,
            Hynes, M., & De Sterck, H. (2017). Efficient parameter learning of
            Bayesian network classifiers. Machine Learning, 106(9-10), 1289-1329.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skbn import ALR
+    >>> rng = np.random.RandomState(0)
+    >>> x0 = rng.randint(0, 2, size=200)
+    >>> x1 = rng.randint(0, 2, size=200)
+    >>> x2 = rng.randint(0, 3, size=200)  # noise
+    >>> y = x0 ^ x1  # exclusive or: no attribute is informative on its own
+    >>> X = np.column_stack([x0, x1, x2])
+    >>> clf = ALR(n_join=2).fit(X, y)
+    >>> clf.score(X, y)
+    1.0
     """
 
     _parameter_constraints: dict = {
@@ -874,6 +902,21 @@ class GaussianAnJE(_BaseAnDE):
     .. [1] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., &
            Cerquides, J. (2016). ALR^n: Accelerated higher-order logistic
            regression. Machine Learning, 104(2-3), 151-194.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skbn import GaussianAnJE, MixedNB
+    >>> rng = np.random.RandomState(0)
+    >>> y = rng.randint(0, 2, size=200)
+    >>> x0 = rng.normal(size=200)
+    >>> x1 = x0 * (2 * y - 1) + rng.normal(scale=0.3, size=200)  # slope of class
+    >>> X = np.column_stack([x0, x1])
+    >>> MixedNB().fit(X, y).score(X, y) < 0.6
+    True
+    >>> clf = GaussianAnJE(n_dependence=1).fit(X, y)
+    >>> clf.score(X, y) > 0.85
+    True
     """
 
     def predict_log_proba(self, X):
@@ -1053,6 +1096,19 @@ class GaussianALR(WeightedAnDE):
     .. [1] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., &
            Cerquides, J. (2016). ALR^n: Accelerated higher-order logistic
            regression. Machine Learning, 104(2-3), 151-194.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skbn import GaussianALR
+    >>> rng = np.random.RandomState(0)
+    >>> y = rng.randint(0, 2, size=200)
+    >>> x0 = rng.normal(size=200)
+    >>> x1 = x0 * (2 * y - 1) + rng.normal(scale=0.3, size=200)  # slope of class
+    >>> X = np.column_stack([x0, x1])
+    >>> clf = GaussianALR(l2_reg=1.0).fit(X, y)
+    >>> clf.score(X, y) > 0.85
+    True
     """
 
     # The configuration of WeightedAnDE that this model fixes
