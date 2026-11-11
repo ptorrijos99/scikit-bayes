@@ -19,6 +19,7 @@ from numbers import Integral, Real
 import numpy as np
 from scipy.special import logsumexp
 from sklearn.base import BaseEstimator, ClassifierMixin, _fit_context
+from sklearn.utils import Bunch
 from sklearn.utils._param_validation import Interval
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted
@@ -371,6 +372,151 @@ class _BaseAugmentedNB(
         ]
         return "\n".join(["digraph {", *lines, "}"]) + "\n"
 
+    def _factor(self, feature):
+        """Index of an attribute, given by its index or by its name, and the
+        position of its conditional among the factors of the network."""
+        check_is_fitted(self, attributes=["parents_"])
+        if isinstance(feature, str):
+            names = getattr(self, "feature_names_in_", None)
+            if names is None or feature not in names:
+                raise ValueError(
+                    f"{feature!r} is not the name of a feature seen in fit."
+                )
+            feature = int(np.flatnonzero(names == feature)[0])
+        elif not (isinstance(feature, Integral) and 0 <= feature < self.n_features_in_):
+            raise ValueError(
+                "feature must be the name of a feature seen in fit or its index in"
+                f" [0, {self.n_features_in_ - 1}], got {feature!r}."
+            )
+        where = np.flatnonzero(self._tables.children == feature)
+        if not len(where):
+            raise ValueError(
+                f"Feature {feature} is constant in training: the model ignores it"
+                " and it has no conditional."
+            )
+        return int(feature), int(where[0])
+
+    def _parent_states(self, m, parent_keys):
+        """Parents of factor ``m`` and their values, of shape (len(keys),
+        n_parents), in the parent states of keys ``parent_keys``."""
+        t = self._tables
+        parents = [int(p) for p in t.parents[m, : t.n_parents[m]]]
+        values = np.empty((len(parent_keys), len(parents)), dtype=object)
+        for q, p in enumerate(parents):
+            codes = parent_keys // t.strides[m, q] % self._encoder.cards_[p]
+            values[:, q] = self._parent_values(p)[codes]
+        return parents, values
+
+    def _feature_name(self, j):
+        names = getattr(self, "feature_names_in_", None)
+        return f"x{j}" if names is None else names[j]
+
+    @staticmethod
+    def _table_frame(data, index_values, index_names, columns=None):
+        """A DataFrame of ``data`` whose rows are indexed by the arrays
+        ``index_values``, named ``index_names``; a single row when there is
+        nothing to tell the rows apart."""
+        try:
+            import pandas as pd
+        except ImportError as error:
+            raise ImportError("as_frame=True requires pandas.") from error
+        if index_values:
+            index = pd.MultiIndex.from_arrays(index_values, names=index_names)
+        else:
+            index = pd.Index(["all"])
+        return pd.DataFrame(data, index=index, columns=columns)
+
+    def conditional_table(self, feature, as_frame=False):
+        """
+        Return the conditional distribution of an attribute in the network.
+
+        The table has a row for every state of the class and of the parents
+        of the attribute that occurs in training, with the probability of
+        each value of the attribute, or the mean and the variance of its
+        Gaussian. The states that do not occur have no row: there the model
+        uses the uninformed estimate described in the class docstring.
+
+        Parameters
+        ----------
+        feature : int or str
+            The attribute, by its index or by its name in
+            ``feature_names_in_``.
+
+        as_frame : bool, default=False
+            If True, return a pandas DataFrame indexed by the class and the
+            values of the parents, with a column per value of the attribute
+            (or the columns ``mean`` and ``var``).
+
+        Returns
+        -------
+        table : :class:`~sklearn.utils.Bunch` or DataFrame
+            With ``as_frame=False``, a dictionary-like object with:
+
+            feature : int
+                Index of the attribute.
+            parents : list of int
+                Its parents among the attributes.
+            classes : ndarray of shape (n_states,)
+                Class of every row.
+            parent_values : ndarray of shape (n_states, n_parents)
+                Values of the parents in every row: their categories, or the
+                index of the bin of a continuous parent (see
+                ``cut_points_``).
+            count : ndarray of shape (n_states,)
+                Number of training samples in the state of every row.
+            feature_values : ndarray of shape (n_values,) or None
+                Values of a discrete attribute: its categories, or False and
+                True for a Bernoulli attribute (above its threshold or not).
+            proba : ndarray of shape (n_states, n_values) or None
+                Probability of every value in every row.
+            mean, var : ndarray of shape (n_states,) or None
+                Mean and variance of a Gaussian attribute in every row.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from skbn import KDB
+        >>> X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]] * 5)
+        >>> y = np.array([0, 1, 1, 0] * 5)
+        >>> table = KDB(k=1).fit(X, y).conditional_table(1)
+        >>> table.parents, table.classes.tolist(), table.parent_values.ravel().tolist()
+        ([0], [0, 0, 1, 1], [0, 1, 0, 1])
+        >>> table.proba.round(2)
+        array([[0.86, 0.14],
+               [0.14, 0.86],
+               [0.14, 0.86],
+               [0.86, 0.14]])
+        """
+        feature, m = self._factor(feature)
+        conditional = self._conditional(feature)
+        class_index, parent_keys = np.divmod(
+            conditional["keys"], self._tables.n_combos[m]
+        )
+        parents, parent_values = self._parent_states(m, parent_keys)
+        table = Bunch(
+            feature=feature,
+            parents=parents,
+            classes=self.classes_[class_index],
+            parent_values=parent_values,
+            count=conditional["count"],
+            feature_values=self._child_values(feature),
+            proba=None,
+            mean=conditional.get("mean"),
+            var=conditional.get("var"),
+        )
+        if "log_prob" in conditional:
+            table.proba = np.exp(conditional["log_prob"])
+        if not as_frame:
+            return table
+        index = [table.classes] + list(parent_values.T)
+        names = ["class"] + [self._feature_name(p) for p in parents]
+        if table.proba is None:
+            return self._table_frame(
+                {"mean": table.mean, "var": table.var}, index, names
+            )
+        frame = self._table_frame(table.proba, index, names, table.feature_values)
+        return frame.rename_axis(columns=self._feature_name(feature))
+
     def _conditional(self, i):
         """The conditional of attribute ``i``: its augmented-state keys
         ``class_index * n_parent_combos + parent_key``, their training counts,
@@ -550,6 +696,76 @@ class _WeightedAugmentedNB:
             self._term_weights(1 + children.index(i)) if i in children else empty
             for i in range(self.n_features_in_)
         ]
+
+    def weight_table(self, feature, as_frame=False):
+        """
+        Return the weights of the conditional of an attribute with the
+        combinations they belong to.
+
+        ``weight_level`` decides what a weight is shared by: the whole
+        conditional (level 1, a single row), each value of the attribute (2
+        and 3), or each value with each state of the parents (4); from level
+        3 on there is a column per class. A Gaussian attribute has no values
+        to tell apart, so its rows are the states of its parents alone. Only
+        the combinations that occur in training have a weight.
+
+        Parameters
+        ----------
+        feature : int or str
+            The attribute, by its index or by its name in
+            ``feature_names_in_``.
+
+        as_frame : bool, default=False
+            If True, return a pandas DataFrame indexed by the value of the
+            attribute and the values of its parents, with a column per class
+            (or a single column ``weight``).
+
+        Returns
+        -------
+        table : :class:`~sklearn.utils.Bunch` or DataFrame
+            With ``as_frame=False``, a dictionary-like object with:
+
+            feature : int
+                Index of the attribute.
+            weights : ndarray of shape (n_rows, n_classes) or (n_rows, 1)
+                The weights, ``feature_weights_[feature]``.
+            feature_values : ndarray of shape (n_rows,) or None
+                Value of the attribute in every row, when the level tells
+                the values apart.
+            parents : list of int
+                Parents of the attribute, when the level tells their states
+                apart (empty otherwise).
+            parent_values : ndarray of shape (n_rows, n_parents)
+                Values of those parents in every row.
+            classes : ndarray of shape (n_classes,) or None
+                Class of every column, when there is one per class.
+        """
+        feature, m = self._factor(feature)
+        dims = _LEVEL_DIMS["factor"][self.weight_level]
+        keys = self._weight_keys[self._key_off[1 + m] : self._key_off[2 + m]]
+        kind, _, _, cards = self._layout()
+        values = None
+        if "value" in dims and kind[feature] == DISCRETE:
+            keys, codes = np.divmod(keys, cards[feature])
+            values = self._child_values(feature)[codes]
+        parents, parent_values = [], np.empty((len(keys), 0), dtype=object)
+        if "parents" in dims:
+            parents, parent_values = self._parent_states(m, keys)
+        table = Bunch(
+            feature=feature,
+            weights=self._term_weights(1 + m),
+            feature_values=values,
+            parents=parents,
+            parent_values=parent_values,
+            classes=self.classes_ if self._class_weights > 1 else None,
+        )
+        if not as_frame:
+            return table
+        index = ([] if values is None else [values]) + list(parent_values.T)
+        names = [] if values is None else [self._feature_name(feature)]
+        names += [self._feature_name(p) for p in parents]
+        columns = ["weight"] if table.classes is None else table.classes
+        return self._table_frame(table.weights, index, names, columns)
 
     def _term_keys(self, inputs):
         """Key of the weight of every term within the term, before the class:

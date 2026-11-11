@@ -190,6 +190,12 @@ class TAN(_BaseAugmentedNB):
         indices: ``parents_`` in the form :class:`TAN` and :class:`KDB`
         share. :meth:`to_dot` gives the whole network, class included.
 
+    cut_points_ : list of ndarray or None
+        Cut-points of the continuous attributes that the model bins, and
+        None for the other attributes: bin ``b`` of attribute ``i`` holds the
+        values from ``cut_points_[i][b - 1]`` (included) to
+        ``cut_points_[i][b]``.
+
     feature_types_ : dict
         Indices of the attributes of each type the model uses, under the keys
         ``"gaussian"``, ``"categorical"`` and ``"bernoulli"`` (those of
@@ -460,6 +466,12 @@ class WeightedTAN(_WeightedAugmentedNB, TAN):
         Arcs between attributes, as ``(parent, child)`` pairs of feature
         indices: ``parents_`` in the form :class:`TAN` and :class:`KDB`
         share. :meth:`to_dot` gives the whole network, class included.
+
+    cut_points_ : list of ndarray or None
+        Cut-points of the continuous attributes that the model bins, and
+        None for the other attributes: bin ``b`` of attribute ``i`` holds the
+        values from ``cut_points_[i][b - 1]`` (included) to
+        ``cut_points_[i][b]``.
 
     feature_types_ : dict
         Indices of the attributes of each type the model uses, under the keys

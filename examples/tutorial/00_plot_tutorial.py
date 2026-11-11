@@ -325,6 +325,26 @@ plt.show()
 # does not do; in the search above, the weighted network with ``k = 2``
 # scored worse than with ``k = 1``.
 #
+# The tables
+# ~~~~~~~~~~
+#
+# ``conditional_table`` gives the probabilities that the network holds for
+# an attribute: a row for every class and value of its parent seen in
+# training, and a column for every value of the attribute. These are those
+# of the number of seats, whose parent is the safety:
+
+model.conditional_table("seats", as_frame=True).round(2)
+
+# %%
+# A car of low safety is unacceptable whatever the rest, so the other
+# classes have no row for it, and for an unacceptable car of low safety the
+# three numbers of seats are equally likely (0.34, 0.32, 0.34): the safety
+# has already settled the evaluation. Two seats are next to impossible for
+# an acceptable, a good or a very good car (0.01 to 0.04, which is the
+# smoothing alone, since no such car exists) and likely for an unacceptable
+# one of medium or high safety (0.55 and 0.68). The class ``very good`` has
+# a single row: all such cars have high safety.
+#
 # The weights
 # ~~~~~~~~~~~
 #
@@ -353,7 +373,21 @@ plt.show()
 # %%
 # The medians stay close to 1, but the weights spread from -1.3 to 4.1:
 # they correct single cells of the tables in both directions, and a
-# negative weight reverses the evidence of its cell. The same network with
+# negative weight reverses the evidence of its cell. ``weight_table`` says
+# which cell each weight belongs to, with the rows and the columns of the
+# table of probabilities above turned around: a row for every value of the
+# attribute and of its parent, and a column for every class.
+
+model.weight_table("seats", as_frame=True).round(2)
+
+# %%
+# For two seats and high safety the weights of ``acceptable``, ``good`` and
+# ``very good`` are 2.48, 4.05 and 4.09: the probabilities of two seats in
+# those classes are only as small as the smoothing lets them be, and the
+# weights make them count more against classes that a car with two seats
+# never has. The weights of the cars of low safety stay between 0.7 and
+# 1.1: the safety settles their evaluation and the seats add nothing. The
+# same network with
 # ``weight_level=1``, one weight per factor, gives a coarser summary:
 
 from sklearn.base import clone
