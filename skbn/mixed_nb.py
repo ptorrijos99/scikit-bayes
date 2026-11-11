@@ -13,7 +13,7 @@ from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted
 
 from ._core import (
-    _auto_type,
+    _auto_types,
     _check_label_types,
     _discrete_codes,
     _encode_columns,
@@ -23,33 +23,13 @@ from ._core import (
     _unique_values,
     _validate_input,
 )
-from ._kernels import _categorical_counts
+from ._kernels import _categorical_counts, _class_moments
 
 
 def _fit_gaussian_nb(X, y_idx, classes, var_smoothing):
-    """GaussianNB with the estimates of ``GaussianNB.fit``, computed without a
-    loop over classes (the augmented classes of AnDE can number in the hundreds)."""
-    n_classes = len(classes)
-    count = np.bincount(y_idx, minlength=n_classes).astype(np.float64)
-    theta = (
-        np.column_stack(
-            [
-                np.bincount(y_idx, weights=X[:, j], minlength=n_classes)
-                for j in range(X.shape[1])
-            ]
-        )
-        / count[:, np.newaxis]
-    )
-    sq = (X - theta[y_idx]) ** 2
-    var = (
-        np.column_stack(
-            [
-                np.bincount(y_idx, weights=sq[:, j], minlength=n_classes)
-                for j in range(X.shape[1])
-            ]
-        )
-        / count[:, np.newaxis]
-    )
+    """GaussianNB with the estimates of ``GaussianNB.fit``, from two compiled
+    passes over the samples."""
+    count, theta, var = _class_moments(X, y_idx, len(classes))
     est = GaussianNB(var_smoothing=var_smoothing)
     est.epsilon_ = var_smoothing * np.var(X, axis=0).max()
     est.theta_ = theta
@@ -376,11 +356,12 @@ class MixedNB(_LabelInputMixin, ClassifierMixin, BaseEstimator):
         }
 
         # Auto-detect remaining features (constant ones are ignored)
-        for i in range(self.n_features_in_):
-            if i not in user_defined_indices:
-                kind = _auto_type(X[:, i])
-                if kind is not None:
-                    self.feature_types_[kind].append(i)
+        undeclared = [
+            i for i in range(self.n_features_in_) if i not in user_defined_indices
+        ]
+        for i, kind in zip(undeclared, _auto_types(X, undeclared)):
+            if kind is not None:
+                self.feature_types_[kind].append(i)
 
         # A Gaussian feature with no variance has the same degenerate density
         # in every class: it is ignored, as an undeclared constant feature is

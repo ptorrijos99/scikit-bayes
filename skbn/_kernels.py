@@ -2443,22 +2443,62 @@ def _column_ranges(X, columns):
 
 
 @nb.njit(cache=True)
-def _whole_column_ranges(X, columns):
-    """Smallest and largest value of every column in ``columns`` of a
-    floating ``X``, and whether all the values of the column are integers."""
+def _column_profiles(X, columns):
+    """For every column in ``columns``: its smallest and largest value (as
+    floats), whether all its values are integers and how many distinct values
+    it has, counted up to three. One pass over the rows gives what typing an
+    attribute needs, without sorting it."""
     k = columns.shape[0]
     lo = np.empty(k)
     hi = np.empty(k)
     whole = np.ones(k, dtype=np.bool_)
+    first = np.empty(k)
+    second = np.empty(k)
+    distinct = np.ones(k, dtype=np.int64)
     for c in range(k):
-        lo[c] = hi[c] = X[0, columns[c]]
+        lo[c] = hi[c] = first[c] = second[c] = X[0, columns[c]]
     for r in range(X.shape[0]):
         for c in range(k):
             v = X[r, columns[c]]
             lo[c] = min(lo[c], v)
             hi[c] = max(hi[c], v)
             whole[c] &= v == np.floor(v)
-    return lo, hi, whole
+            if distinct[c] == 1:
+                if v != first[c]:
+                    second[c] = v
+                    distinct[c] = 2
+            elif distinct[c] == 2 and v != first[c] and v != second[c]:
+                distinct[c] = 3
+    return lo, hi, whole, distinct
+
+
+@nb.njit(cache=True, error_model="numpy")
+def _class_moments(X, y, n_classes):
+    """Mean and variance of every column of ``X`` within each class, each of
+    shape (n_classes, n_features), and the class counts. The sums run over
+    the rows in order, as ``np.bincount`` with weights does, without the
+    array of squared deviations."""
+    n, d = X.shape
+    count = np.zeros(n_classes)
+    mean = np.zeros((n_classes, d))
+    var = np.zeros((n_classes, d))
+    for r in range(n):
+        c = y[r]
+        count[c] += 1.0
+        for j in range(d):
+            mean[c, j] += X[r, j]
+    for c in range(n_classes):
+        for j in range(d):
+            mean[c, j] /= count[c]
+    for r in range(n):
+        c = y[r]
+        for j in range(d):
+            diff = X[r, j] - mean[c, j]
+            var[c, j] += diff * diff
+    for c in range(n_classes):
+        for j in range(d):
+            var[c, j] /= count[c]
+    return count, mean, var
 
 
 @nb.njit(cache=True)
