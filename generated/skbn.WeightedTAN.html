@@ -1,0 +1,1324 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>WeightedTAN &#8212; scikit-bayes 1.3.2.post1.dev60 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/project-template.css?v=352684a6" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/project-template.css?v=352684a6" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=776a09ec"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'generated/skbn.WeightedTAN';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="KDB" href="skbn.KDB.html" />
+    <link rel="prev" title="TAN" href="skbn.TAN.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="1.3.2" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.3.2.post1.dev60 documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.3.2.post1.dev60 documentation - Home"/>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../install.html">
+    Installation
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../quick_start.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../auto_examples/tutorial/00_plot_tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../api.html">
+    API Reference
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../auto_examples/index.html">
+    Example Gallery
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../citing.html">
+    Citing
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/CONTRIBUTING.md">
+    Contributing
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/PRIOR_WORK.md">
+    Related software
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/ptorrijos99/scikit-bayes" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../install.html">
+    Installation
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../quick_start.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../auto_examples/tutorial/00_plot_tutorial.html">
+    Tutorial
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../api.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../auto_examples/index.html">
+    Example Gallery
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../citing.html">
+    Citing
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/CONTRIBUTING.md">
+    Contributing
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/PRIOR_WORK.md">
+    Related software
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/ptorrijos99/scikit-bayes" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="skbn.MixedNB.html">MixedNB</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="skbn.AnDE.html">AnDE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.WeightedAnDE.html">WeightedAnDE</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="skbn.AnJE.html">AnJE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.ALR.html">ALR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.GaussianAnJE.html">GaussianAnJE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.GaussianALR.html">GaussianALR</a></li>
+</ul>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="skbn.TAN.html">TAN</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">WeightedTAN</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="skbn.KDB.html">KDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.WeightedKDB.html">WeightedKDB</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="skbn.MDLPDiscretizer.html">MDLPDiscretizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.DecisionTreeDiscretizer.html">DecisionTreeDiscretizer</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="skbn.show_versions.html">show_versions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="skbn.check_installation.html">check_installation</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../api.html" class="nav-link">API Reference</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">WeightedTAN</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="weightedtan">
+<h1>WeightedTAN<a class="headerlink" href="#weightedtan" title="Link to this heading">#</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="skbn.WeightedTAN">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">skbn.</span></span><span class="sig-name descname"><span class="pre">WeightedTAN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'quantile'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">categorical_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bernoulli_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gaussian_features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_prior_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weight_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">l2_reg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">continuous_children</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'gaussian'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedTAN" title="Link to this definition">#</a></dt>
+<dd><p>Discriminatively weighted Tree Augmented Naive Bayes.</p>
+<p>The weighted conditionally Bayesian network (wCCBN) of Zaidi et al. <a class="reference internal" href="#r0a3d0a7a442d-1" id="id1">[1]</a>
+on the structure and the conditionals of <a class="reference internal" href="skbn.TAN.html#skbn.TAN" title="skbn.TAN"><code class="xref py py-class docutils literal notranslate"><span class="pre">TAN</span></code></a> <a class="reference internal" href="#r0a3d0a7a442d-2" id="id2">[2]</a>: every
+parameter of the network gets an exponent weight,</p>
+<div class="math notranslate nohighlight">
+\[P^w(y \mid \mathbf{x}) \propto P(y)^{w_y} \, P(x_r \mid y)^{w_{r, x_r, y}}
+\prod_{i \neq r} P(x_i \mid y, x_{\pi(i)})^{w_{i, x_i, y, x_{\pi(i)}}},\]</div>
+<p>and the weights maximise the conditional log-likelihood of the training
+set, penalized by <code class="docutils literal notranslate"><span class="pre">l2_reg</span> <span class="pre">*</span> <span class="pre">||w</span> <span class="pre">-</span> <span class="pre">1||^2</span></code>, with L-BFGS-B and analytic
+gradients. The structure and the probabilities are those of <a class="reference internal" href="skbn.TAN.html#skbn.TAN" title="skbn.TAN"><code class="xref py py-class docutils literal notranslate"><span class="pre">TAN</span></code></a>
+and stay fixed: the weights start at, and are regularized towards, the
+generative model (<code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">1</span></code>). The objective is convex in the weights.</p>
+<p>The weights correct what the generative fit gets wrong when the data
+break the independence assumptions of the tree, for instance attributes
+that are correlated or duplicated beyond what one parent explains: they
+scale down the conditionals that count the same evidence twice.</p>
+<p>Weight levels (variables indexing each weight, from coarsest to finest),
+the nested parameterizations of <a class="reference internal" href="#r0a3d0a7a442d-1" id="id3">[1]</a>:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Level</p></th>
+<th class="head"><p>Variables</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>Factor</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>Factor x value</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>Factor x value x class</p></td>
+</tr>
+<tr class="row-odd"><td><p>4</p></td>
+<td><p>Factor x value x class x parents</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A factor is the class prior <span class="math notranslate nohighlight">\(P(y)\)</span> or the conditional of an
+attribute; the class prior has a single value and no parents, so it gets
+one weight per class at levels 3 and 4. Level 4 (the default), one weight
+per parameter of the network, is the wCCBN of <a class="reference internal" href="#r0a3d0a7a442d-1" id="id4">[1]</a>: a reparameterization
+of the discriminative learning of the parameters of that network, which
+<a class="reference internal" href="#r0a3d0a7a442d-1" id="id5">[1]</a> found faster to optimize. The value of a Gaussian child is not discretized, so its
+weights ignore the “value” dimension. Only the combinations that occur in
+training get a weight; the others share one weight that keeps its
+generative value, so the number of weights is bounded by the data. This is
+<a class="reference internal" href="skbn.WeightedAnDE.html#skbn.WeightedAnDE" title="skbn.WeightedAnDE"><code class="xref py py-class docutils literal notranslate"><span class="pre">WeightedAnDE</span></code></a> with <code class="docutils literal notranslate"><span class="pre">weight_scope=&quot;factor&quot;</span></code> and
+<code class="docutils literal notranslate"><span class="pre">mean=&quot;geometric&quot;</span></code> applied to the single network of TAN. A test instance
+in a parent state never seen in training gets the uninformed conditional
+of <a class="reference internal" href="skbn.TAN.html#skbn.TAN" title="skbn.TAN"><code class="xref py py-class docutils literal notranslate"><span class="pre">TAN</span></code></a>. The fit keeps the per-factor log-likelihoods of the
+training set in memory, about <code class="docutils literal notranslate"><span class="pre">12</span> <span class="pre">*</span> <span class="pre">n_samples</span> <span class="pre">*</span> <span class="pre">n_classes</span> <span class="pre">*</span> <span class="pre">(n_features</span> <span class="pre">+</span>
+<span class="pre">1)</span></code> bytes, and each evaluation of the objective costs as much.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>root</strong><span class="classifier">int, default=0</span></dt><dd><p>Index of the attribute used as root of the tree, in
+<code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">n_features</span> <span class="pre">-</span> <span class="pre">1]</span></code>. The root does not change the edges of the
+tree, only their direction, but with smoothing (<code class="docutils literal notranslate"><span class="pre">alpha</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>) the
+estimates, and so the predictions, depend on the direction.</p>
+</dd>
+<dt><strong>n_bins</strong><span class="classifier">int, default=5</span></dt><dd><p>Number of bins used to discretize continuous attributes for the
+structure learning and when they act as parents. Continuous children
+remain continuous.</p>
+</dd>
+<dt><strong>strategy</strong><span class="classifier">{‘uniform’, ‘quantile’, ‘kmeans’, ‘mdlp’}, default=’quantile’</span></dt><dd><p>Strategy used for the discretization of continuous attributes.
+<code class="docutils literal notranslate"><span class="pre">'mdlp'</span></code> places the cuts with the supervised entropy
+discretization of Fayyad and Irani (see <a class="reference internal" href="skbn.MDLPDiscretizer.html#skbn.MDLPDiscretizer" title="skbn.MDLPDiscretizer"><code class="xref py py-class docutils literal notranslate"><span class="pre">MDLPDiscretizer</span></code></a>),
+which chooses the number of bins of each attribute, so <code class="docutils literal notranslate"><span class="pre">n_bins</span></code> is
+not used.</p>
+</dd>
+<dt><strong>alpha</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Non-negative additive (Laplace/Lidstone) smoothing parameter for the
+discrete conditional probability tables.</p>
+</dd>
+<dt><strong>categorical_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the features to treat as categorical,
+passed to <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>, which describes how the undeclared
+features are typed.</p>
+</dd>
+<dt><strong>bernoulli_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the features to treat as Bernoulli.
+See <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>.</p>
+</dd>
+<dt><strong>gaussian_features</strong><span class="classifier">array-like of int or bool, default=None</span></dt><dd><p>Indices (or a boolean mask) of the features to treat as Gaussian.
+See <a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>.</p>
+</dd>
+<dt><strong>var_prior_weight</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Non-negative number of pseudo-observations shrinking each Gaussian
+variance towards the pooled variance of the feature (see
+<a class="reference internal" href="skbn.MixedNB.html#skbn.MixedNB" title="skbn.MixedNB"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedNB</span></code></a>).</p>
+</dd>
+<dt><strong>n_jobs</strong><span class="classifier">int, default=None</span></dt><dd><p>Number of threads used to compute the conditional mutual information
+and to count and evaluate the conditionals; the weights are optimized
+in a single thread. <code class="docutils literal notranslate"><span class="pre">None</span></code> means 1 and <code class="docutils literal notranslate"><span class="pre">-1</span></code> all the processors.</p>
+</dd>
+<dt><strong>weight_level</strong><span class="classifier">int, default=4</span></dt><dd><p>Granularity of the weights, from 1 (coarsest) to 4 (finest); see the
+table above.</p>
+</dd>
+<dt><strong>l2_reg</strong><span class="classifier">float, default=1.0</span></dt><dd><p>Non-negative L2 regularization towards the generative solution
+(<code class="docutils literal notranslate"><span class="pre">w</span> <span class="pre">=</span> <span class="pre">1</span></code>), added to the summed conditional log-likelihood.</p>
+</dd>
+<dt><strong>max_iter</strong><span class="classifier">int, default=1000</span></dt><dd><p>Maximum number of L-BFGS-B iterations (at least 1). A
+<a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.exceptions.ConvergenceWarning.html#sklearn.exceptions.ConvergenceWarning" title="(in scikit-learn v1.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConvergenceWarning</span></code></a> is raised at the end of
+<a class="reference internal" href="#skbn.WeightedTAN.fit" title="skbn.WeightedTAN.fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">fit()</span></code></a> when L-BFGS-B stops at <code class="docutils literal notranslate"><span class="pre">max_iter</span></code> before converging;
+increase <code class="docutils literal notranslate"><span class="pre">max_iter</span></code> or <code class="docutils literal notranslate"><span class="pre">tol</span></code> in that case.</p>
+</dd>
+<dt><strong>tol</strong><span class="classifier">float or None, default=1e-6</span></dt><dd><p>Stopping tolerance of L-BFGS-B on the relative reduction of the
+objective and on the projected gradient. None uses SciPy’s defaults,
+which are stricter on the objective (about 2e-9): they take about
+twice as many iterations for the same predictions.</p>
+</dd>
+<dt><strong>continuous_children</strong><span class="classifier">{“gaussian”, “discretized”}, default=”gaussian”</span></dt><dd><p>How a continuous attribute is modelled as a child. With
+<code class="docutils literal notranslate"><span class="pre">&quot;gaussian&quot;</span></code> it keeps its values and has a Gaussian conditional,
+and only its role as a parent uses the bins of <code class="docutils literal notranslate"><span class="pre">n_bins</span></code> and
+<code class="docutils literal notranslate"><span class="pre">strategy</span></code>. With <code class="docutils literal notranslate"><span class="pre">&quot;discretized&quot;</span></code> every continuous attribute is
+replaced by its bin, as a categorical attribute, in both roles: the
+model on discretized data of the original works, without a
+discretizer in a pipeline. Values beyond the training range fall in
+the first or the last bin.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Attributes<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>classes_</strong><span class="classifier">ndarray of shape (n_classes,)</span></dt><dd><p>Class labels known to the classifier.</p>
+</dd>
+<dt><strong>n_features_in_</strong><span class="classifier">int</span></dt><dd><p>Number of features seen during <a class="reference external" href="https://scikit-learn.org/stable/glossary.html#term-fit" title="(in scikit-learn v1.9)"><span class="xref std std-term">fit</span></a>.</p>
+</dd>
+<dt><strong>feature_names_in_</strong><span class="classifier">ndarray of shape (<code class="docutils literal notranslate"><span class="pre">n_features_in_</span></code>,)</span></dt><dd><p>Names of features seen during <a class="reference external" href="https://scikit-learn.org/stable/glossary.html#term-fit" title="(in scikit-learn v1.9)"><span class="xref std std-term">fit</span></a>. Defined only when <code class="docutils literal notranslate"><span class="pre">X</span></code>
+has feature names that are all strings.</p>
+</dd>
+<dt><strong>conditional_mutual_info_</strong><span class="classifier">ndarray of shape (n_features, n_features)</span></dt><dd><p>Empirical conditional mutual information <span class="math notranslate nohighlight">\(I(A_i; A_j \mid C)\)</span>
+(in nats) between every pair of (discretized) attributes.</p>
+</dd>
+<dt><strong>parents_</strong><span class="classifier">ndarray of shape (n_features,)</span></dt><dd><p>Attribute parent of every attribute in the tree, <code class="docutils literal notranslate"><span class="pre">-1</span></code> for the root.</p>
+</dd>
+<dt><a class="reference internal" href="#skbn.WeightedTAN.edges_" title="skbn.WeightedTAN.edges_"><code class="xref py py-obj docutils literal notranslate"><span class="pre">edges_</span></code></a><span class="classifier">list of tuple of int</span></dt><dd><p>Arcs between attributes, as <code class="docutils literal notranslate"><span class="pre">(parent,</span> <span class="pre">child)</span></code> pairs of feature indices in the order of the children.</p>
+</dd>
+<dt><a class="reference internal" href="#skbn.WeightedTAN.cut_points_" title="skbn.WeightedTAN.cut_points_"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cut_points_</span></code></a><span class="classifier">list of ndarray or None</span></dt><dd><p>Cut-points of the continuous attributes, a list with an array per attribute that the model bins (as a parent, or as a child too with <code class="docutils literal notranslate"><span class="pre">continuous_children=&quot;discretized&quot;</span></code>) and None for the others.</p>
+</dd>
+<dt><a class="reference internal" href="#skbn.WeightedTAN.feature_types_" title="skbn.WeightedTAN.feature_types_"><code class="xref py py-obj docutils literal notranslate"><span class="pre">feature_types_</span></code></a><span class="classifier">dict</span></dt><dd><p>Indices of the attributes of each type the model uses, under the keys “gaussian”, “categorical” and “bernoulli”.</p>
+</dd>
+<dt><strong>backoff_</strong><span class="classifier">MixedNB</span></dt><dd><p>Naive Bayes on the original class. Provides the class prior, the root
+conditional and the detected feature types (<code class="docutils literal notranslate"><span class="pre">feature_types_</span></code>).</p>
+</dd>
+<dt><strong>learned_weights_</strong><span class="classifier">ndarray of shape (n_weights,)</span></dt><dd><p>Learned weights <code class="docutils literal notranslate"><span class="pre">w</span></code>.</p>
+</dd>
+<dt><strong>n_weights_</strong><span class="classifier">int</span></dt><dd><p>Number of weights, including the shared one for unseen combinations.</p>
+</dd>
+<dt><a class="reference internal" href="#skbn.WeightedTAN.prior_weights_" title="skbn.WeightedTAN.prior_weights_"><code class="xref py py-obj docutils literal notranslate"><span class="pre">prior_weights_</span></code></a><span class="classifier">ndarray of shape (n_classes,) or (1,)</span></dt><dd><p>Weights of the class prior: one per class at <code class="docutils literal notranslate"><span class="pre">weight_level</span></code> 3 and 4, a single one below.</p>
+</dd>
+<dt><a class="reference internal" href="#skbn.WeightedTAN.feature_weights_" title="skbn.WeightedTAN.feature_weights_"><code class="xref py py-obj docutils literal notranslate"><span class="pre">feature_weights_</span></code></a><span class="classifier">list of ndarray</span></dt><dd><p>Weights of the conditional of every attribute, a list with one array per attribute, of shape (n_keys, n_classes) at <code class="docutils literal notranslate"><span class="pre">weight_level</span></code> 3 and 4 and (n_keys, 1) below.</p>
+</dd>
+<dt><strong>n_iter_</strong><span class="classifier">int</span></dt><dd><p>Number of L-BFGS-B iterations.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="skbn.TAN.html#skbn.TAN" title="skbn.TAN"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TAN</span></code></a></dt><dd><p>The generative model.</p>
+</dd>
+<dt><a class="reference internal" href="skbn.WeightedKDB.html#skbn.WeightedKDB" title="skbn.WeightedKDB"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WeightedKDB</span></code></a></dt><dd><p>The same weighting on a KDB network.</p>
+</dd>
+<dt><a class="reference internal" href="skbn.WeightedAnDE.html#skbn.WeightedAnDE" title="skbn.WeightedAnDE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WeightedAnDE</span></code></a></dt><dd><p>Factor weights inside the SPnDEs of an AnDE ensemble.</p>
+</dd>
+</dl>
+</div>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="r0a3d0a7a442d-1" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
+<span class="backrefs">(<a role="doc-backlink" href="#id1">1</a>,<a role="doc-backlink" href="#id3">2</a>,<a role="doc-backlink" href="#id4">3</a>,<a role="doc-backlink" href="#id5">4</a>)</span>
+<p>Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., Buntine, W.,
+Hynes, M., &amp; De Sterck, H. (2017). Efficient parameter learning of
+Bayesian network classifiers. Machine Learning, 106(9-10), 1289-1329.</p>
+</div>
+<div class="citation" id="r0a3d0a7a442d-2" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">2</a><span class="fn-bracket">]</span></span>
+<p>Friedman, N., Geiger, D., &amp; Goldszmidt, M. (1997). Bayesian network
+classifiers. Machine Learning, 29(2-3), 131-163.</p>
+</div>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">log_loss</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <span class="n">TAN</span><span class="p">,</span> <span class="n">WeightedTAN</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span> <span class="o">+</span> <span class="n">y</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span> <span class="o">+</span> <span class="n">y</span><span class="p">])</span>  <span class="c1"># x three times</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">clf</span> <span class="o">=</span> <span class="n">WeightedTAN</span><span class="p">(</span><span class="n">weight_level</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">clf</span><span class="o">.</span><span class="n">n_weights_</span>  <span class="c1"># the class prior, four attributes and the unseen key</span>
+<span class="go">6</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">clf</span><span class="o">.</span><span class="n">learned_weights_</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># the copies of x count less</span>
+<span class="go">array([1. , 1.1, 0.3, 0.3, 1. , 1. ])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tan</span> <span class="o">=</span> <span class="n">TAN</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">bool</span><span class="p">(</span><span class="n">log_loss</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">clf</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">log_loss</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">tan</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X</span><span class="p">)))</span>
+<span class="go">True</span>
+</pre></div>
+</div>
+<p class="rubric">Methods</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#skbn.WeightedTAN.conditional_table" title="skbn.WeightedTAN.conditional_table"><code class="xref py py-obj docutils literal notranslate"><span class="pre">conditional_table</span></code></a>(feature[, as_frame])</p></td>
+<td><p>Return the conditional distribution of an attribute in the network.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#skbn.WeightedTAN.fit" title="skbn.WeightedTAN.fit"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fit</span></code></a>(X, y)</p></td>
+<td><p>Fit the network, then learn the discriminative weights.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#skbn.WeightedTAN.get_metadata_routing" title="skbn.WeightedTAN.get_metadata_routing"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_metadata_routing</span></code></a>()</p></td>
+<td><p>Get metadata routing of this object.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#skbn.WeightedTAN.get_params" title="skbn.WeightedTAN.get_params"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_params</span></code></a>([deep])</p></td>
+<td><p>Get parameters for this estimator.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#skbn.WeightedTAN.predict" title="skbn.WeightedTAN.predict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict</span></code></a>(X)</p></td>
+<td><p>Perform classification on an array of test vectors X.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#skbn.WeightedTAN.predict_log_proba" title="skbn.WeightedTAN.predict_log_proba"><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict_log_proba</span></code></a>(X)</p></td>
+<td><p>Return log-probability estimates for the test vector X.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#skbn.WeightedTAN.predict_proba" title="skbn.WeightedTAN.predict_proba"><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict_proba</span></code></a>(X)</p></td>
+<td><p>Return probability estimates for the test vector X.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#skbn.WeightedTAN.score" title="skbn.WeightedTAN.score"><code class="xref py py-obj docutils literal notranslate"><span class="pre">score</span></code></a>(X, y[, sample_weight])</p></td>
+<td><p>Return <a class="reference external" href="https://scikit-learn.org/stable/modules/model_evaluation.html#accuracy-score" title="(in scikit-learn v1.9)"><span class="xref std std-ref">accuracy</span></a> on provided data and labels.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#skbn.WeightedTAN.set_params" title="skbn.WeightedTAN.set_params"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_params</span></code></a>(**params)</p></td>
+<td><p>Set the parameters of this estimator.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#skbn.WeightedTAN.set_score_request" title="skbn.WeightedTAN.set_score_request"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_score_request</span></code></a>(*[, sample_weight])</p></td>
+<td><p>Configure whether metadata should be requested to be passed to the <code class="docutils literal notranslate"><span class="pre">score</span></code> method.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#skbn.WeightedTAN.to_dot" title="skbn.WeightedTAN.to_dot"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_dot</span></code></a>([feature_names, class_name])</p></td>
+<td><p>Return the network in the DOT language of Graphviz.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#skbn.WeightedTAN.weight_table" title="skbn.WeightedTAN.weight_table"><code class="xref py py-obj docutils literal notranslate"><span class="pre">weight_table</span></code></a>(feature[, as_frame])</p></td>
+<td><p>Return the weights of the conditional of an attribute with the combinations they belong to.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.conditional_table">
+<span class="sig-name descname"><span class="pre">conditional_table</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feature</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">as_frame</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedTAN.conditional_table" title="Link to this definition">#</a></dt>
+<dd><p>Return the conditional distribution of an attribute in the network.</p>
+<p>The table has a row for every state of the class and of the parents
+of the attribute that occurs in training, with the probability of
+each value of the attribute, or the mean and the variance of its
+Gaussian. The states that do not occur have no row: there the model
+uses the uninformed estimate described in the class docstring.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>feature</strong><span class="classifier">int or str</span></dt><dd><p>The attribute, by its index or by its name in
+<code class="docutils literal notranslate"><span class="pre">feature_names_in_</span></code>.</p>
+</dd>
+<dt><strong>as_frame</strong><span class="classifier">bool, default=False</span></dt><dd><p>If True, return a pandas DataFrame indexed by the class and the
+values of the parents, with a column per value of the attribute
+(or the columns <code class="docutils literal notranslate"><span class="pre">mean</span></code> and <code class="docutils literal notranslate"><span class="pre">var</span></code>).</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>table</strong><span class="classifier"><a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.utils.Bunch.html#sklearn.utils.Bunch" title="(in scikit-learn v1.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Bunch</span></code></a> or DataFrame</span></dt><dd><p>With <code class="docutils literal notranslate"><span class="pre">as_frame=False</span></code>, a dictionary-like object with:</p>
+<dl class="simple">
+<dt>feature<span class="classifier">int</span></dt><dd><p>Index of the attribute.</p>
+</dd>
+<dt>parents<span class="classifier">list of int</span></dt><dd><p>Its parents among the attributes.</p>
+</dd>
+<dt>classes<span class="classifier">ndarray of shape (n_states,)</span></dt><dd><p>Class of every row.</p>
+</dd>
+<dt>parent_values<span class="classifier">ndarray of shape (n_states, n_parents)</span></dt><dd><p>Values of the parents in every row: their categories, or the
+index of the bin of a continuous parent (see
+<code class="docutils literal notranslate"><span class="pre">cut_points_</span></code>).</p>
+</dd>
+<dt>count<span class="classifier">ndarray of shape (n_states,)</span></dt><dd><p>Number of training samples in the state of every row.</p>
+</dd>
+<dt>feature_values<span class="classifier">ndarray of shape (n_values,) or None</span></dt><dd><p>Values of a discrete attribute: its categories, or False and
+True for a Bernoulli attribute (above its threshold or not).</p>
+</dd>
+<dt>proba<span class="classifier">ndarray of shape (n_states, n_values) or None</span></dt><dd><p>Probability of every value in every row.</p>
+</dd>
+<dt>mean, var<span class="classifier">ndarray of shape (n_states,) or None</span></dt><dd><p>Mean and variance of a Gaussian attribute in every row.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">skbn</span><span class="w"> </span><span class="kn">import</span> <span class="n">KDB</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span> <span class="o">*</span> <span class="mi">5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="mi">5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">table</span> <span class="o">=</span> <span class="n">KDB</span><span class="p">(</span><span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">conditional_table</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">table</span><span class="o">.</span><span class="n">parents</span><span class="p">,</span> <span class="n">table</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">table</span><span class="o">.</span><span class="n">parent_values</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<span class="go">([0], [0, 0, 1, 1], [0, 1, 0, 1])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">table</span><span class="o">.</span><span class="n">proba</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="go">array([[0.86, 0.14],</span>
+<span class="go">       [0.14, 0.86],</span>
+<span class="go">       [0.14, 0.86],</span>
+<span class="go">       [0.86, 0.14]])</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.cut_points_">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cut_points_</span></span><a class="headerlink" href="#skbn.WeightedTAN.cut_points_" title="Link to this definition">#</a></dt>
+<dd><p>Cut-points of the continuous attributes, a list with an array per
+attribute that the model bins (as a parent, or as a child too with
+<code class="docutils literal notranslate"><span class="pre">continuous_children=&quot;discretized&quot;</span></code>) and None for the others. Bin
+<code class="docutils literal notranslate"><span class="pre">b</span></code> holds the values from <code class="docutils literal notranslate"><span class="pre">cut_points_[i][b</span> <span class="pre">-</span> <span class="pre">1]</span></code> (included) to
+<code class="docutils literal notranslate"><span class="pre">cut_points_[i][b]</span></code>, and the first and the last bin have no outer
+limit.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.edges_">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">edges_</span></span><a class="headerlink" href="#skbn.WeightedTAN.edges_" title="Link to this definition">#</a></dt>
+<dd><p>Arcs between attributes, as <code class="docutils literal notranslate"><span class="pre">(parent,</span> <span class="pre">child)</span></code> pairs of feature
+indices in the order of the children. Every attribute also has the
+class as a parent, which the pairs leave out.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.feature_types_">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">feature_types_</span></span><a class="headerlink" href="#skbn.WeightedTAN.feature_types_" title="Link to this definition">#</a></dt>
+<dd><p>Indices of the attributes of each type the model uses, under the
+keys “gaussian”, “categorical” and “bernoulli”.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.feature_weights_">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">feature_weights_</span></span><a class="headerlink" href="#skbn.WeightedTAN.feature_weights_" title="Link to this definition">#</a></dt>
+<dd><p>Weights of the conditional of every attribute, a list with one
+array per attribute, of shape (n_keys, n_classes) at <code class="docutils literal notranslate"><span class="pre">weight_level</span></code>
+3 and 4 and (n_keys, 1) below. The rows are the combinations that the
+level tells apart (values of the attribute, with its parents at level
+4) seen in training, a single row at level 1. An attribute the model
+ignores has no rows.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedTAN.fit" title="Link to this definition">#</a></dt>
+<dd><p>Fit the network, then learn the discriminative weights.</p>
+<p>Learns the structure and counts the conditional probability tables as
+the unweighted model does, then optimizes the weights with L-BFGS-B on
+the conditional log-likelihood, starting at the generative model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>Training vectors.</p>
+</dd>
+<dt><strong>y</strong><span class="classifier">array-like of shape (n_samples,)</span></dt><dd><p>Target values.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>self</strong><span class="classifier">object</span></dt><dd><p>Returns the instance itself.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.get_metadata_routing">
+<span class="sig-name descname"><span class="pre">get_metadata_routing</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedTAN.get_metadata_routing" title="Link to this definition">#</a></dt>
+<dd><p>Get metadata routing of this object.</p>
+<p>Please check <a class="reference external" href="https://scikit-learn.org/stable/metadata_routing.html#metadata-routing" title="(in scikit-learn v1.9)"><span class="xref std std-ref">User Guide</span></a> on how the routing
+mechanism works.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>routing</strong><span class="classifier">MetadataRequest</span></dt><dd><p>A <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.utils.metadata_routing.MetadataRequest.html#sklearn.utils.metadata_routing.MetadataRequest" title="(in scikit-learn v1.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">MetadataRequest</span></code></a> encapsulating
+routing information.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.get_params">
+<span class="sig-name descname"><span class="pre">get_params</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">deep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedTAN.get_params" title="Link to this definition">#</a></dt>
+<dd><p>Get parameters for this estimator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>deep</strong><span class="classifier">bool, default=True</span></dt><dd><p>If True, will return the parameters for this estimator and
+contained subobjects that are estimators.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>params</strong><span class="classifier">dict</span></dt><dd><p>Parameter names mapped to their values.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedTAN.predict" title="Link to this definition">#</a></dt>
+<dd><p>Perform classification on an array of test vectors X.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>The input samples.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>C</strong><span class="classifier">ndarray of shape (n_samples,)</span></dt><dd><p>Predicted target values for X.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.predict_log_proba">
+<span class="sig-name descname"><span class="pre">predict_log_proba</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedTAN.predict_log_proba" title="Link to this definition">#</a></dt>
+<dd><p>Return log-probability estimates for the test vector X.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>The input samples.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>C</strong><span class="classifier">array-like of shape (n_samples, n_classes)</span></dt><dd><p>Returns the log-probability of the samples for each class.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.predict_proba">
+<span class="sig-name descname"><span class="pre">predict_proba</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedTAN.predict_proba" title="Link to this definition">#</a></dt>
+<dd><p>Return probability estimates for the test vector X.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>The input samples.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>C</strong><span class="classifier">array-like of shape (n_samples, n_classes)</span></dt><dd><p>Returns the probability of the samples for each class.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.prior_weights_">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">prior_weights_</span></span><a class="headerlink" href="#skbn.WeightedTAN.prior_weights_" title="Link to this definition">#</a></dt>
+<dd><p>Weights of the class prior: one per class at <code class="docutils literal notranslate"><span class="pre">weight_level</span></code> 3
+and 4, a single one below.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.score">
+<span class="sig-name descname"><span class="pre">score</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedTAN.score" title="Link to this definition">#</a></dt>
+<dd><p>Return <a class="reference external" href="https://scikit-learn.org/stable/modules/model_evaluation.html#accuracy-score" title="(in scikit-learn v1.9)"><span class="xref std std-ref">accuracy</span></a> on provided data and labels.</p>
+<p>In multi-label classification, this is the subset accuracy
+which is a harsh metric since you require for each sample that
+each label set be correctly predicted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X</strong><span class="classifier">array-like of shape (n_samples, n_features)</span></dt><dd><p>Test samples.</p>
+</dd>
+<dt><strong>y</strong><span class="classifier">array-like of shape (n_samples,) or (n_samples, n_outputs)</span></dt><dd><p>True labels for <code class="docutils literal notranslate"><span class="pre">X</span></code>.</p>
+</dd>
+<dt><strong>sample_weight</strong><span class="classifier">array-like of shape (n_samples,), default=None</span></dt><dd><p>Sample weights.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>score</strong><span class="classifier">float</span></dt><dd><p>Mean accuracy of <code class="docutils literal notranslate"><span class="pre">self.predict(X)</span></code> w.r.t. <code class="docutils literal notranslate"><span class="pre">y</span></code>.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.set_params">
+<span class="sig-name descname"><span class="pre">set_params</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedTAN.set_params" title="Link to this definition">#</a></dt>
+<dd><p>Set the parameters of this estimator.</p>
+<p>The method works on simple estimators as well as on nested objects
+(such as <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html#sklearn.pipeline.Pipeline" title="(in scikit-learn v1.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Pipeline</span></code></a>). The latter have
+parameters of the form <code class="docutils literal notranslate"><span class="pre">&lt;component&gt;__&lt;parameter&gt;</span></code> so that it’s
+possible to update each component of a nested object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>**params</strong><span class="classifier">dict</span></dt><dd><p>Estimator parameters.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>self</strong><span class="classifier">estimator instance</span></dt><dd><p>Estimator instance.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.set_score_request">
+<span class="sig-name descname"><span class="pre">set_score_request</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_weight</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'$UNCHANGED$'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#skbn.WeightedTAN" title="skbn.tan.WeightedTAN"><span class="pre">WeightedTAN</span></a></span></span><a class="headerlink" href="#skbn.WeightedTAN.set_score_request" title="Link to this definition">#</a></dt>
+<dd><p>Configure whether metadata should be requested to be passed to the <code class="docutils literal notranslate"><span class="pre">score</span></code> method.</p>
+<p>Note that this method is only relevant when this estimator is used as a
+sub-estimator within a <a class="reference external" href="https://scikit-learn.org/stable/glossary.html#term-meta-estimator" title="(in scikit-learn v1.9)"><span class="xref std std-term">meta-estimator</span></a> and metadata routing is enabled
+with <code class="docutils literal notranslate"><span class="pre">enable_metadata_routing=True</span></code> (see <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.set_config.html#sklearn.set_config" title="(in scikit-learn v1.9)"><code class="xref py py-func docutils literal notranslate"><span class="pre">sklearn.set_config()</span></code></a>).
+Please check the <a class="reference external" href="https://scikit-learn.org/stable/metadata_routing.html#metadata-routing" title="(in scikit-learn v1.9)"><span class="xref std std-ref">User Guide</span></a> on how the routing
+mechanism works.</p>
+<p>The options for each parameter are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">True</span></code>: metadata is requested, and passed to <code class="docutils literal notranslate"><span class="pre">score</span></code> if provided. The request is ignored if metadata is not provided.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">False</span></code>: metadata is not requested and the meta-estimator will not pass it to <code class="docutils literal notranslate"><span class="pre">score</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">None</span></code>: metadata is not requested, and the meta-estimator will raise an error if the user provides it.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">str</span></code>: metadata should be passed to the meta-estimator with this given alias instead of the original name.</p></li>
+</ul>
+<p>The default (<code class="docutils literal notranslate"><span class="pre">sklearn.utils.metadata_routing.UNCHANGED</span></code>) retains the
+existing request. This allows you to change the request for some
+parameters and not others.</p>
+<div class="versionadded">
+<p><span class="versionmodified added">Added in version 1.3.</span></p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>sample_weight</strong><span class="classifier">str, True, False, or None,                     default=sklearn.utils.metadata_routing.UNCHANGED</span></dt><dd><p>Metadata routing for <code class="docutils literal notranslate"><span class="pre">sample_weight</span></code> parameter in <code class="docutils literal notranslate"><span class="pre">score</span></code>.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>self</strong><span class="classifier">object</span></dt><dd><p>The updated object.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.to_dot">
+<span class="sig-name descname"><span class="pre">to_dot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feature_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">class_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'class'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedTAN.to_dot" title="Link to this definition">#</a></dt>
+<dd><p>Return the network in the DOT language of Graphviz.</p>
+<p>The text can be rendered with Graphviz or read by the libraries that
+take DOT, such as <code class="docutils literal notranslate"><span class="pre">networkx</span></code> and <code class="docutils literal notranslate"><span class="pre">pydot</span></code>. The attributes the
+model ignores (constant in training) are left out.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>feature_names</strong><span class="classifier">array-like of str of shape (n_features,), default=None</span></dt><dd><p>Names of the attributes. By default <code class="docutils literal notranslate"><span class="pre">feature_names_in_</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">x0</span></code>, <code class="docutils literal notranslate"><span class="pre">x1</span></code>, … when the model was fitted without names.</p>
+</dd>
+<dt><strong>class_name</strong><span class="classifier">str, default=”class”</span></dt><dd><p>Name of the class node.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>dot</strong><span class="classifier">str</span></dt><dd><p>A <code class="docutils literal notranslate"><span class="pre">digraph</span></code> with an arc from the class to every attribute and
+the arcs of <code class="docutils literal notranslate"><span class="pre">edges_</span></code>.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="skbn.WeightedTAN.weight_table">
+<span class="sig-name descname"><span class="pre">weight_table</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feature</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">as_frame</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#skbn.WeightedTAN.weight_table" title="Link to this definition">#</a></dt>
+<dd><p>Return the weights of the conditional of an attribute with the
+combinations they belong to.</p>
+<p><code class="docutils literal notranslate"><span class="pre">weight_level</span></code> decides what a weight is shared by: the whole
+conditional (level 1, a single row), each value of the attribute (2
+and 3), or each value with each state of the parents (4); from level
+3 on there is a column per class. A Gaussian attribute has no values
+to tell apart, so its rows are the states of its parents alone. Only
+the combinations that occur in training have a weight.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>feature</strong><span class="classifier">int or str</span></dt><dd><p>The attribute, by its index or by its name in
+<code class="docutils literal notranslate"><span class="pre">feature_names_in_</span></code>.</p>
+</dd>
+<dt><strong>as_frame</strong><span class="classifier">bool, default=False</span></dt><dd><p>If True, return a pandas DataFrame indexed by the value of the
+attribute and the values of its parents, with a column per class
+(or a single column <code class="docutils literal notranslate"><span class="pre">weight</span></code>).</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>table</strong><span class="classifier"><a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.utils.Bunch.html#sklearn.utils.Bunch" title="(in scikit-learn v1.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Bunch</span></code></a> or DataFrame</span></dt><dd><p>With <code class="docutils literal notranslate"><span class="pre">as_frame=False</span></code>, a dictionary-like object with:</p>
+<dl class="simple">
+<dt>feature<span class="classifier">int</span></dt><dd><p>Index of the attribute.</p>
+</dd>
+<dt>weights<span class="classifier">ndarray of shape (n_rows, n_classes) or (n_rows, 1)</span></dt><dd><p>The weights, <code class="docutils literal notranslate"><span class="pre">feature_weights_[feature]</span></code>.</p>
+</dd>
+<dt>feature_values<span class="classifier">ndarray of shape (n_rows,) or None</span></dt><dd><p>Value of the attribute in every row, when the level tells
+the values apart.</p>
+</dd>
+<dt>parents<span class="classifier">list of int</span></dt><dd><p>Parents of the attribute, when the level tells their states
+apart (empty otherwise).</p>
+</dd>
+<dt>parent_values<span class="classifier">ndarray of shape (n_rows, n_parents)</span></dt><dd><p>Values of those parents in every row.</p>
+</dd>
+<dt>classes<span class="classifier">ndarray of shape (n_classes,) or None</span></dt><dd><p>Class of every column, when there is one per class.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<section id="examples-using-skbn-weightedtan">
+<h2>Examples using <code class="docutils literal notranslate"><span class="pre">skbn.WeightedTAN</span></code><a class="headerlink" href="#examples-using-skbn-weightedtan" title="Link to this heading">#</a></h2>
+<div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="This tutorial follows one classification problem from the table to the final evaluation, on the Car Evaluation data: 1728 cars described by six categorical attributes, each rated unacceptable, acceptable, good or very good. Tables of categories whose attributes act on the class together, not one by one, are what Bayesian network classifiers are built for. The tutorial shows how to:"><img alt="" src="../_images/sphx_glr_00_plot_tutorial_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/tutorial/00_plot_tutorial.html"><span class="doc">Tutorial: from a table of labels to a fitted network</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Tutorial: from a table of labels to a fitted network</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="skbn.WeightedTAN and skbn.WeightedKDB keep the structure and the probabilities of skbn.TAN and skbn.KDB, and put an exponent weight on every factor of the joint: the class prior and the conditional of each attribute. The weights maximise the conditional log-likelihood of the training set, starting at, and penalized towards (``l2_reg``), the generative model w = 1. What does that buy?"><img alt="" src="../_images/sphx_glr_22_plot_weighted_networks_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/hybrid/22_plot_weighted_networks.html"><span class="doc">Weighted TAN and KDB on duplicated attributes</span></a></p>
+  <div class="sphx-glr-thumbnail-title">Weighted TAN and KDB on duplicated attributes</div>
+</div><div class="sphx-glr-thumbcontainer" tooltip="The models of the library are built for categorical and mixed tables whose attributes act on the class together; the sphx_glr_auto_examples_tutorial_00_plot_tutorial.py shows them on such a table. This example shows the other end: the breast cancer data that ship with scikit-learn, 30 continuous measurements, many of which repeat one another, and a class that a linear model separates almost perfectly. It shows:"><img alt="" src="../_images/sphx_glr_23_plot_continuous_table_thumb.png" />
+<p><a class="reference internal" href="../auto_examples/integration/23_plot_continuous_table.html"><span class="doc">A table of continuous measurements: what to expect</span></a></p>
+  <div class="sphx-glr-thumbnail-title">A table of continuous measurements: what to expect</div>
+</div></div><div style='clear:both'></div></section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="skbn.TAN.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">TAN</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="skbn.KDB.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">KDB</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN"><code class="docutils literal notranslate"><span class="pre">WeightedTAN</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.conditional_table"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.conditional_table()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.cut_points_"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.cut_points_</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.edges_"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.edges_</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.feature_types_"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.feature_types_</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.feature_weights_"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.feature_weights_</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.fit"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.fit()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.get_metadata_routing"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.get_metadata_routing()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.get_params"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.get_params()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.predict"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.predict()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.predict_log_proba"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.predict_log_proba()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.predict_proba"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.predict_proba()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.prior_weights_"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.prior_weights_</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.score"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.score()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.set_params"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.set_params()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.set_score_request"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.set_score_request()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.to_dot"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.to_dot()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#skbn.WeightedTAN.weight_table"><code class="docutils literal notranslate"><span class="pre">WeightedTAN.weight_table()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples-using-skbn-weightedtan">Examples using <code class="docutils literal notranslate"><span class="pre">skbn.WeightedTAN</span></code></a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  
+  <div class="tocsection editthispage">
+    <a href="https://github.com/ptorrijos99/scikit-bayes/edit/main/doc/generated/skbn.WeightedTAN.rst">
+      <i class="fa-solid fa-pencil"></i>
+      
+      
+        
+          Edit on GitHub
+        
+      
+    </a>
+  </div>
+</div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/generated/skbn.WeightedTAN.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, Pablo Torrijos.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

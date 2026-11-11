@@ -14,6 +14,9 @@
    
       
       
+        ~TAN.conditional_table
+      
+      
         ~TAN.fit
       
       
@@ -39,6 +42,9 @@
       
       
         ~TAN.set_score_request
+      
+      
+        ~TAN.to_dot
       
    
    

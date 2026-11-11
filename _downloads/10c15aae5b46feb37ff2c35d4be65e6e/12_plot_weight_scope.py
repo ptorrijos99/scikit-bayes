@@ -19,12 +19,17 @@ The data have ten attributes, four of them redundant linear combinations of
 the informative ones, and the models are trained on samples of increasing
 size.
 
-With 100 samples AnDE leads and every weighted model overfits. Between 500
-and 2000 samples the component weights of level 3 match or beat AnDE, while
-the factor weights still lag behind. With 10,000 samples the factor weights
-give the lowest log loss and the highest accuracy, since the component weights cannot undo the
-redundancy that every SPODE shares. The factor weights also take longer to
-train than the component weights.
+Every model keeps its default penalty, which pulls the weights towards 1,
+the generative model. With 100 samples the weights change little: the
+component weights give the log loss of AnDE (0.36) and the factor weights
+a slightly higher one (0.38 to 0.39). From 500 samples on every weighted
+model is better than AnDE, and the factor weights are the best from 2,000:
+with 10,000 samples their log loss is 0.19 to 0.20, against 0.21 to 0.23 for the
+component weights and 0.25 for AnDE, and their accuracy 0.92 against 0.90
+for AnDE, since the component weights cannot undo the redundancy that
+every SPODE shares. The weights with more parameters take longer to train:
+about a second for the component weights of level 3 and four to five
+seconds for the other three, with 10,000 samples.
 """
 
 # Author: The scikit-bayes Developers
@@ -50,28 +55,34 @@ models_config = [
     ("AnDE", lambda: AnDE(n_dependence=1), "#0072B2", "-", "o"),
     (
         "Component weights, level 3",
-        lambda: WeightedAnDE(weight_level=3, l2_reg=1e-3),
+        lambda: WeightedAnDE(weight_level=3),
         "#CC79A7",
         "-",
         "s",
     ),
     (
         "Component weights, level 4",
-        lambda: WeightedAnDE(weight_level=4, l2_reg=1e-3),
+        lambda: WeightedAnDE(weight_level=4),
         "#CC79A7",
         "--",
         "D",
     ),
     (
         "Factor weights, level 3",
-        lambda: WeightedAnDE(weight_scope="factor", weight_level=3, l2_reg=1e-3),
+        lambda: WeightedAnDE(
+            weight_scope="factor",
+            weight_level=3,
+        ),
         "#7E2F8E",
         "-",
         "^",
     ),
     (
         "Factor weights, level 4",
-        lambda: WeightedAnDE(weight_scope="factor", weight_level=4, l2_reg=1e-3),
+        lambda: WeightedAnDE(
+            weight_scope="factor",
+            weight_level=4,
+        ),
         "#7E2F8E",
         "--",
         "v",
@@ -132,7 +143,7 @@ for ax in (axes[0], axes[2]):
     ax.set_yscale("log")
     ax.yaxis.set_major_formatter(StrMethodFormatter("{x:g}"))
     ax.yaxis.set_minor_locator(NullLocator())
-axes[0].set_yticks([0.2, 0.3, 0.5, 1, 2])
+axes[0].set_yticks([0.2, 0.25, 0.3, 0.4])
 fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=5)
 
 fig.suptitle("Component and factor weights in WeightedAnDE")

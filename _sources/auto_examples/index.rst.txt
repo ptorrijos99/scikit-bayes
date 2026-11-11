@@ -9,6 +9,12 @@ This gallery contains examples demonstrating the capabilities of scikit-bayes.
 All examples use matplotlib for visualization and can be downloaded as Python
 scripts or Jupyter notebooks.
 
+Start with the :ref:`tutorial <tutorial_examples>`, which follows one problem
+on real data, a table of labels, from the table to the final evaluation. The
+other examples mostly use synthetic data, each built to show one property of
+a model; the last one shows what to expect on a table of continuous
+measurements.
+
 
 
 .. raw:: html
@@ -16,6 +22,46 @@ scripts or Jupyter notebooks.
     <div class="sphx-glr-thumbnails">
 
 .. thumbnail-parent-div-open
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+Tutorial
+--------
+
+One problem on real data from the table to the final evaluation: the Car
+Evaluation data, a pandas DataFrame of labels fitted without an encoder, a
+comparison with scikit-learn baselines, a grid search, the learned structure
+against the known one, the weights, and the test set.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="This tutorial follows one classification problem from the table to the final evaluation, on the Car Evaluation data: 1728 cars described by six categorical attributes, each rated unacceptable, acceptable, good or very good. Tables of categories whose attributes act on the class together, not one by one, are what Bayesian network classifiers are built for. The tutorial shows how to:">
+
+.. only:: html
+
+  .. image:: /auto_examples/tutorial/images/thumb/sphx_glr_00_plot_tutorial_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/tutorial/00_plot_tutorial`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Tutorial: from a table of labels to a fitted network</div>
+    </div>
+
 
 .. thumbnail-parent-div-close
 
@@ -337,9 +383,10 @@ on at most k other attributes: how k trades expressiveness for data.
 Discriminatively weighted models
 --------------------------------
 
-Generative components with weights learned discriminatively: the
-granularity of the weights, how to read them and their effect on
-calibration.
+Generative models with weights learned discriminatively, on the components
+of an ensemble or on the factors of a single network (WeightedTAN and
+WeightedKDB): the granularity of the weights, how to read them and their
+effect on calibration.
 
 
 
@@ -400,6 +447,23 @@ calibration.
     </div>
 
 
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="skbn.WeightedTAN and skbn.WeightedKDB keep the structure and the probabilities of skbn.TAN and skbn.KDB, and put an exponent weight on every factor of the joint: the class prior and the conditional of each attribute. The weights maximise the conditional log-likelihood of the training set, starting at, and penalized towards (``l2_reg``), the generative model w = 1. What does that buy?">
+
+.. only:: html
+
+  .. image:: /auto_examples/hybrid/images/thumb/sphx_glr_22_plot_weighted_networks_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/hybrid/22_plot_weighted_networks`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Weighted TAN and KDB on duplicated attributes</div>
+    </div>
+
+
 .. thumbnail-parent-div-close
 
 .. raw:: html
@@ -439,7 +503,7 @@ Supervised discretizers for continuous attributes.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="The models of the library discretize their continuous attributes into n_bins bins of equal frequency (``strategy=&quot;quantile&quot;``), without looking at the class. skbn.MDLPDiscretizer and skbn.DecisionTreeDiscretizer place the cut-points where the class changes instead, and go before the model in a pipeline. The discretized attributes hold small integer codes, which the model then reads as categorical.">
+    <div class="sphx-glr-thumbcontainer" tooltip="The models of the library discretize their continuous attributes into n_bins bins of equal frequency (``strategy=&quot;quantile&quot;``), without looking at the class. skbn.MDLPDiscretizer and skbn.DecisionTreeDiscretizer place the cut-points where the class changes instead, and go before the model in a pipeline. The model that follows is told that the discretized attributes are categorical (``categorical_features``): it types an undeclared attribute from its values, and integer codes with more than 20 distinct values would be taken as a continuous attribute and discretized again. Here no attribute gets more than 20 bins, so the declaration does not change the results, but MDLP produces that many on larger samples.">
 
 .. only:: html
 
@@ -464,7 +528,8 @@ Supervised discretizers for continuous attributes.
 Working with scikit-learn
 -------------------------
 
-Pipelines, preprocessing and model selection around the estimators.
+Pipelines, preprocessing and model selection around the estimators, and
+what to expect on a table of continuous measurements.
 
 
 
@@ -491,6 +556,23 @@ Pipelines, preprocessing and model selection around the estimators.
     </div>
 
 
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="The models of the library are built for categorical and mixed tables whose attributes act on the class together; the sphx_glr_auto_examples_tutorial_00_plot_tutorial.py shows them on such a table. This example shows the other end: the breast cancer data that ship with scikit-learn, 30 continuous measurements, many of which repeat one another, and a class that a linear model separates almost perfectly. It shows:">
+
+.. only:: html
+
+  .. image:: /auto_examples/integration/images/thumb/sphx_glr_23_plot_continuous_table_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/integration/23_plot_continuous_table`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">A table of continuous measurements: what to expect</div>
+    </div>
+
+
 .. thumbnail-parent-div-close
 
 .. raw:: html
@@ -503,6 +585,7 @@ Pipelines, preprocessing and model selection around the estimators.
    :includehidden:
 
 
+   /auto_examples/tutorial/index.rst
    /auto_examples/mixednb/index.rst
    /auto_examples/ande/index.rst
    /auto_examples/anje/index.rst

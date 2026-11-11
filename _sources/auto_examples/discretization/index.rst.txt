@@ -36,7 +36,7 @@ Supervised discretizers for continuous attributes.
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="The models of the library discretize their continuous attributes into n_bins bins of equal frequency (``strategy=&quot;quantile&quot;``), without looking at the class. skbn.MDLPDiscretizer and skbn.DecisionTreeDiscretizer place the cut-points where the class changes instead, and go before the model in a pipeline. The discretized attributes hold small integer codes, which the model then reads as categorical.">
+    <div class="sphx-glr-thumbcontainer" tooltip="The models of the library discretize their continuous attributes into n_bins bins of equal frequency (``strategy=&quot;quantile&quot;``), without looking at the class. skbn.MDLPDiscretizer and skbn.DecisionTreeDiscretizer place the cut-points where the class changes instead, and go before the model in a pipeline. The model that follows is told that the discretized attributes are categorical (``categorical_features``): it types an undeclared attribute from its values, and integer codes with more than 20 distinct values would be taken as a continuous attribute and discretized again. Here no attribute gets more than 20 bins, so the declaration does not change the results, but MDLP produces that many on larger samples.">
 
 .. only:: html
 

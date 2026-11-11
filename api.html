@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>API Reference &#8212; scikit-bayes 1.3.1.post1.dev7 documentation</title>
+    <title>API Reference &#8212; scikit-bayes 1.3.2.post1.dev60 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/documentation_options.js?v=a7586140"></script>
+    <script src="_static/documentation_options.js?v=776a09ec"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/design-tabs.js?v=f930bc37"></script>
@@ -56,7 +56,7 @@
     <link rel="prev" title="User Guide" href="user_guide.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.3.1" />
+  <meta name="docsearch:version" content="1.3.2" />
   </head>
   
   
@@ -122,8 +122,8 @@
       
     
     
-    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.3.1.post1.dev7 documentation - Home"/>
-    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.3.1.post1.dev7 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.3.2.post1.dev60 documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.3.2.post1.dev60 documentation - Home"/>
   
   
 </a></div>
@@ -139,8 +139,22 @@
   <ul class="bd-navbar-elements navbar-nav">
     
 <li class="nav-item ">
+  <a class="nav-link nav-internal" href="install.html">
+    Installation
+  </a>
+</li>
+
+
+<li class="nav-item ">
   <a class="nav-link nav-internal" href="quick_start.html">
     Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="auto_examples/tutorial/00_plot_tutorial.html">
+    Tutorial
   </a>
 </li>
 
@@ -158,13 +172,51 @@
   </a>
 </li>
 
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="auto_examples/index.html">
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="auto_examples/index.html">
     Example Gallery
   </a>
 </li>
 
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="citing.html">
+    Citing
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/CONTRIBUTING.md">
+    Contributing
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/PRIOR_WORK.md">
+    Related software
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
   </ul>
 </nav></div>
       
@@ -255,8 +307,22 @@
   <ul class="bd-navbar-elements navbar-nav">
     
 <li class="nav-item ">
+  <a class="nav-link nav-internal" href="install.html">
+    Installation
+  </a>
+</li>
+
+
+<li class="nav-item ">
   <a class="nav-link nav-internal" href="quick_start.html">
     Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="auto_examples/tutorial/00_plot_tutorial.html">
+    Tutorial
   </a>
 </li>
 
@@ -278,6 +344,34 @@
 <li class="nav-item ">
   <a class="nav-link nav-internal" href="auto_examples/index.html">
     Example Gallery
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="citing.html">
+    Citing
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/CONTRIBUTING.md">
+    Contributing
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/PRIOR_WORK.md">
+    Related software
   </a>
 </li>
 
@@ -339,13 +433,19 @@
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="generated/skbn.TAN.html">TAN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="generated/skbn.WeightedTAN.html">WeightedTAN</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="generated/skbn.KDB.html">KDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="generated/skbn.WeightedKDB.html">WeightedKDB</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="generated/skbn.MDLPDiscretizer.html">MDLPDiscretizer</a></li>
 <li class="toctree-l1"><a class="reference internal" href="generated/skbn.DecisionTreeDiscretizer.html">DecisionTreeDiscretizer</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="generated/skbn.show_versions.html">show_versions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="generated/skbn.check_installation.html">check_installation</a></li>
 </ul>
 </div>
 </nav></div>
@@ -465,6 +565,9 @@ SPnDEs.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/skbn.TAN.html#skbn.TAN" title="skbn.TAN"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TAN</span></code></a>([root, n_bins, strategy, alpha, ...])</p></td>
 <td><p>Tree Augmented Naive Bayes (TAN) classifier.</p></td>
 </tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/skbn.WeightedTAN.html#skbn.WeightedTAN" title="skbn.WeightedTAN"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WeightedTAN</span></code></a>([root, n_bins, strategy, alpha, ...])</p></td>
+<td><p>Discriminatively weighted Tree Augmented Naive Bayes.</p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -476,6 +579,9 @@ SPnDEs.</p>
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/skbn.KDB.html#skbn.KDB" title="skbn.KDB"><code class="xref py py-obj docutils literal notranslate"><span class="pre">KDB</span></code></a>([k, n_bins, strategy, alpha, ...])</p></td>
 <td><p>K-Dependence Bayesian (KDB) classifier.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/skbn.WeightedKDB.html#skbn.WeightedKDB" title="skbn.WeightedKDB"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WeightedKDB</span></code></a>([k, n_bins, strategy, alpha, ...])</p></td>
+<td><p>Discriminatively weighted K-Dependence Bayesian classifier.</p></td>
 </tr>
 </tbody>
 </table>
@@ -493,6 +599,20 @@ a pipeline.</p>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/skbn.DecisionTreeDiscretizer.html#skbn.DecisionTreeDiscretizer" title="skbn.DecisionTreeDiscretizer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DecisionTreeDiscretizer</span></code></a>([n_bins, criterion, ...])</p></td>
 <td><p>Supervised discretizer that uses decision trees to find bin boundaries.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="utilities">
+<h2>Utilities<a class="headerlink" href="#utilities" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/skbn.show_versions.html#skbn.show_versions" title="skbn.show_versions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">show_versions</span></code></a>()</p></td>
+<td><p>Print the versions of scikit-bayes and of the software it runs on.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/skbn.check_installation.html#skbn.check_installation" title="skbn.check_installation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_installation</span></code></a>([n_jobs])</p></td>
+<td><p>Fit and evaluate every model once and report what it found.</p></td>
 </tr>
 </tbody>
 </table>
@@ -556,6 +676,7 @@ a pipeline.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#discretization">Discretization</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#utilities">Utilities</a></li>
 </ul>
   </nav></div>
 

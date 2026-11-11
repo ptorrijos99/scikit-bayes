@@ -1,0 +1,12 @@
+﻿check_installation
+===========================================
+
+.. currentmodule:: skbn
+
+.. autofunction:: check_installation
+
+.. include:: skbn.check_installation.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

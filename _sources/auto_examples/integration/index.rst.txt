@@ -7,7 +7,8 @@
 Working with scikit-learn
 -------------------------
 
-Pipelines, preprocessing and model selection around the estimators.
+Pipelines, preprocessing and model selection around the estimators, and
+what to expect on a table of continuous measurements.
 
 
 
@@ -34,6 +35,23 @@ Pipelines, preprocessing and model selection around the estimators.
     </div>
 
 
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="The models of the library are built for categorical and mixed tables whose attributes act on the class together; the sphx_glr_auto_examples_tutorial_00_plot_tutorial.py shows them on such a table. This example shows the other end: the breast cancer data that ship with scikit-learn, 30 continuous measurements, many of which repeat one another, and a class that a linear model separates almost perfectly. It shows:">
+
+.. only:: html
+
+  .. image:: /auto_examples/integration/images/thumb/sphx_glr_23_plot_continuous_table_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/integration/23_plot_continuous_table`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">A table of continuous measurements: what to expect</div>
+    </div>
+
+
 .. thumbnail-parent-div-close
 
 .. raw:: html
@@ -45,4 +63,5 @@ Pipelines, preprocessing and model selection around the estimators.
    :hidden:
 
    /auto_examples/integration/16_plot_pipeline_grid_search
+   /auto_examples/integration/23_plot_continuous_table
 

@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**01:54.138** total execution time for 18 files **from all galleries**:
+**01:16.648** total execution time for 21 files **from all galleries**:
 
 .. container::
 
@@ -33,56 +33,65 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_auto_examples_anje_19_plot_anje_vs_alr.py` (``../examples/anje/19_plot_anje_vs_alr.py``)
-     - 01:04.181
+     - 00:27.643
      - 0.0
    * - :ref:`sphx_glr_auto_examples_hybrid_12_plot_weight_scope.py` (``../examples/hybrid/12_plot_weight_scope.py``)
-     - 00:23.560
+     - 00:17.836
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_tutorial_00_plot_tutorial.py` (``../examples/tutorial/00_plot_tutorial.py``)
+     - 00:12.793
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_05_plot_aode_mixed_demo.py` (``../examples/ande/05_plot_aode_mixed_demo.py``)
-     - 00:06.462
+     - 00:03.352
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_integration_23_plot_continuous_table.py` (``../examples/integration/23_plot_continuous_table.py``)
+     - 00:03.018
      - 0.0
    * - :ref:`sphx_glr_auto_examples_anje_20_plot_gaussian_children.py` (``../examples/anje/20_plot_gaussian_children.py``)
-     - 00:04.877
+     - 00:02.105
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_hybrid_22_plot_weighted_networks.py` (``../examples/hybrid/22_plot_weighted_networks.py``)
+     - 00:01.978
      - 0.0
    * - :ref:`sphx_glr_auto_examples_hybrid_14_plot_calibration.py` (``../examples/hybrid/14_plot_calibration.py``)
-     - 00:03.143
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_tan_17_plot_tan_structure.py` (``../examples/tan/17_plot_tan_structure.py``)
-     - 00:02.773
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_integration_16_plot_pipeline_grid_search.py` (``../examples/integration/16_plot_pipeline_grid_search.py``)
-     - 00:01.416
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_discretization_21_plot_supervised_discretization.py` (``../examples/discretization/21_plot_supervised_discretization.py``)
-     - 00:01.238
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_ande_07_plot_a2de_xor_slice.py` (``../examples/ande/07_plot_a2de_xor_slice.py``)
-     - 00:01.010
+     - 00:01.735
      - 0.0
    * - :ref:`sphx_glr_auto_examples_mixednb_01_plot_mixednb_equivalence.py` (``../examples/mixednb/01_plot_mixednb_equivalence.py``)
-     - 00:00.989
+     - 00:00.998
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_09_plot_arithmetic_vs_geometric_mean.py` (``../examples/ande/09_plot_arithmetic_vs_geometric_mean.py``)
-     - 00:00.918
+     - 00:00.701
      - 0.0
-   * - :ref:`sphx_glr_auto_examples_hybrid_13_plot_compare_ande_interpretability.py` (``../examples/hybrid/13_plot_compare_ande_interpretability.py``)
-     - 00:00.898
+   * - :ref:`sphx_glr_auto_examples_discretization_21_plot_supervised_discretization.py` (``../examples/discretization/21_plot_supervised_discretization.py``)
+     - 00:00.696
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_ande_07_plot_a2de_xor_slice.py` (``../examples/ande/07_plot_a2de_xor_slice.py``)
+     - 00:00.670
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_integration_16_plot_pipeline_grid_search.py` (``../examples/integration/16_plot_pipeline_grid_search.py``)
+     - 00:00.561
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_11_plot_order_cost.py` (``../examples/ande/11_plot_order_cost.py``)
-     - 00:00.804
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_kdb_18_plot_kdb_k_dependence.py` (``../examples/kdb/18_plot_kdb_k_dependence.py``)
-     - 00:00.533
-     - 0.0
-   * - :ref:`sphx_glr_auto_examples_discretization_15_plot_mdlp_discretizer.py` (``../examples/discretization/15_plot_mdlp_discretizer.py``)
-     - 00:00.515
+     - 00:00.538
      - 0.0
    * - :ref:`sphx_glr_auto_examples_mixednb_04_plot_mixednb_vs_pipeline.py` (``../examples/mixednb/04_plot_mixednb_vs_pipeline.py``)
-     - 00:00.328
+     - 00:00.528
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_discretization_15_plot_mdlp_discretizer.py` (``../examples/discretization/15_plot_mdlp_discretizer.py``)
+     - 00:00.332
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_kdb_18_plot_kdb_k_dependence.py` (``../examples/kdb/18_plot_kdb_k_dependence.py``)
+     - 00:00.321
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_hybrid_13_plot_compare_ande_interpretability.py` (``../examples/hybrid/13_plot_compare_ande_interpretability.py``)
+     - 00:00.303
+     - 0.0
+   * - :ref:`sphx_glr_auto_examples_tan_17_plot_tan_structure.py` (``../examples/tan/17_plot_tan_structure.py``)
+     - 00:00.240
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_06_plot_aode_xor.py` (``../examples/ande/06_plot_aode_xor.py``)
-     - 00:00.306
+     - 00:00.179
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_10_plot_unseen_states.py` (``../examples/ande/10_plot_unseen_states.py``)
-     - 00:00.187
+     - 00:00.120
      - 0.0

@@ -1,0 +1,59 @@
+﻿WeightedKDB
+==============================
+
+.. currentmodule:: skbn
+
+.. autoclass:: WeightedKDB
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      
+      
+        ~WeightedKDB.conditional_table
+      
+      
+        ~WeightedKDB.fit
+      
+      
+        ~WeightedKDB.get_metadata_routing
+      
+      
+        ~WeightedKDB.get_params
+      
+      
+        ~WeightedKDB.predict
+      
+      
+        ~WeightedKDB.predict_log_proba
+      
+      
+        ~WeightedKDB.predict_proba
+      
+      
+        ~WeightedKDB.score
+      
+      
+        ~WeightedKDB.set_params
+      
+      
+        ~WeightedKDB.set_score_request
+      
+      
+        ~WeightedKDB.to_dot
+      
+      
+        ~WeightedKDB.weight_table
+      
+   
+   
+
+.. include:: skbn.WeightedKDB.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

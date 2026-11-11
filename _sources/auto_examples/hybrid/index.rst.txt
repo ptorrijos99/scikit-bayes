@@ -7,9 +7,10 @@
 Discriminatively weighted models
 --------------------------------
 
-Generative components with weights learned discriminatively: the
-granularity of the weights, how to read them and their effect on
-calibration.
+Generative models with weights learned discriminatively, on the components
+of an ensemble or on the factors of a single network (WeightedTAN and
+WeightedKDB): the granularity of the weights, how to read them and their
+effect on calibration.
 
 
 
@@ -70,6 +71,23 @@ calibration.
     </div>
 
 
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="skbn.WeightedTAN and skbn.WeightedKDB keep the structure and the probabilities of skbn.TAN and skbn.KDB, and put an exponent weight on every factor of the joint: the class prior and the conditional of each attribute. The weights maximise the conditional log-likelihood of the training set, starting at, and penalized towards (``l2_reg``), the generative model w = 1. What does that buy?">
+
+.. only:: html
+
+  .. image:: /auto_examples/hybrid/images/thumb/sphx_glr_22_plot_weighted_networks_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/hybrid/22_plot_weighted_networks`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Weighted TAN and KDB on duplicated attributes</div>
+    </div>
+
+
 .. thumbnail-parent-div-close
 
 .. raw:: html
@@ -83,4 +101,5 @@ calibration.
    /auto_examples/hybrid/12_plot_weight_scope
    /auto_examples/hybrid/13_plot_compare_ande_interpretability
    /auto_examples/hybrid/14_plot_calibration
+   /auto_examples/hybrid/22_plot_weighted_networks
 

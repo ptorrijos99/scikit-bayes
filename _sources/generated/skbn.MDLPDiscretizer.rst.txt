@@ -20,6 +20,9 @@
         ~MDLPDiscretizer.fit_transform
       
       
+        ~MDLPDiscretizer.get_feature_names_out
+      
+      
         ~MDLPDiscretizer.get_metadata_routing
       
       

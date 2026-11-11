@@ -1,0 +1,12 @@
+﻿show_versions
+======================================
+
+.. currentmodule:: skbn
+
+.. autofunction:: show_versions
+
+.. include:: skbn.show_versions.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

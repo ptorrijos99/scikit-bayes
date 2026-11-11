@@ -26,25 +26,31 @@ The models of the library discretize their continuous attributes into
 ``n_bins`` bins of equal frequency (``strategy="quantile"``), without looking
 at the class. :class:`skbn.MDLPDiscretizer` and
 :class:`skbn.DecisionTreeDiscretizer` place the cut-points where the class
-changes instead, and go before the model in a pipeline. The discretized
-attributes hold small integer codes, which the model then reads as
-categorical.
+changes instead, and go before the model in a pipeline. The model that follows
+is told that the discretized attributes are categorical
+(``categorical_features``): it types an undeclared attribute from its values,
+and integer codes with more than 20 distinct values would be taken as a
+continuous attribute and discretized again. Here no attribute gets more than
+20 bins, so the declaration does not change the results, but MDLP produces
+that many on larger samples.
 
 The data have four skewed attributes that change the class at one threshold
 each, at different quantiles, and sixteen attributes of noise. The figure
 compares :class:`skbn.AnJE` (``n_join=2``) on its own bins with the same
 model after each discretizer, for 2 to 20 bins. MDLP has no number of bins:
 it keeps a cut only while the gain in class information pays for it under
-the MDL criterion.
+the MDL criterion. ``AnJE(strategy="mdlp")`` applies the same discretization
+inside the model, without a pipeline: its line coincides with that of the
+MDLP pipeline.
 
 No number of quantile bins places a cut on every threshold, so the model on
-its own bins stays well below the MDLP pipeline. MDLP also maps the noise
+its own quantile bins stays below the MDLP pipeline. MDLP also maps the noise
 attributes to a single bin, and the model then ignores them; the quantile
 bins keep them, and with them the noise of their joint estimates. The tree
 discretizer comes close to MDLP with two bins, the single cut that each
 informative attribute needs, and falls behind as it is allowed more leaves.
 
-.. GENERATED FROM PYTHON SOURCE LINES 28-116
+.. GENERATED FROM PYTHON SOURCE LINES 34-144
 
 
 
@@ -60,6 +66,10 @@ informative attribute needs, and falls behind as it is allowed more leaves.
 
     Informative attributes MDLP keeps: 100%
     Noise attributes MDLP keeps: 0%
+    AnJE, quantile bins      log loss [0.604 0.57  0.53  0.553 1.87 ]
+    DecisionTreeDiscretizer  log loss [0.515 0.551 0.645 0.901 1.387]
+    MDLPDiscretizer          log loss 0.492
+    AnJE, strategy="mdlp"    log loss 0.492
 
 
 
@@ -85,6 +95,7 @@ informative attribute needs, and falls behind as it is allowed more leaves.
     seeds = [0, 1, 2]
     bins = [2, 3, 5, 10, 20]
     n_train = 2000
+    n_features = 20
 
 
     def make_data(seed, n=n_train + 5000):
@@ -98,19 +109,35 @@ informative attribute needs, and falls behind as it is allowed more leaves.
         return np.hstack([informative, noise]), y
 
 
-    # Name, factory of n_bins (None: no bins to choose), colour, marker
+    # Every column leaves the discretizers as integer codes
+    categorical = list(range(n_features))
+
+    # Name, factory of n_bins, colour, marker; no marker for the models without
+    # a number of bins, drawn as horizontal lines (MDLP: dashed, the strategy of
+    # the model: dotted)
     models = [
-        ("Quantile bins", lambda b: AnJE(n_join=2, n_bins=b), "#009E73", "o"),
+        ("AnJE, quantile bins", lambda b: AnJE(n_join=2, n_bins=b), "#009E73", "o"),
         (
             "DecisionTreeDiscretizer",
-            lambda b: make_pipeline(DecisionTreeDiscretizer(n_bins=b), AnJE(n_join=2)),
+            lambda b: make_pipeline(
+                DecisionTreeDiscretizer(n_bins=b),
+                AnJE(n_join=2, categorical_features=categorical),
+            ),
             "#999933",
             "s",
         ),
         (
             "MDLPDiscretizer",
-            lambda b: make_pipeline(MDLPDiscretizer(), AnJE(n_join=2)),
+            lambda b: make_pipeline(
+                MDLPDiscretizer(), AnJE(n_join=2, categorical_features=categorical)
+            ),
             "#661100",
+            None,
+        ),
+        (
+            'AnJE, strategy="mdlp"',
+            lambda b: AnJE(n_join=2, strategy="mdlp"),
+            "#009E73",
             None,
         ),
     ]
@@ -124,15 +151,15 @@ informative attribute needs, and falls behind as it is allowed more leaves.
             X, y, train_size=n_train, random_state=seed
         )
         for j, n_bins in enumerate(bins):
-            for k, (_, factory, _, marker) in enumerate(models):
-                if marker is None and j > 0:  # MDLP does not depend on n_bins
+            for k, (name, factory, _, marker) in enumerate(models):
+                if marker is None and j > 0:  # MDLP does not use n_bins
                     res_ll[i, j, k], res_acc[i, j, k] = res_ll[i, 0, k], res_acc[i, 0, k]
                     continue
                 clf = factory(n_bins).fit(X_train, y_train)
                 proba = clf.predict_proba(X_test)
                 res_ll[i, j, k] = log_loss(y_test, proba)
                 res_acc[i, j, k] = accuracy_score(y_test, proba.argmax(axis=1))
-                if marker is None:
+                if name == "MDLPDiscretizer":
                     cuts = clf[0].cut_points_
                     kept.append([len(c) > 0 for c in cuts])
 
@@ -141,13 +168,18 @@ informative attribute needs, and falls behind as it is allowed more leaves.
     print(f"Noise attributes MDLP keeps: {kept[4:].mean():.0%}")
 
     mean_ll, mean_acc = res_ll.mean(axis=0), res_acc.mean(axis=0)
+    for k, (name, _, _, marker) in enumerate(models):
+        values = mean_ll[:, k] if marker else mean_ll[0, k]
+        print(f"{name:24s} log loss {np.round(values, 3)}")
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.2))
     for ax, values, ylabel in zip(
         axes, [mean_ll, mean_acc], ["Test log loss", "Test accuracy"]
     ):
         for k, (name, _, color, marker) in enumerate(models):
             if marker is None:
-                ax.axhline(values[0, k], color=color, ls="--", label=name)
+                # The strategy of the model, dotted over the dashed MDLP pipeline
+                style, width = (":", 2.4) if name.startswith("AnJE") else ("--", 1.8)
+                ax.axhline(values[0, k], color=color, ls=style, lw=width, label=name)
             else:
                 ax.plot(bins, values[:, k], marker=marker, color=color, label=name)
         ax.set_xscale("log")
@@ -155,14 +187,14 @@ informative attribute needs, and falls behind as it is allowed more leaves.
         ax.minorticks_off()
         ax.set_xlabel("Number of bins")
         ax.set_ylabel(ylabel)
-    fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=3)
+    fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=4)
     fig.suptitle(f"AnJE after three discretizations, {n_train} training samples")
     plt.show()
 
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 1.238 seconds)
+   **Total running time of the script:** (0 minutes 0.696 seconds)
 
 
 .. _sphx_glr_download_auto_examples_discretization_21_plot_supervised_discretization.py:

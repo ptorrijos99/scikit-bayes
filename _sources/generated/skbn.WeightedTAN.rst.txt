@@ -1,0 +1,59 @@
+﻿WeightedTAN
+==============================
+
+.. currentmodule:: skbn
+
+.. autoclass:: WeightedTAN
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      
+      
+        ~WeightedTAN.conditional_table
+      
+      
+        ~WeightedTAN.fit
+      
+      
+        ~WeightedTAN.get_metadata_routing
+      
+      
+        ~WeightedTAN.get_params
+      
+      
+        ~WeightedTAN.predict
+      
+      
+        ~WeightedTAN.predict_log_proba
+      
+      
+        ~WeightedTAN.predict_proba
+      
+      
+        ~WeightedTAN.score
+      
+      
+        ~WeightedTAN.set_params
+      
+      
+        ~WeightedTAN.set_score_request
+      
+      
+        ~WeightedTAN.to_dot
+      
+      
+        ~WeightedTAN.weight_table
+      
+   
+   
+
+.. include:: skbn.WeightedTAN.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

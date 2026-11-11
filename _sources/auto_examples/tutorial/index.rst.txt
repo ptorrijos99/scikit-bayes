@@ -1,0 +1,51 @@
+
+
+.. _sphx_glr_auto_examples_tutorial:
+
+.. _tutorial_examples:
+
+Tutorial
+--------
+
+One problem on real data from the table to the final evaluation: the Car
+Evaluation data, a pandas DataFrame of labels fitted without an encoder, a
+comparison with scikit-learn baselines, a grid search, the learned structure
+against the known one, the weights, and the test set.
+
+
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbnails">
+
+.. thumbnail-parent-div-open
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="This tutorial follows one classification problem from the table to the final evaluation, on the Car Evaluation data: 1728 cars described by six categorical attributes, each rated unacceptable, acceptable, good or very good. Tables of categories whose attributes act on the class together, not one by one, are what Bayesian network classifiers are built for. The tutorial shows how to:">
+
+.. only:: html
+
+  .. image:: /auto_examples/tutorial/images/thumb/sphx_glr_00_plot_tutorial_thumb.png
+    :alt:
+
+  :doc:`/auto_examples/tutorial/00_plot_tutorial`
+
+.. raw:: html
+
+      <div class="sphx-glr-thumbnail-title">Tutorial: from a table of labels to a fitted network</div>
+    </div>
+
+
+.. thumbnail-parent-div-close
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /auto_examples/tutorial/00_plot_tutorial
+

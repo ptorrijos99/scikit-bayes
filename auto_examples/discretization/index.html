@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Discretization &#8212; scikit-bayes 1.3.1.post1.dev7 documentation</title>
+    <title>Discretization &#8212; scikit-bayes 1.3.2.post1.dev60 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=a7586140"></script>
+    <script src="../../_static/documentation_options.js?v=776a09ec"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
@@ -53,10 +53,10 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="Supervised discretization: where the cuts fall" href="15_plot_mdlp_discretizer.html" />
-    <link rel="prev" title="Calibration of generative and weighted models" href="../hybrid/14_plot_calibration.html" />
+    <link rel="prev" title="Weighted TAN and KDB on duplicated attributes" href="../hybrid/22_plot_weighted_networks.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.3.1" />
+  <meta name="docsearch:version" content="1.3.2" />
   </head>
   
   
@@ -122,8 +122,8 @@
       
     
     
-    <img src="../../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.3.1.post1.dev7 documentation - Home"/>
-    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.3.1.post1.dev7 documentation - Home"/>
+    <img src="../../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.3.2.post1.dev60 documentation - Home"/>
+    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.3.2.post1.dev60 documentation - Home"/>
   
   
 </a></div>
@@ -139,8 +139,22 @@
   <ul class="bd-navbar-elements navbar-nav">
     
 <li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../install.html">
+    Installation
+  </a>
+</li>
+
+
+<li class="nav-item ">
   <a class="nav-link nav-internal" href="../../quick_start.html">
     Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorial/00_plot_tutorial.html">
+    Tutorial
   </a>
 </li>
 
@@ -158,13 +172,51 @@
   </a>
 </li>
 
-
-<li class="nav-item current active">
-  <a class="nav-link nav-internal" href="../index.html">
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" current active">
+  <a class="nav-link dropdown-item nav-internal" href="../index.html">
     Example Gallery
   </a>
 </li>
 
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../citing.html">
+    Citing
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/CONTRIBUTING.md">
+    Contributing
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/PRIOR_WORK.md">
+    Related software
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
   </ul>
 </nav></div>
       
@@ -255,8 +307,22 @@
   <ul class="bd-navbar-elements navbar-nav">
     
 <li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../install.html">
+    Installation
+  </a>
+</li>
+
+
+<li class="nav-item ">
   <a class="nav-link nav-internal" href="../../quick_start.html">
     Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorial/00_plot_tutorial.html">
+    Tutorial
   </a>
 </li>
 
@@ -278,6 +344,34 @@
 <li class="nav-item current active">
   <a class="nav-link nav-internal" href="../index.html">
     Example Gallery
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../citing.html">
+    Citing
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/CHANGELOG.md">
+    Changelog
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/CONTRIBUTING.md">
+    Contributing
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ptorrijos99/scikit-bayes/blob/main/PRIOR_WORK.md">
+    Related software
   </a>
 </li>
 
@@ -325,6 +419,10 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../tutorial/index.html">Tutorial</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/00_plot_tutorial.html">Tutorial: from a table of labels to a fitted network</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../mixednb/index.html">Mixed Naive Bayes</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../mixednb/01_plot_mixednb_equivalence.html">MixedNB on single-type data</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../mixednb/04_plot_mixednb_vs_pipeline.html">MixedNB on mixed continuous and categorical data</a></li>
@@ -356,6 +454,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../hybrid/12_plot_weight_scope.html">Component or factor weights: data efficiency and cost</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../hybrid/13_plot_compare_ande_interpretability.html">Component weights as a selection of super-parents</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../hybrid/14_plot_calibration.html">Calibration of generative and weighted models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hybrid/22_plot_weighted_networks.html">Weighted TAN and KDB on duplicated attributes</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Discretization</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -365,6 +464,7 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../integration/index.html">Working with scikit-learn</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../integration/16_plot_pipeline_grid_search.html">Pipelines and model selection with scikit-learn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../integration/23_plot_continuous_table.html">A table of continuous measurements: what to expect</a></li>
 </ul>
 </details></li>
 </ul>
@@ -433,7 +533,7 @@
 <div class="sphx-glr-thumbnails"><div class="sphx-glr-thumbcontainer" tooltip="The figure compares where three discretizers place their cut-points on the same continuous attribute. The attribute is skewed (most values are small) and the class changes at two thresholds, $x = 2$ and $x = 6$, with some label noise. The discretizers are:"><img alt="" src="../../_images/sphx_glr_15_plot_mdlp_discretizer_thumb.png" />
 <p><a class="reference internal" href="15_plot_mdlp_discretizer.html"><span class="doc">Supervised discretization: where the cuts fall</span></a></p>
   <div class="sphx-glr-thumbnail-title">Supervised discretization: where the cuts fall</div>
-</div><div class="sphx-glr-thumbcontainer" tooltip="The models of the library discretize their continuous attributes into n_bins bins of equal frequency (``strategy=&quot;quantile&quot;``), without looking at the class. skbn.MDLPDiscretizer and skbn.DecisionTreeDiscretizer place the cut-points where the class changes instead, and go before the model in a pipeline. The discretized attributes hold small integer codes, which the model then reads as categorical."><img alt="" src="../../_images/sphx_glr_21_plot_supervised_discretization_thumb.png" />
+</div><div class="sphx-glr-thumbcontainer" tooltip="The models of the library discretize their continuous attributes into n_bins bins of equal frequency (``strategy=&quot;quantile&quot;``), without looking at the class. skbn.MDLPDiscretizer and skbn.DecisionTreeDiscretizer place the cut-points where the class changes instead, and go before the model in a pipeline. The model that follows is told that the discretized attributes are categorical (``categorical_features``): it types an undeclared attribute from its values, and integer codes with more than 20 distinct values would be taken as a continuous attribute and discretized again. Here no attribute gets more than 20 bins, so the declaration does not change the results, but MDLP produces that many on larger samples."><img alt="" src="../../_images/sphx_glr_21_plot_supervised_discretization_thumb.png" />
 <p><a class="reference internal" href="21_plot_supervised_discretization.html"><span class="doc">Supervised discretization before a model</span></a></p>
   <div class="sphx-glr-thumbnail-title">Supervised discretization before a model</div>
 </div></div><div class="toctree-wrapper compound">
@@ -451,12 +551,12 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../hybrid/14_plot_calibration.html"
+       href="../hybrid/22_plot_weighted_networks.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Calibration of generative and weighted models</p>
+        <p class="prev-next-title">Weighted TAN and KDB on duplicated attributes</p>
       </div>
     </a>
     <a class="right-next"

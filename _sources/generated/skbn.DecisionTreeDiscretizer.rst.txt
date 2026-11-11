@@ -20,6 +20,9 @@
         ~DecisionTreeDiscretizer.fit_transform
       
       
+        ~DecisionTreeDiscretizer.get_feature_names_out
+      
+      
         ~DecisionTreeDiscretizer.get_metadata_routing
       
       
