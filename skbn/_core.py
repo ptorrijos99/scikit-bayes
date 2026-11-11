@@ -14,7 +14,12 @@ from scipy.optimize import minimize
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.utils.fixes import parse_version
-from sklearn.utils.validation import check_array, check_X_y, validate_data
+from sklearn.utils.validation import (
+    check_array,
+    check_is_fitted,
+    check_X_y,
+    validate_data,
+)
 from threadpoolctl import threadpool_limits
 
 from ._kernels import (
@@ -552,6 +557,14 @@ def _fit_bins(col, y_idx, n_classes, n_bins, strategy):
         return bins.fit(col)
 
 
+def _cut_points(bins):
+    """Inner cut-points of the bins that :func:`_fit_bins` gives: bin ``b``
+    holds the values from ``cuts[b - 1]`` (included) to ``cuts[b]``."""
+    if isinstance(bins, _Cuts):
+        return bins.cuts
+    return bins.bin_edges_[0][1:-1]
+
+
 class _Binning:
     """Bins of the continuous attributes of a model that discretizes them as
     children too (``continuous_children="discretized"``): the model is then
@@ -752,6 +765,57 @@ class _ChildEncodingMixin:
     their conditionals in the tables of :mod:`skbn._kernels` (the AnDE family,
     TAN and KDB). Needs the fitted ``backoff_``, ``_encoder``, ``_pooled_mean``
     and ``_pooled_var``."""
+
+    @property
+    def cut_points_(self):
+        """Cut-points of the continuous attributes, a list with an array per
+        attribute that the model bins (as a parent, or as a child too with
+        ``continuous_children="discretized"``) and None for the others. Bin
+        ``b`` holds the values from ``cut_points_[i][b - 1]`` (included) to
+        ``cut_points_[i][b]``, and the first and the last bin have no outer
+        limit."""
+        check_is_fitted(self, attributes=["backoff_"])
+        cuts = [
+            None if isinstance(enc, np.ndarray) else _cut_points(enc)
+            for enc in self._encoder.encoders_
+        ]
+        binning = getattr(self, "_binning", None)
+        if binning is not None:
+            for j, bins in zip(binning.columns, binning.bins):
+                cuts[j] = _cut_points(bins)
+        return cuts
+
+    def _labels(self, j, values):
+        """What the categories ``values`` of the discrete attribute ``j``
+        stand for: the labels of a column of labels, the index of the bin of
+        a binned attribute, and themselves otherwise."""
+        encoder = getattr(self, "_label_encoder", None)
+        if encoder is not None and j in encoder.columns:
+            return encoder.labels[encoder.columns.index(j)][values.astype(int)]
+        binning = getattr(self, "_binning", None)
+        if binning is not None and j in binning.columns:
+            return values.astype(int)
+        return values
+
+    def _child_values(self, j):
+        """Values of attribute ``j`` as a discrete child, in the order of its
+        codes: its categories, False and True for a Bernoulli attribute
+        (whether it is above its threshold), None for a Gaussian one."""
+        types = self.backoff_.feature_types_
+        if j in types["bernoulli"]:
+            return np.array([False, True])
+        if j in types["categorical"]:
+            categories = self.backoff_._categories[types["categorical"].index(j)]
+            return self._labels(j, categories)
+        return None
+
+    def _parent_values(self, p):
+        """Values of attribute ``p`` as a parent, in the order of its codes:
+        its categories, or the index of its bin when it is continuous."""
+        encoder = self._encoder.encoders_[p]
+        if isinstance(encoder, np.ndarray):
+            return self._labels(p, encoder)
+        return np.arange(self._encoder.cards_[p])
 
     def _layout(self):
         """Type, offset in the rows of the discrete tables and Gaussian column

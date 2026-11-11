@@ -484,6 +484,8 @@ Example:
     clf.conditional_mutual_info_   # edge weights used to learn the tree
     clf.edges_                     # the arcs as (parent, child) pairs
     print(clf.to_dot())            # the network, for Graphviz or networkx
+    clf.conditional_table(0)       # P(x_0 | class, parents), with their values
+    clf.cut_points_                # the bins of the continuous attributes
 
 
 .. _kdb:
@@ -552,6 +554,8 @@ Example:
     clf.conditional_mutual_info_   # I(A_i; A_j | C), used to choose parents
     clf.edges_                     # the arcs as (parent, child) pairs
     print(clf.to_dot())            # the network, for Graphviz or networkx
+    clf.conditional_table(0)       # P(x_0 | class, parents), with their values
+    clf.cut_points_                # the bins of the continuous attributes
 
 
 .. _weighted_networks:
@@ -621,6 +625,7 @@ of the conditionals of a network.
     clf.learned_weights_   # the weights, 1 for the generative model
     clf.prior_weights_     # those of the class prior
     clf.feature_weights_   # those of every attribute: below 1, it is discounted
+    clf.weight_table(0)    # those of x_0, with the values they belong to
 
 
 .. _discretization:

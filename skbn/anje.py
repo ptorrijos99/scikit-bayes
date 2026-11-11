@@ -909,6 +909,12 @@ class GaussianAnJE(_BaseAnDE):
         the estimates of all the components are stored together in flat
         tables.
 
+    cut_points_ : list of ndarray or None
+        Cut-points of the continuous attributes that the model bins, and
+        None for the other attributes: bin ``b`` of attribute ``i`` holds the
+        values from ``cut_points_[i][b - 1]`` (included) to
+        ``cut_points_[i][b]``.
+
     feature_types_ : dict
         Indices of the attributes of each type the model uses, under the keys
         ``"gaussian"``, ``"categorical"`` and ``"bernoulli"`` (those of
@@ -1094,6 +1100,12 @@ class GaussianALR(WeightedAnDE):
         (``"n_parent_combos"``) and of the augmented states :math:`Y^*` seen in
         training (``"n_states"``); the estimates of all the components are
         stored together in flat tables.
+
+    cut_points_ : list of ndarray or None
+        Cut-points of the continuous attributes that the model bins, and
+        None for the other attributes: bin ``b`` of attribute ``i`` holds the
+        values from ``cut_points_[i][b - 1]`` (included) to
+        ``cut_points_[i][b]``.
 
     feature_types_ : dict
         Indices of the attributes of each type the model uses, under the keys
