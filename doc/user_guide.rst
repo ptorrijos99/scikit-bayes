@@ -507,6 +507,73 @@ Example:
     clf.conditional_mutual_info_   # I(A_i; A_j | C), used to choose parents
 
 
+.. _weighted_networks:
+
+Weighted TAN and KDB
+====================
+
+:class:`skbn.WeightedTAN` and :class:`skbn.WeightedKDB` are the weighted
+conditionally Bayesian network (wCCBN) of Zaidi et al. [3]_ on the networks
+of TAN and KDB. The structure and the probabilities are learned as in
+:class:`skbn.TAN` and :class:`skbn.KDB` and stay fixed; every factor of the
+joint, the class prior and the conditional of every attribute, gets an
+exponent weight:
+
+.. math::
+
+    \log P^w(y | \mathbf{x}) = w_y \log P(y)
+    + \sum_{i} w_{i, x_i, y, \mathbf{x}_{\Pi(i)}}
+    \log P(x_i | y, \mathbf{x}_{\Pi(i)}) - \log Z(\mathbf{x})
+
+The weights maximise the conditional log-likelihood of the training set with
+L-BFGS-B, a convex problem. They start at, and are regularized towards
+(``l2_reg``), the generative model ``w = 1``, which gives the predictions of
+TAN or KDB. ``weight_level`` ties the weights with the nesting of the factor
+weights of :class:`skbn.WeightedAnDE` (see its table above): one weight per
+factor (1), per factor and value (2), per factor, value and class (3), or per
+factor, value, class and parent instantiation (4). Level 4, one weight per
+parameter of the network, is the wCCBN of the paper and the default. The value
+of a Gaussian child is not discretized, so its weights ignore the value. Only
+the combinations seen in training get a weight; any other one, such as a
+parent value never seen, keeps the generative weight 1.
+
+The weights help when the data break the independence assumptions of the
+network. A tree or ``k`` parents explain only part of the dependencies
+between correlated attributes: the conditional of the copy of an attribute
+given that attribute is close to 1 for a discrete copy, but a continuous copy
+is Gaussian given the *bin* of its parent and still repeats part of the
+evidence. The generative model then counts that evidence several times and is
+overconfident; the weights scale the repeated conditionals down. With few
+samples per weight, the finer levels overfit unless ``l2_reg`` is large
+enough; level 1 or 2 is the safer choice on small datasets.
+
+Every evaluation of the objective visits each factor of each training sample
+for every class, :math:`O(n \, (d + 1) \, |C|)` operations, and the fit keeps
+these log-likelihoods in memory, about :math:`12\, n\, (d + 1)\, |C|`
+bytes (54 MB for 60,000 samples, 24 attributes and 3 classes). Predictions
+cost about as much as those of TAN and KDB.
+
+A weighted network is a single component, so it is the geometric
+:class:`skbn.WeightedAnDE` with ``weight_scope="factor"`` reduced to one
+SPnDE: ``WeightedKDB(k=0)`` and ``WeightedAnDE(n_dependence=0,
+weight_scope="factor", mean="geometric")`` fit the same weights (with
+``var_prior_weight=0``; otherwise the Gaussian variances of the two Naive
+Bayes models differ). WeightedAnDE weights the factors of :math:`d` SPnDEs,
+about :math:`d` times more weights and work for the same number of
+attributes. :class:`skbn.ALR` is the same idea on the n-joins of AnJE instead
+of the conditionals of a network.
+
+.. code-block:: python
+
+    from skbn import WeightedKDB, WeightedTAN
+
+    clf = WeightedTAN()  # wCCBN on the TAN structure
+    clf = WeightedKDB(k=2, weight_level=1, l2_reg=10.0)  # one weight per factor
+    clf.fit(X, y)
+
+    clf.learned_weights_   # the weights, 1 for the generative model
+
+
 .. _discretization:
 
 Supervised discretization
@@ -685,7 +752,8 @@ Regularization of the weights
 
 ``l2_reg`` is the strength of the penalty :math:`\lambda \|\mathbf{w} - 1\|^2`
 added to the *summed* conditional log-likelihood, so its effect weakens as the
-training set grows. The default of :class:`skbn.WeightedAnDE` is 1.0.
+training set grows. The default of :class:`skbn.WeightedAnDE`,
+:class:`skbn.WeightedTAN` and :class:`skbn.WeightedKDB` is 1.0.
 Component weights are few and barely react to it; factor weights are many
 and overfit small datasets with a weak penalty, so for them values between
 0.1 and 10, chosen by cross-validation, are the safe range.

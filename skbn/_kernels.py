@@ -2206,15 +2206,19 @@ def conditional_scores(
     gidx,
     cards,
     n_classes,
+    per_factor,
 ):
-    """Sum over the factors of ``log P(x_j | y, x_pa)``, shape (n, n_classes).
+    """Sum over the factors of ``log P(x_j | y, x_pa)``, shape
+    (n, n_classes, 1). With ``per_factor`` the factors are kept apart instead,
+    factor ``m`` at ``[:, :, 1 + m]``, and ``[:, :, 0]`` is left at 0 for the
+    class log-prior, which the caller adds.
 
     A state never seen in training, or a parent value never seen, gives the
     uninformed estimate ``uninf[r, j]``.
     """
     n = codes.shape[0]
     n_factors = parents.shape[0]
-    out = np.zeros((n, n_classes))
+    out = np.zeros((n, n_classes, 1 + n_factors if per_factor else 1))
     n_blocks = (n + _BLOCK_ROWS - 1) // _BLOCK_ROWS
     for b in nb.prange(n_blocks):
         lo, hi = b * _BLOCK_ROWS, min(n, (b + 1) * _BLOCK_ROWS)
@@ -2222,6 +2226,7 @@ def conditional_scores(
             j = children[m]
             o = state_off[m]
             lo_cell, hi_cell = cell_off[m], cell_off[m + 1]
+            col = 1 + m if per_factor else 0
             for r in range(lo, hi):
                 key = 0
                 unseen = False
@@ -2236,22 +2241,22 @@ def conditional_scores(
                             state_keys, o, state_off[m + 1], c * n_combos[m] + key
                         )
                     if s < 0:
-                        out[r, c] += uninf[r, j]
+                        out[r, c, col] += uninf[r, j]
                     elif kind[j] == DISCRETE:
                         code = codes[r, j]
                         cell = (s - o) * cards[j] + code
                         if code >= 0 and hi_cell == lo_cell:
-                            out[r, c] += disc[disc_off[m] + cell]
+                            out[r, c, col] += disc[disc_off[m] + cell]
                         elif code >= 0:
                             t = _find(cell_keys, lo_cell, hi_cell, cell)
                             if t < 0:
-                                out[r, c] += cell_unseen[s]
+                                out[r, c, col] += cell_unseen[s]
                             else:
-                                out[r, c] += disc[disc_off[m] + t - lo_cell]
+                                out[r, c, col] += disc[disc_off[m] + t - lo_cell]
                     elif kind[j] == GAUSSIAN:
                         v = var[s]
                         diff = xg[r, gidx[j]] - mean[s]
-                        out[r, c] += _clamp(
+                        out[r, c, col] += _clamp(
                             -0.5 * (diff * diff / v + np.log(2.0 * np.pi * v))
                         )
     return out

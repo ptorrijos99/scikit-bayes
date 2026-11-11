@@ -62,6 +62,7 @@ Naive Bayes extended with a tree of dependencies between the attributes.
    :template: class.rst
 
    TAN
+   WeightedTAN
 
 .. _kdb_api:
 
@@ -75,6 +76,7 @@ Bayesian network in which every attribute has at most k attribute parents.
    :template: class.rst
 
    KDB
+   WeightedKDB
 
 
 Discretization
