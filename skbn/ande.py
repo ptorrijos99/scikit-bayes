@@ -192,6 +192,11 @@ class AnDE(_BaseAnDE):
         the estimates of all the components are stored together in flat
         tables.
 
+    feature_types_ : dict
+        Indices of the attributes of each type the model uses, under the keys
+        ``"gaussian"``, ``"categorical"`` and ``"bernoulli"`` (those of
+        ``backoff_``). An attribute that is constant in training is in none.
+
     backoff_ : MixedNB
         Naive Bayes on the original class, used for the class-level
         conditionals, to resolve the type of every attribute and as the
@@ -542,6 +547,11 @@ class WeightedAnDE(AnDE):
         (``"n_parent_combos"``) and of the augmented states :math:`Y^*` seen in
         training (``"n_states"``); the estimates of all the components are
         stored together in flat tables.
+
+    feature_types_ : dict
+        Indices of the attributes of each type the model uses, under the keys
+        ``"gaussian"``, ``"categorical"`` and ``"bernoulli"`` (those of
+        ``backoff_``). An attribute that is constant in training is in none.
 
     backoff_ : MixedNB
         Naive Bayes on the original class, used for the class-level

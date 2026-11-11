@@ -56,13 +56,6 @@ from .mixed_nb import MixedNB
 _LOG_TINY = np.log(np.finfo(float).tiny)
 
 
-def _lookup(sorted_keys, queries):
-    """Positions of ``queries`` in ``sorted_keys`` and a mask of hits."""
-    pos = np.searchsorted(sorted_keys, queries)
-    pos = np.minimum(pos, len(sorted_keys) - 1)
-    return pos, sorted_keys[pos] == queries
-
-
 def _parent_strides(parents, cards):
     """Stride of every parent in the linear index of a parent instantiation
     (the first parent is the most significant), shape (n_models, n)."""
@@ -732,6 +725,13 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
             log_prior_unseen[group],
             d,
         )
+
+    @property
+    def feature_types_(self):
+        """Indices of the attributes of each type the model uses, under the
+        keys "gaussian", "categorical" and "bernoulli"."""
+        check_is_fitted(self, attributes=["backoff_"])
+        return self.backoff_.feature_types_
 
     def _parent_keys(self, X_parents_disc):
         """Linear index of the parent instantiation of every component,

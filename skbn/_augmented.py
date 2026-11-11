@@ -300,6 +300,13 @@ class _BaseAugmentedNB(
         )
 
     @property
+    def feature_types_(self):
+        """Indices of the attributes of each type the model uses, under the
+        keys "gaussian", "categorical" and "bernoulli"."""
+        check_is_fitted(self, attributes=["backoff_"])
+        return self.backoff_.feature_types_
+
+    @property
     def edges_(self):
         """Arcs between attributes, as ``(parent, child)`` pairs of feature
         indices in the order of the children. Every attribute also has the
