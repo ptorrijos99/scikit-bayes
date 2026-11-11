@@ -7,13 +7,18 @@ import heapq
 from numbers import Integral, Real
 
 import numpy as np
-from sklearn.base import BaseEstimator, TransformerMixin, _fit_context
+from sklearn.base import (
+    BaseEstimator,
+    OneToOneFeatureMixin,
+    TransformerMixin,
+    _fit_context,
+)
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.validation import validate_data
 
 
-class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
+class DecisionTreeDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
     """
     Supervised discretizer that uses decision trees to find bin boundaries.
 
@@ -362,7 +367,7 @@ def _mdlp_cuts(x, y, n_classes, max_bins=None):
     return np.sort(np.asarray(cuts, dtype=float))
 
 
-class MDLPDiscretizer(TransformerMixin, BaseEstimator):
+class MDLPDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
     r"""
     Supervised entropy discretization with the MDL stopping rule.
 
