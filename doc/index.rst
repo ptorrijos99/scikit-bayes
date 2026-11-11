@@ -111,8 +111,9 @@ categorical and binary attributes.
         :class-card: intro-card
         :shadow: md
 
-        One problem on real data, from a pandas DataFrame to the fitted
-        network: model comparison, tuning, reading the model and evaluation.
+        Car evaluations, a table of labels, from the DataFrame to the
+        fitted network: model comparison, tuning, the learned structure
+        against the known one, and evaluation.
 
         .. button-ref:: sphx_glr_auto_examples_tutorial_00_plot_tutorial.py
             :ref-type: ref
