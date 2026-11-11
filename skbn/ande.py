@@ -40,6 +40,7 @@ import warnings
 from collections.abc import Sequence
 from itertools import combinations
 from numbers import Integral, Real
+from operator import attrgetter
 from typing import NamedTuple, Optional
 
 import numpy as np
@@ -1586,17 +1587,26 @@ class WeightedAnDE(AnDE):
     _maxcor = 10
 
     # --- Parameterization ---------------------------------------------------
+    # The parameters of the weighting, read through these private names so
+    # that a subclass that fixes them (GaussianALR) overrides them with
+    # private class attributes rather than public ones that are no parameters
+    _mean = property(attrgetter("mean"))
+    _average = property(attrgetter("average"))
+    _weight_scope = property(attrgetter("weight_scope"))
+    _weight_level = property(attrgetter("weight_level"))
+    _modular = property(attrgetter("modular"))
+
     @property
     def _offset(self):
         """Whether weights are mixture coefficients (added in log-space)
         rather than exponents of the log-terms."""
-        return self.weight_scope == "component" and self.mean == "arithmetic"
+        return self._weight_scope == "component" and self._mean == "arithmetic"
 
     @property
     def _pools_posteriors(self):
         """Whether the arithmetic mean pools the components' posteriors (the
         geometric mean of posteriors equals that of joints)."""
-        return self.average == "posterior" and self.mean == "arithmetic"
+        return self._average == "posterior" and self._mean == "arithmetic"
 
     def _to_weights(self, theta):
         return np.exp(theta) if self._offset else theta
@@ -1860,15 +1870,15 @@ class WeightedAnDE(AnDE):
         self._n_problems = self._n_failed = 0
 
         # 3. Discriminative phase
-        if not self.modular:
+        if not self._modular:
             theta = self._optimize(theta, design, Y)
         elif (
-            self._offset and "class" not in _LEVEL_DIMS["component"][self.weight_level]
+            self._offset and "class" not in _LEVEL_DIMS["component"][self._weight_level]
         ):
             warnings.warn(
                 (
                     "Modular WeightedAnDE with arithmetic component weights at"
-                    f" weight_level {self.weight_level} is equivalent to the"
+                    f" weight_level {self._weight_level} is equivalent to the"
                     " generative AnDE: a class-independent weight cancels in the"
                     " per-component softmax, so it is not identifiable from that"
                     " component's conditional likelihood. Weights are fixed to 1."

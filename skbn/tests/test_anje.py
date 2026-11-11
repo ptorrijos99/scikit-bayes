@@ -419,3 +419,14 @@ def test_gaussian_alr_requires_positive_alpha(discrete_data):
     X, y = discrete_data
     with pytest.raises(ValueError, match="alpha"):
         GaussianALR(alpha=0.0).fit(X, y)
+
+
+def test_gaussian_alr_shows_only_its_parameters():
+    # The settings of WeightedAnDE that the model fixes are not parameters,
+    # and are not public attributes either
+    model = GaussianALR()
+    public = [a for a in dir(model) if not a.startswith("_")]
+    assert sorted(a for a in public if not callable(getattr(model, a))) == sorted(
+        model.get_params()
+    )
+    assert "weight_scope" not in model.get_params()

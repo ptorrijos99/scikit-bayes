@@ -1111,12 +1111,13 @@ class GaussianALR(WeightedAnDE):
     True
     """
 
-    # The configuration of WeightedAnDE that this model fixes
-    mean = "geometric"
-    average = "joint"
-    weight_scope = "factor"
-    weight_level = 4
-    modular = False
+    # The configuration of WeightedAnDE that this model fixes, which
+    # WeightedAnDE reads through these private names
+    _mean = "geometric"
+    _average = "joint"
+    _weight_scope = "factor"
+    _weight_level = 4
+    _modular = False
     _gtol = _ZAIDI_GTOL
     _maxcor = _ZAIDI_MAXCOR
 
@@ -1163,6 +1164,15 @@ class GaussianALR(WeightedAnDE):
         self.l2_reg = l2_reg
         self.max_iter = max_iter
         self.tol = tol
+
+    def __getattr__(self, name):
+        # The methods of WeightedAnDE that still read the fixed settings by
+        # their public names (they are not parameters of this model)
+        if name in ("mean", "average", "weight_scope", "weight_level", "modular"):
+            return getattr(self, "_" + name)
+        raise AttributeError(
+            f"{type(self).__name__!r} object has no attribute {name!r}"
+        )
 
     @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
