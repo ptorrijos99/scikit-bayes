@@ -296,9 +296,11 @@ class MixedNB(_LabelInputMixin, ClassifierMixin, BaseEstimator):
             # The labels of the columns of labels, rather than their codes
             encoder = self._label_encoder
             self.categories_ = [
-                encoder.labels[encoder.columns.index(j)][values.astype(np.int64)]
-                if j in labelled
-                else values
+                (
+                    encoder.labels[encoder.columns.index(j)][values.astype(np.int64)]
+                    if j in labelled
+                    else values
+                )
                 for j, values in zip(
                     self.feature_types_["categorical"], self.categories_
                 )

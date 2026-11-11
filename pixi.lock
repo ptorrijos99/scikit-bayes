@@ -10521,14 +10521,15 @@ packages:
   timestamp: 1714090270741
 - pypi: ./
   name: scikit-bayes
-  version: 1.2.2.dev28+gef5995553.d20261104
-  sha256: 720e52d85e5845eb35ebbbd01ad03cb8d49e8edde6f75057bcf1fd4eca0b5826
+  version: 0.1.dev131+gd39498f4e.d20261111
+  sha256: 46d9d35ce269cfc3afe60db1dc0c7f512aa482361a40c02197a8897aa9789c7e
   requires_dist:
   - numpy>=1.23.5
   - scipy>=1.9.3
   - scikit-learn>=1.6
   - joblib>=1.2.0
   - numba>=0.58.1
+  - threadpoolctl>=3.1.0
   - pyyaml>=6.0 ; extra == 'experiments'
   - liac-arff>=2.5 ; extra == 'experiments'
   - xgboost>=2.0.0 ; extra == 'experiments'

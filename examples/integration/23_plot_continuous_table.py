@@ -337,7 +337,8 @@ ax.xaxis.set_major_formatter(StrMethodFormatter("{x:g}"))
 ax.xaxis.set_minor_locator(NullLocator())
 ax.set_yticks(-np.arange(len(final)), list(final))
 ax.set_xlabel(
-    "Log-odds of malignant, $\\log P(\\mathrm{malignant} \\mid x) - \\log P(\\mathrm{benign} \\mid x)$"
+    "Log-odds of malignant, $\\log P(\\mathrm{malignant} \\mid x) - \\log"
+    " P(\\mathrm{benign} \\mid x)$"
 )
 ax.set_title("Test tumours: malignant filled (upper), benign open (lower)")
 plt.show()
