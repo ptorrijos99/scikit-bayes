@@ -55,6 +55,7 @@ from ._kernels import (
     conditional_scores,
     count_conditionals,
     count_states,
+    gaussian_log_norms,
 )
 from .ande import _LEVEL_DIMS, _VAR_SMOOTHING, _ChildEncodingMixin
 from .mixed_nb import MixedNB
@@ -285,6 +286,12 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
                 var[o : o + n_classes] = self.backoff_.estimators_["gaussian"].var_[
                     :, gidx[j]
                 ]
+        # log(2 pi var) of the Gaussian children, once per fit rather than at
+        # every evaluation
+        logn = np.zeros(len(var))
+        if xg.shape[1]:
+            gauss = np.repeat(kind[children] == GAUSSIAN, n_states)
+            logn[gauss] = gaussian_log_norms(var[gauss, None])[:, 0]
 
         self._state_count = count
         self._tables = ConditionalTables(
@@ -302,6 +309,7 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             cell_unseen=unseen,
             mean=mean,
             var=var,
+            logn=logn,
             kind=kind,
             gidx=gidx,
             cards=cards,
