@@ -195,7 +195,8 @@ def test_types_from_one_pass_are_those_of_the_column_rule(dtype, n_samples):
             rng.randint(0, 30, n) + 2.0**53,  # beyond the exact integers
         ]
     if dtype is np.int64:
-        columns += [rng.randint(0, 30, n) + 2**60]
+        # randint draws C longs, which are 32 bits wide on Windows
+        columns += [rng.randint(0, 30, n).astype(np.int64) + 2**60]
     X = np.column_stack(columns).astype(dtype)
     expected = [_auto_type(X[:, j]) for j in range(X.shape[1])]
     for order in ("C", "F"):
