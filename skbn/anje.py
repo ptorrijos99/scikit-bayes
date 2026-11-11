@@ -62,7 +62,8 @@ from ._kernels import (
     join_rows,
     join_scores,
 )
-from .ande import WeightedAnDE, _BaseAnDE
+from ._spnde import _BaseAnDE
+from .ande import WeightedAnDE
 
 # Key spaces of the n-joins up to this size map keys to table rows with a
 # dense array (4 bytes per key); larger ones use a binary search
