@@ -1114,6 +1114,22 @@ class AnDE(_BaseAnDE):
     .. [3] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., &
            Cerquides, J. (2016). ALR^n: Accelerated higher-order logistic
            regression. Machine Learning, 104(2-3), 151-194.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skbn import AnDE, MixedNB
+    >>> rng = np.random.RandomState(0)
+    >>> x0 = rng.randint(0, 2, size=200)
+    >>> x1 = rng.randint(0, 2, size=200)
+    >>> x2 = rng.randint(0, 3, size=200)  # noise
+    >>> y = x0 ^ x1  # exclusive or: no attribute is informative on its own
+    >>> X = np.column_stack([x0, x1, x2])
+    >>> MixedNB().fit(X, y).score(X, y) < 0.6
+    True
+    >>> clf = AnDE(n_dependence=1).fit(X, y)
+    >>> clf.score(X, y)
+    1.0
     """
 
     _parameter_constraints: dict = {
@@ -1466,6 +1482,22 @@ class WeightedAnDE(AnDE):
            7732-7745.
     .. [3] Torrijos, P., Gámez, J. A., & Puerta, J. M. Federated Averaged
            n-Dependence Estimators. Manuscript, 2026.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skbn import WeightedAnDE
+    >>> rng = np.random.RandomState(0)
+    >>> x0 = rng.randint(0, 2, size=200)
+    >>> x1 = rng.randint(0, 2, size=200)
+    >>> x2 = rng.randint(0, 3, size=200)  # noise
+    >>> y = x0 ^ x1  # exclusive or: no attribute is informative on its own
+    >>> X = np.column_stack([x0, x1, x2])
+    >>> clf = WeightedAnDE().fit(X, y)
+    >>> clf.learned_weights_.shape  # a weight per SPnDE and a shared one
+    (4,)
+    >>> clf.score(X, y)
+    1.0
     """
 
     _parameter_constraints: dict = {
