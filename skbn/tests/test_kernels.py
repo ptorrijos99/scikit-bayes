@@ -12,14 +12,11 @@ import pytest
 from skbn._kernels import (
     ConditionalTables,
     EvaluationInputs,
-    SPnDETables,
     _Kernel,
     _pairwise_sum,
     _state_index,
     _threads,
-    component_scores,
     conditional_scores,
-    pooled_scores,
 )
 
 
@@ -80,17 +77,10 @@ def test_pairwise_sum_has_the_bits_of_numpy_sum(n):
         assert _pairwise_sum(row, 0, n) == 0.0 + row.sum()
 
 
-@pytest.mark.parametrize(
-    "kernel, tuples",
-    [
-        (component_scores, [EvaluationInputs, SPnDETables]),
-        (pooled_scores, [EvaluationInputs, SPnDETables]),
-        (conditional_scores, [EvaluationInputs, ConditionalTables]),
-    ],
-)
-def test_table_fields_follow_the_kernel_parameters(kernel, tuples):
-    # The tables are splatted into the kernels: a field out of the order of
-    # the parameters would silently pass one array for another
-    params = list(inspect.signature(kernel._func).parameters)
-    fields = [name for t in tuples for name in t._fields]
-    assert params[: len(fields)] == fields
+def test_table_fields_follow_the_kernel_parameters():
+    # The conditionals of TAN and KDB are splatted into their kernel: a field
+    # out of the order of the parameters would silently pass one array for
+    # another
+    params = list(inspect.signature(conditional_scores._func).parameters)
+    fields = EvaluationInputs._fields + ConditionalTables._fields
+    assert params[: len(fields)] == list(fields)
