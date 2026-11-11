@@ -28,6 +28,7 @@ All notable changes to scikit-bayes are listed here. The project follows [semant
 
 ### Documentation and project
 
+- A gallery example on `WeightedTAN` and `WeightedKDB` with a duplicated Gaussian attribute: log loss by training size and weight level, the learned weights and the log-odds. The supervised-discretization example declares the codes of the discretizers as categorical and adds `strategy="mdlp"`, which gives the same model as the MDLP pipeline.
 - New pages: installation, citing, and a section of the user guide on choosing a model; the changelog, the contributing guide and the comparison with related software are linked from the documentation.
 - The licence is declared with an SPDX expression (PEP 639), so PyPI shows BSD-3-Clause; the four authors are listed and the development status is Beta.
 - A code of conduct and a security policy. Pre-commit uses the linter versions of pixi, and CI lints once and uses one version of pixi.
