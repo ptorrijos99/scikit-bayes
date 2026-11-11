@@ -13,7 +13,12 @@ from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.utils.fixes import parse_version
 from threadpoolctl import threadpool_limits
 
-from ._kernels import _column_ranges, _integer_codes
+from ._kernels import (
+    _column_ranges,
+    _integer_codes,
+    _table_codes,
+    _whole_column_ranges,
+)
 from .discretization import _mdlp_cuts
 
 # Number of elements a temporary array of a chunked computation may hold.
@@ -22,6 +27,9 @@ _CHUNK_ELEMENTS = 1 << 22
 # Undeclared integer-valued attributes with more distinct values than this are
 # taken as continuous (ages, counts, amounts) rather than categorical.
 _MAX_AUTO_CATEGORIES = 20
+
+# Integers up to this size are floats without rounding
+_EXACT_FLOAT = 2.0**53
 
 
 def _integer_range(values):
@@ -78,13 +86,44 @@ def _encode_values(col, categories):
     return np.where(known, codes, 0), ~known
 
 
+def _encode_columns(X, columns, categories):
+    """Codes of the columns ``columns`` of ``X`` in their sorted
+    ``categories`` and a mask of the values that are not among them (their
+    code is 0), each of shape (n_samples, len(columns)): :func:`_encode_values`
+    for every column, with the columns whose categories are integers in a
+    small range looked up in one compiled pass over the rows."""
+    columns = np.asarray(columns, dtype=np.int64)
+    codes = np.zeros((X.shape[0], len(columns)), dtype=np.int64)
+    unseen = np.zeros(codes.shape, dtype=bool)
+    spans = [None] * len(columns)
+    if X.dtype.kind in "iuf":
+        spans = [_integer_range(cats) for cats in categories]
+    # Integers that a float holds exactly, so that the tables can be indexed
+    fast = [k for k, s in enumerate(spans) if s and max(-s[0], s[1]) < _EXACT_FLOAT]
+    if fast and X.shape[0]:
+        lo = np.array([spans[k][0] for k in fast], dtype=np.float64)
+        sizes = [spans[k][1] - spans[k][0] + 1 for k in fast]
+        off = np.concatenate([[0], np.cumsum(sizes)]).astype(np.int64)
+        table = np.full(off[-1], -1, dtype=np.int64)
+        for j, k in enumerate(fast):
+            cats = categories[k]
+            table[off[j] + (cats - spans[k][0]).astype(np.int64)] = np.arange(len(cats))
+        sub = _table_codes(X, columns[fast], lo, table, off)
+        if len(fast) == len(columns):
+            return sub
+        codes[:, fast], unseen[:, fast] = sub
+    for k in set(range(len(columns))).difference(fast):
+        codes[:, k], unseen[:, k] = _encode_values(X[:, columns[k]], categories[k])
+    return codes, unseen
+
+
 def _discrete_codes(X, columns):
     """Sorted distinct values of the columns ``columns`` of ``X`` and the code
     of every value among them: a list with the values of each column (as
     :func:`_unique_values`) and the int32 codes, shape (n_samples,
-    len(columns)) (as :func:`_encode_values`). Integer columns whose values span a small
-    range are encoded together in one compiled pass over the rows; the rest
-    column by column."""
+    len(columns)) (as :func:`_encode_values`). The columns that hold integers
+    in a small range, in an integer or a floating ``X``, are encoded together
+    in one compiled pass over the rows; the rest column by column."""
     columns = np.asarray(columns, dtype=np.int64)
     n = X.shape[0]
     categories = [None] * len(columns)
@@ -92,6 +131,13 @@ def _discrete_codes(X, columns):
     if n and len(columns) and np.issubdtype(X.dtype, np.signedinteger):
         lo, hi = _column_ranges(X, columns)
         fast = hi - lo <= 4 * n + 1024  # The span rule of _integer_range
+    elif n and len(columns) and np.issubdtype(X.dtype, np.floating):
+        lo, hi, whole = _whole_column_ranges(X, columns)
+        with np.errstate(invalid="ignore"):
+            fast = whole & (np.maximum(-lo, hi) < _EXACT_FLOAT)
+            fast &= hi - lo <= 4 * n + 1024
+        lo = np.where(fast, lo, 0).astype(np.int64)
+        hi = np.where(fast, hi, 0).astype(np.int64)
     idx = np.flatnonzero(fast)
     codes = np.empty((n, len(columns)), dtype=np.int32)
     if len(idx):
@@ -116,16 +162,24 @@ def _auto_type(col):
     """Type inferred for an undeclared attribute from its training values:
     None for a constant, then "bernoulli" (two values), "categorical"
     (non-negative integer values, at most ``_MAX_AUTO_CATEGORIES`` of them) or
-    "gaussian" (anything else)."""
-    n_unique = len(_unique_values(col))
-    if n_unique == 1:
+    "gaussian" (anything else).
+
+    The values are only counted when the answer depends on their number:
+    counting those of a continuous attribute would sort it.
+    """
+    lo, hi = col.min(), col.max()
+    if lo == hi:
         return None
-    if n_unique == 2:
+    if np.all((col == lo) | (col == hi)):
         return "bernoulli"
     integer_valued = np.issubdtype(col.dtype, np.integer) or (
         np.issubdtype(col.dtype, np.floating) and np.all(np.mod(col, 1) == 0)
     )
-    if integer_valued and np.all(col >= 0) and n_unique <= _MAX_AUTO_CATEGORIES:
+    if not integer_valued or lo < 0:
+        return "gaussian"
+    if hi - lo < _MAX_AUTO_CATEGORIES:  # No room for more values than that
+        return "categorical"
+    if len(_unique_values(col)) <= _MAX_AUTO_CATEGORIES:
         return "categorical"
     return "gaussian"
 
@@ -281,12 +335,16 @@ class _AttributeEncoder:
         """
         codes = np.zeros(X.shape, dtype=np.int64)
         unseen = np.zeros(X.shape, dtype=bool)
+        discrete = [
+            i for i, e in enumerate(self.encoders_) if isinstance(e, np.ndarray)
+        ]
+        if discrete:
+            codes[:, discrete], unseen[:, discrete] = _encode_columns(
+                X, discrete, [self.encoders_[i] for i in discrete]
+            )
         for i, enc in enumerate(self.encoders_):
-            col = X[:, i]
-            if isinstance(enc, np.ndarray):
-                codes[:, i], unseen[:, i] = _encode_values(col, enc)
-            else:
-                codes[:, i] = enc.transform(col.reshape(-1, 1)).ravel()
+            if not isinstance(enc, np.ndarray):
+                codes[:, i] = enc.transform(X[:, i].reshape(-1, 1)).ravel()
         np.clip(codes, 0, self.cards_ - 1, out=codes)
         return codes, unseen
 

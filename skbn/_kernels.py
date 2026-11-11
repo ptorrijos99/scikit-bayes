@@ -2427,7 +2427,8 @@ def conditional_scores(inputs, tables, n_classes, per_factor):
 
 @nb.njit(cache=True)
 def _column_ranges(X, columns):
-    """Smallest and largest value of every column in ``columns``."""
+    """Smallest and largest value of every column in ``columns`` of an
+    integer ``X``."""
     k = columns.shape[0]
     lo = np.empty(k, dtype=np.int64)
     hi = np.empty(k, dtype=np.int64)
@@ -2442,19 +2443,37 @@ def _column_ranges(X, columns):
 
 
 @nb.njit(cache=True)
+def _whole_column_ranges(X, columns):
+    """Smallest and largest value of every column in ``columns`` of a
+    floating ``X``, and whether all the values of the column are integers."""
+    k = columns.shape[0]
+    lo = np.empty(k)
+    hi = np.empty(k)
+    whole = np.ones(k, dtype=np.bool_)
+    for c in range(k):
+        lo[c] = hi[c] = X[0, columns[c]]
+    for r in range(X.shape[0]):
+        for c in range(k):
+            v = X[r, columns[c]]
+            lo[c] = min(lo[c], v)
+            hi[c] = max(hi[c], v)
+            whole[c] &= v == np.floor(v)
+    return lo, hi, whole
+
+
+@nb.njit(cache=True)
 def _integer_codes(X, columns, lo, table_off):
-    """Rank of every value of the integer columns ``columns`` among the
-    distinct values of its column, int32 of shape (n, len(columns)), and the
-    table
-    from value to rank: column ``c`` owns the entries
-    ``table_off[c]:table_off[c + 1]`` for the values from ``lo[c]`` up,
-    -1 for the values absent from it."""
+    """Rank of every value of the columns ``columns``, which hold integers
+    (in an integer or a floating ``X``), among the distinct values of its
+    column, int32 of shape (n, len(columns)), and the table from value to
+    rank: column ``c`` owns the entries ``table_off[c]:table_off[c + 1]`` for
+    the values from ``lo[c]`` up, -1 for the values absent from it."""
     n = X.shape[0]
     k = columns.shape[0]
     table = np.full(table_off[k], -1, dtype=np.int64)
     for r in range(n):
         for c in range(k):
-            table[table_off[c] + X[r, columns[c]] - lo[c]] = 0
+            table[table_off[c] + np.int64(X[r, columns[c]]) - lo[c]] = 0
     for c in range(k):
         rank = 0
         for v in range(table_off[c], table_off[c + 1]):
@@ -2464,8 +2483,33 @@ def _integer_codes(X, columns, lo, table_off):
     codes = np.empty((n, k), dtype=np.int32)
     for r in range(n):
         for c in range(k):
-            codes[r, c] = table[table_off[c] + X[r, columns[c]] - lo[c]]
+            codes[r, c] = table[table_off[c] + np.int64(X[r, columns[c]]) - lo[c]]
     return codes, table
+
+
+@nb.njit(cache=True)
+def _table_codes(X, columns, lo, table, table_off):
+    """Code of every value of the columns ``columns`` in the tables of
+    :func:`_integer_codes` (``lo`` as floats), and a mask of the values that
+    have none, whose code is 0: those that are not integers, lie outside the
+    table of their column or are absent from it."""
+    n = X.shape[0]
+    k = columns.shape[0]
+    codes = np.zeros((n, k), dtype=np.int64)
+    unseen = np.zeros((n, k), dtype=np.bool_)
+    for r in range(n):
+        for c in range(k):
+            d = X[r, columns[c]] - lo[c]
+            code = -1
+            if 0 <= d < table_off[c + 1] - table_off[c]:
+                i = np.int64(d)
+                if i == d:
+                    code = table[table_off[c] + i]
+            if code < 0:
+                unseen[r, c] = True
+            else:
+                codes[r, c] = code
+    return codes, unseen
 
 
 @nb.njit(cache=True)
