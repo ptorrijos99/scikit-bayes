@@ -7,24 +7,14 @@ Getting Started
 Installation
 ============
 
-From PyPI
----------
-
-scikit-bayes needs Python 3.10 or later, NumPy, SciPy, Numba and
-scikit-learn 1.6 or later. Install it from PyPI with pip:
+Install scikit-bayes from PyPI with pip:
 
 .. prompt:: bash $
 
     pip install scikit-bayes
 
-From GitHub
------------
-
-The development version:
-
-.. prompt:: bash $
-
-    pip install git+https://github.com/ptorrijos99/scikit-bayes.git
+:ref:`install` gives the other ways (the development version, from source)
+and explains why the first fit of each model takes longer.
 
 
 First models

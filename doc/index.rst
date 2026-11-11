@@ -11,6 +11,11 @@ scikit-bayes
 **Useful links**:
 `Source Repository <https://github.com/ptorrijos99/scikit-bayes>`__ |
 `Issues & Ideas <https://github.com/ptorrijos99/scikit-bayes/issues>`__ |
+:ref:`Installation <install>` |
+:ref:`Citing <citing>` |
+`Changelog <https://github.com/ptorrijos99/scikit-bayes/blob/main/CHANGELOG.md>`__ |
+`Contributing <https://github.com/ptorrijos99/scikit-bayes/blob/main/CONTRIBUTING.md>`__ |
+`Related software <https://github.com/ptorrijos99/scikit-bayes/blob/main/PRIOR_WORK.md>`__
 
 scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model
 follows the scikit-learn estimator API and takes tables that mix continuous,
@@ -42,8 +47,6 @@ categorical and binary attributes.
 
         Installation and a first model.
 
-        +++
-
         .. button-ref:: quick_start
             :ref-type: ref
             :click-parent:
@@ -58,8 +61,6 @@ categorical and binary attributes.
         :shadow: md
 
         How each model is defined and estimated, and how to choose its parameters.
-
-        +++
 
         .. button-ref:: user_guide
             :ref-type: ref
@@ -76,8 +77,6 @@ categorical and binary attributes.
 
         Parameters, attributes and methods of every class.
 
-        +++
-
         .. button-ref:: api
             :ref-type: ref
             :click-parent:
@@ -93,8 +92,6 @@ categorical and binary attributes.
 
         What each model captures, shown on small datasets with plots.
 
-        +++
-
         .. button-ref:: general_examples
             :ref-type: ref
             :click-parent:
@@ -109,7 +106,12 @@ categorical and binary attributes.
     :hidden:
     :titlesonly:
 
+    install
     quick_start
     user_guide
     api
     auto_examples/index
+    citing
+    Changelog <https://github.com/ptorrijos99/scikit-bayes/blob/main/CHANGELOG.md>
+    Contributing <https://github.com/ptorrijos99/scikit-bayes/blob/main/CONTRIBUTING.md>
+    Related software <https://github.com/ptorrijos99/scikit-bayes/blob/main/PRIOR_WORK.md>

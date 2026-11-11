@@ -121,7 +121,7 @@ intersphinx_mapping = {
 # -- Options for sphinx-gallery -----------------------------------------------
 
 # Generate the plot for the gallery
-plot_gallery = True
+plot_gallery = "True"
 
 sphinx_gallery_conf = {
     "doc_module": "skbn",
