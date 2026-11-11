@@ -75,6 +75,7 @@ from ._kernels import (
     count_tables,
     count_triples,
     dense_estimates,
+    gaussian_log_norms,
     index_states,
     pooled_scores,
 )
@@ -298,7 +299,8 @@ class _ChildEncodingMixin:
 
     def _backoff_tables(self, kind, voff, cards, n_values):
         """The class-level Naive Bayes in the layout of the component tables:
-        its log prior, discrete log-conditionals and Gaussian parameters."""
+        its log prior, discrete log-conditionals and Gaussian parameters
+        (mean, variance and ``log(2 pi variance)``)."""
         types = self.backoff_.feature_types_
         est = self.backoff_.estimators_
         n_classes = len(self.classes_)
@@ -316,7 +318,8 @@ class _ChildEncodingMixin:
             mean, var = est["gaussian"].theta_, est["gaussian"].var_
         else:
             mean = var = np.zeros((n_classes, 0))
-        return self.backoff_.class_log_prior_, disc, mean, var
+        logn = gaussian_log_norms(var)
+        return self.backoff_.class_log_prior_, disc, mean, var, logn
 
     def _evaluation_inputs(self, X):
         """Per-sample inputs of the evaluation kernels for a validated ``X``:
@@ -826,6 +829,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             lut,
             mean,
             var,
+            gaussian_log_norms(var),
             pk_off,
             pk_keys,
             pk_count,
