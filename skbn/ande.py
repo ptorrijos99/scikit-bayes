@@ -532,9 +532,11 @@ class WeightedAnDE(AnDE):
         :meth:`fit` when L-BFGS-B stops at ``max_iter`` before converging;
         increase ``max_iter`` or ``tol`` in that case.
 
-    tol : float or None, default=None
+    tol : float or None, default=1e-6
         Stopping tolerance of L-BFGS-B on the relative reduction of the
-        objective and on the projected gradient; None uses SciPy's defaults.
+        objective and on the projected gradient. None uses SciPy's defaults,
+        which are stricter on the objective (about 2e-9): they take about
+        twice as many iterations for the same predictions.
 
     modular : bool, default=False
         If True, the weights of each component are fitted independently on
@@ -673,7 +675,7 @@ class WeightedAnDE(AnDE):
         weight_level=1,
         l2_reg=1.0,
         max_iter=1000,
-        tol=None,
+        tol=1e-6,
         modular=False,
         continuous_children="gaussian",
     ):
