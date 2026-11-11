@@ -708,6 +708,14 @@ generative model.
        exponentially with ``k``.
      - Interactions between more than two attributes; ``k=2`` or more pays
        off with large training sets. Choose ``k`` by cross-validation.
+   * - :class:`~skbn.WeightedTAN` / :class:`~skbn.WeightedKDB`
+     - The network of TAN or KDB with an exponent weight on the class prior
+       and on every conditional (see :ref:`weighted_networks`).
+     - TAN or KDB, then L-BFGS-B; a step costs one weight per factor for each
+       sample and class.
+     - Correlated or duplicated attributes that the network counts several
+       times. On small samples the weights can overfit: compare with the
+       generative model by cross-validation.
 
 
 Choosing the parameters

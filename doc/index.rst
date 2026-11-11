@@ -28,8 +28,9 @@ categorical and binary attributes.
   Estimators.
 * :class:`~skbn.TAN` and :class:`~skbn.KDB`: a single network in which every
   attribute has one (TAN) or up to k (KDB) attribute parents.
-* :class:`~skbn.WeightedAnDE`, :class:`~skbn.ALR` and
-  :class:`~skbn.GaussianALR`: weights learned discriminatively on top of the
+* :class:`~skbn.WeightedAnDE`, :class:`~skbn.ALR`,
+  :class:`~skbn.GaussianALR`, :class:`~skbn.WeightedTAN` and
+  :class:`~skbn.WeightedKDB`: weights learned discriminatively on top of the
   generative models.
 * :class:`~skbn.MDLPDiscretizer` and :class:`~skbn.DecisionTreeDiscretizer`:
   supervised discretization of continuous attributes.
