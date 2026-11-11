@@ -2,33 +2,14 @@
 
 Every SPnDE is a Naive Bayes model on the augmented class ``Y* = (y, x_p)``.
 Its parameters are stored per augmented state observed in training, in flat
-tables shared by all the components of the ensemble. The components that
-differ only in which constant attributes (``const``: one value as parents, no
-information as children) are among their parents have the same parameters,
-stored once for their group ``g = group[m]``:
+tables shared by all the components of the ensemble, described field by
+field in :class:`SPnDETables`. The conditionals of TAN and KDB are stored the
+same way (:class:`ConditionalTables`), and the samples to evaluate come in an
+:class:`EvaluationInputs`.
 
-- ``state_keys[s]``: the key ``y * n_combos + parent_key`` of state ``s``; the
-  states of group ``g`` are ``state_off[g]:state_off[g + 1]``, sorted.
-  ``count[s]`` is its number of training rows.
-- ``log P(x_j = v | s)`` of a discrete attribute ``j`` (categorical, or
-  Bernoulli with values 0 and 1), with ``-inf`` replaced by ``LOG_ZERO``. A
-  dense state (more than ``_MAX_LIGHT`` training rows) keeps it in its row
-  ``drow[s]`` of ``dense``, at column ``doff[j] + v``. A light state keeps
-  only its training rows, ``rows[loff[s]:loff[s] + count[s]]``: the number
-  ``k`` of them with ``x_j = v`` (from the training codes ``tcodes``, column
-  ``dcol[j]``) gives the estimate ``lut[count[s], grp[j], k]``, where
-  ``grp[j]`` indexes the cardinality of ``j``. Most states of high-order or
-  high-cardinality ensembles have a few rows, and a dense row per state
-  would cost far more memory.
-- ``mean[s, g]`` and ``var[s, g]``: the Gaussian of continuous attribute ``g``.
-
-``kind[j]`` gives the type of attribute ``j`` (``IGNORED``, ``DISCRETE`` or
-``GAUSSIAN``) and ``gidx[j]`` its column in ``mean`` and ``var``; ``attrs``
-lists the attributes that can contribute as children (the Gaussian ones and
-the discrete ones with more than one value; a single value has probability
-1). The class-level back-off tables keep every discrete value, at
-``voff[j] + v``. A discrete code of -1 marks a value never seen in training,
-which contributes nothing.
+The kernels take these named tuples splatted (``*tables``), so the order of
+their fields is the order of the parameters of the kernels, which a test
+checks.
 """
 
 # Authors: scikit-bayes developers
@@ -38,6 +19,7 @@ import functools
 import threading
 import types
 from contextlib import contextmanager
+from typing import NamedTuple
 
 import numba as nb
 import numpy as np
@@ -764,6 +746,115 @@ def _two_class_children(
             if s1 >= 0:
                 t1 += _gaussian_ll(x, mean[s1, g], var[s1, g], logn[s1, g])
     totals[0], totals[1] = t0, t1
+
+
+class EvaluationInputs(NamedTuple):
+    """Per-sample inputs of the evaluation kernels, the first parameters of
+    :func:`component_scores`, :func:`pooled_scores` and
+    :func:`conditional_scores`. A discrete code of -1 marks a value never
+    seen in training, which contributes nothing."""
+
+    # Value of every discrete attribute as a child, shape (n, n_features)
+    codes: np.ndarray
+    # The Gaussian attributes, shape (n, n_gaussian)
+    xg: np.ndarray
+    # Log-likelihood of every attribute in a state never seen in training
+    uninf: np.ndarray
+    # Discretized codes of every attribute as a parent
+    pcodes: np.ndarray
+    # Whether the parent code of a value comes from a value never seen
+    punseen: np.ndarray
+
+
+class SPnDETables(NamedTuple):
+    """The fitted tables of an ensemble of SPnDEs, in the order of the
+    parameters of :func:`component_scores` and :func:`pooled_scores`.
+
+    The components that differ only in which constant attributes
+    (``const``) are among their parents have the same parameters, stored
+    once for their group ``g = group[m]``; its augmented states ``s`` are
+    ``state_off[g]:state_off[g + 1]``. ``log P(x_j = v | s)`` of a discrete
+    child (categorical, or Bernoulli with values 0 and 1) has ``-inf``
+    replaced by ``LOG_ZERO``. A dense state (more than ``_MAX_LIGHT``
+    training rows) keeps it in a row of ``dense``; a light state keeps only
+    its training rows, and the number ``k`` of them with ``x_j = v`` gives
+    the estimate from ``lut``. Most states of high-order or high-cardinality
+    ensembles have a few rows, and a dense row per state would cost far more
+    memory.
+    """
+
+    # Super-parents of every component, shape (n_models, n_dependence)
+    parents: np.ndarray
+    # Stride of every parent in the parent key (the first most significant)
+    strides: np.ndarray
+    # Number of parent instantiations of every component
+    n_combos: np.ndarray
+    # Group of every component
+    group: np.ndarray
+    # First component of every group, which computes its scores
+    rep: np.ndarray
+    # Attributes with one value as parents and no information as children
+    const: np.ndarray
+    # Offset of the states of every group, and their total at the end
+    state_off: np.ndarray
+    # Key ``y * n_combos + parent_key`` of every state, sorted per group
+    state_keys: np.ndarray
+    # Root ``log P(y, x_p)`` of every state
+    root: np.ndarray
+    # Number of training rows of every state
+    count: np.ndarray
+    # Row of every dense state in ``dense``, -1 for a light one
+    drow: np.ndarray
+    # Light state ``s`` has the rows ``rows[loff[s]:loff[s] + count[s]]``
+    loff: np.ndarray
+    # ``log P(x_j = v | s)`` of the dense states, at column ``doff[j] + v``
+    dense: np.ndarray
+    # Row in ``tcodes`` of every training row of the light states
+    rows: np.ndarray
+    # Value codes of those training rows, attribute ``j`` in column dcol[j]
+    tcodes: np.ndarray
+    # Light estimate ``lut[count[s], grp[j], k]``
+    lut: np.ndarray
+    # ``mean[s, g]`` of the Gaussian of attribute ``j`` (``g = gidx[j]``)
+    mean: np.ndarray
+    # ``var[s, g]``, its variance
+    var: np.ndarray
+    # ``log(2 pi var)``, from :func:`gaussian_log_norms`
+    logn: np.ndarray
+    # Group ``g`` has the parent keys ``pk_off[g]:pk_off[g + 1]``
+    pk_off: np.ndarray
+    # Distinct parent keys seen in training, sorted per group
+    pk_keys: np.ndarray
+    # Training frequency of every parent key
+    pk_count: np.ndarray
+    # Root of a state never seen in training, per group
+    log_prior_unseen: np.ndarray
+    # Class log-prior of the class-level back-off Naive Bayes
+    b_root: np.ndarray
+    # Its discrete log-conditionals, of value ``v`` of ``j`` at ``voff[j] + v``
+    b_disc: np.ndarray
+    # Its Gaussian means, shape (n_classes, n_gaussian)
+    b_mean: np.ndarray
+    # Its Gaussian variances
+    b_var: np.ndarray
+    # Their ``log(2 pi var)``
+    b_logn: np.ndarray
+    # Type of every attribute: ``IGNORED``, ``DISCRETE`` or ``GAUSSIAN``
+    kind: np.ndarray
+    # Offset of every discrete attribute in the columns of ``b_disc``
+    voff: np.ndarray
+    # Column of every Gaussian attribute in ``xg``, ``mean`` and ``var``
+    gidx: np.ndarray
+    # Possible children: Gaussian or discrete with more than one value
+    attrs: np.ndarray
+    # Column of every discrete child in ``tcodes``, -1 for the others
+    dcol: np.ndarray
+    # Offset of every discrete child in the columns of ``dense``
+    doff: np.ndarray
+    # Index of the number of values of every attribute in ``lut``
+    grp: np.ndarray
+    # Attributes whose estimate in an unseen state can differ from 0
+    nonzero: np.ndarray
 
 
 @_Kernel
@@ -2049,17 +2140,8 @@ def _weighted_arithmetic_gradient(
 # Attribute-conditional networks (TAN and KDB)
 # =============================================================================
 #
-# Factor ``m`` is ``P(x_j | y, x_pa)`` of child ``j = children[m]`` with the
-# ``n_parents[m]`` parents in ``parents[m]`` (the rest of the row is padding
-# with stride 0). Its augmented states are stored as those of an SPnDE
-# (``state_off``, ``state_keys``); a discrete child keeps
-# ``disc[disc_off[m] + t * cards[j] + v]`` for its local state ``t``, and a
-# Gaussian child ``mean[s]`` and ``var[s]``. A discrete child whose dense
-# table would be too large (``cell_off[m + 1] > cell_off[m]``) keeps only its
-# non-empty cells: their sorted keys ``t * cards[j] + v`` in
-# ``cell_keys[cell_off[m]:cell_off[m + 1]]``, their values from
-# ``disc[disc_off[m]]`` on, and ``cell_unseen[s]`` for the values never seen
-# with state ``s``.
+# Factor ``m`` is ``P(x_j | y, x_pa)`` of child ``j = children[m]``. Its
+# augmented states are stored as those of an SPnDE; see ConditionalTables.
 
 
 @nb.njit(cache=True)
@@ -2210,6 +2292,53 @@ def count_conditionals(
         for s in range(o, o + states.shape[0]):
             var[s] /= count[s]
     return keys_out, count, disc, cell_keys, mean, var
+
+
+class ConditionalTables(NamedTuple):
+    """The fitted conditionals of a TAN or KDB network, in the order of the
+    parameters of :func:`conditional_scores`.
+
+    Factor ``m`` is ``P(x_j | y, x_pa)`` of child ``j = children[m]``; its
+    augmented states ``s`` are ``state_off[m]:state_off[m + 1]``, and ``t``
+    is the local state ``s - state_off[m]``. A discrete child whose dense
+    table (states x values) would be too large, ``cell_off[m + 1] >
+    cell_off[m]``, keeps only its non-empty cells.
+    """
+
+    # Parents of every factor, padded with stride 0, shape (n_factors, width)
+    parents: np.ndarray
+    # Stride of every parent in the parent key (the first most significant)
+    strides: np.ndarray
+    # Number of parents of every factor
+    n_parents: np.ndarray
+    # Child attribute of every factor
+    children: np.ndarray
+    # Number of parent instantiations of every factor
+    n_combos: np.ndarray
+    # Offset of the states of every factor, and their total at the end
+    state_off: np.ndarray
+    # Key ``y * n_combos + parent_key`` of every state, sorted per factor
+    state_keys: np.ndarray
+    # Offset of the log-probabilities of every factor in ``disc``
+    disc_off: np.ndarray
+    # Dense ``log P(x_j = v | s)`` at ``disc_off[m] + t * cards[j] + v``
+    disc: np.ndarray
+    # Factor ``m`` has the cells ``cell_off[m]:cell_off[m + 1]``
+    cell_off: np.ndarray
+    # Sorted keys ``t * cards[j] + v`` of the cells, values from disc_off[m]
+    cell_keys: np.ndarray
+    # Log-probability of a value never seen with state ``s`` of such a factor
+    cell_unseen: np.ndarray
+    # Mean of a Gaussian child in every state
+    mean: np.ndarray
+    # Its variance
+    var: np.ndarray
+    # Type of every attribute: ``IGNORED``, ``DISCRETE`` or ``GAUSSIAN``
+    kind: np.ndarray
+    # Column of every Gaussian attribute in ``xg``
+    gidx: np.ndarray
+    # Number of values of every discrete attribute
+    cards: np.ndarray
 
 
 @_Kernel

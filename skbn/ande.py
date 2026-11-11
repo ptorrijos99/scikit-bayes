@@ -66,6 +66,8 @@ from ._kernels import (
     DISCRETE,
     GAUSSIAN,
     LOG_ZERO,
+    EvaluationInputs,
+    SPnDETables,
     _threads,
     _weighted_arithmetic_gradient,
     _weighted_arithmetic_scores,
@@ -344,7 +346,7 @@ class _ChildEncodingMixin:
             codes[:, discrete] < 0, 0.0, -np.log(cards[discrete].astype(float))
         )
         parent_codes, unseen = self._encoder.transform(X)
-        return codes, xg, uninf, parent_codes, unseen
+        return EvaluationInputs(codes, xg, uninf, parent_codes, unseen)
 
 
 class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
@@ -629,14 +631,16 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         doff[multi] = np.cumsum(cards[multi]) - cards[multi]
         n_columns = int(cards[multi].sum())
         group_cards, grp = np.unique(cards, return_inverse=True)
-        backoff = self._backoff_tables(kind, voff, cards, int(cards.sum()))
+        b_root, b_disc, b_mean, b_var, b_logn = self._backoff_tables(
+            kind, voff, cards, int(cards.sum())
+        )
 
         # Components that differ only in which attributes with a single value
         # (as parents and as children) are among their parents have the same
         # tables and scores: each group of them is counted once, for its
         # first component
         group, rep, const = _constant_parent_groups(
-            parents, self._encoder.cards_, informative, backoff[1], kind, voff, cards
+            parents, self._encoder.cards_, informative, b_disc, kind, voff, cards
         )
         n_groups = len(rep)
         g_parents, g_strides, g_combos = parents[rep], strides[rep], n_combos[rep]
@@ -800,45 +804,49 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         # back-off estimate of 0) are left out of its sum
         silent = (kind != DISCRETE) & (kind != GAUSSIAN)
         for j in np.flatnonzero((kind == DISCRETE) & (cards <= 1)):
-            silent[j] = not backoff[1][:, voff[j] : voff[j] + cards[j]].any()
+            silent[j] = not b_disc[:, voff[j] : voff[j] + cards[j]].any()
         nonzero = np.flatnonzero(~silent).astype(np.int64)
 
         pk_off, pk_keys, pk_count = _parent_frequencies(
             keys, count, g_combos, state_off
         )
-        self._tables = (
-            parents,
-            strides,
-            n_combos,
-            group,
-            rep,
-            const,
-            state_off,
-            keys,
-            root,
-            count,
-            drow,
-            loff,
-            dense,
-            rows,
-            tcodes,
-            lut,
-            mean,
-            var,
-            gaussian_log_norms(var),
-            pk_off,
-            pk_keys,
-            pk_count,
-            log_prior_unseen,
-            *backoff,
-            kind,
-            voff,
-            gidx,
-            attrs,
-            dcol,
-            doff,
-            grp.astype(np.int64),
-            nonzero,
+        self._tables = SPnDETables(
+            parents=parents,
+            strides=strides,
+            n_combos=n_combos,
+            group=group,
+            rep=rep,
+            const=const,
+            state_off=state_off,
+            state_keys=keys,
+            root=root,
+            count=count,
+            drow=drow,
+            loff=loff,
+            dense=dense,
+            rows=rows,
+            tcodes=tcodes,
+            lut=lut,
+            mean=mean,
+            var=var,
+            logn=gaussian_log_norms(var),
+            pk_off=pk_off,
+            pk_keys=pk_keys,
+            pk_count=pk_count,
+            log_prior_unseen=log_prior_unseen,
+            b_root=b_root,
+            b_disc=b_disc,
+            b_mean=b_mean,
+            b_var=b_var,
+            b_logn=b_logn,
+            kind=kind,
+            voff=voff,
+            gidx=gidx,
+            attrs=attrs,
+            dcol=dcol,
+            doff=doff,
+            grp=grp.astype(np.int64),
+            nonzero=nonzero,
         )
         self.ensemble_ = _Ensemble(
             parents,
@@ -904,7 +912,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
                 self.unseen_state == "backoff",
                 per_factor,
             )
-        return (out if per_factor else out[..., 0]), inputs[3], active, nb_jll
+        return (out if per_factor else out[..., 0]), inputs.pcodes, active, nb_jll
 
     def _pooled_scores(self, X, geometric):
         """Arithmetic or geometric pool of the components' joints for a

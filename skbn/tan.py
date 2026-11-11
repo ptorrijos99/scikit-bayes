@@ -47,6 +47,7 @@ from ._kernels import (
     GAUSSIAN,
     IGNORED,
     LOG_ZERO,
+    ConditionalTables,
     _threads,
     _weighted_geometric_gradient,
     _weighted_geometric_scores,
@@ -286,24 +287,24 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
                 ]
 
         self._state_count = count
-        self._tables = (
-            pa,
-            strides,
-            n_parents,
-            children,
-            n_combos,
-            state_off,
-            keys,
-            disc_off,
-            disc,
-            cell_off,
-            cell_keys,
-            unseen,
-            mean,
-            var,
-            kind,
-            gidx,
-            cards,
+        self._tables = ConditionalTables(
+            parents=pa,
+            strides=strides,
+            n_parents=n_parents,
+            children=children,
+            n_combos=n_combos,
+            state_off=state_off,
+            state_keys=keys,
+            disc_off=disc_off,
+            disc=disc,
+            cell_off=cell_off,
+            cell_keys=cell_keys,
+            cell_unseen=unseen,
+            mean=mean,
+            var=var,
+            kind=kind,
+            gidx=gidx,
+            cards=cards,
         )
 
     def _conditional(self, i):
@@ -311,21 +312,21 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         ``class_index * n_parent_combos + parent_key``, their training counts,
         and the log-probabilities of shape (n_states, n_values) of a discrete
         child or the mean and variance of a Gaussian one."""
-        _, _, _, children, _, state_off, keys, disc_off, disc = self._tables[:9]
-        cell_off, cell_keys, unseen, mean, var, kind, _, cards = self._tables[9:]
-        m = int(np.flatnonzero(children == i)[0])
-        lo, hi = state_off[m], state_off[m + 1]
-        out = {"keys": keys[lo:hi], "count": self._state_count[lo:hi]}
-        values = disc[disc_off[m] : disc_off[m + 1]]
-        if kind[i] == DISCRETE and cell_off[m + 1] > cell_off[m]:
+        t = self._tables
+        m = int(np.flatnonzero(t.children == i)[0])
+        lo, hi = t.state_off[m], t.state_off[m + 1]
+        out = {"keys": t.state_keys[lo:hi], "count": self._state_count[lo:hi]}
+        values = t.disc[t.disc_off[m] : t.disc_off[m + 1]]
+        card = t.cards[i]
+        if t.kind[i] == DISCRETE and t.cell_off[m + 1] > t.cell_off[m]:
             # Only the non-empty cells are stored
-            log_prob = np.repeat(unseen[lo:hi], cards[i])
-            log_prob[cell_keys[cell_off[m] : cell_off[m + 1]]] = values
-            out["log_prob"] = log_prob.reshape(-1, cards[i])
-        elif kind[i] == DISCRETE:
-            out["log_prob"] = values.reshape(-1, cards[i])
+            log_prob = np.repeat(t.cell_unseen[lo:hi], card)
+            log_prob[t.cell_keys[t.cell_off[m] : t.cell_off[m + 1]]] = values
+            out["log_prob"] = log_prob.reshape(-1, card)
+        elif t.kind[i] == DISCRETE:
+            out["log_prob"] = values.reshape(-1, card)
         else:
-            out["mean"], out["var"] = mean[lo:hi], var[lo:hi]
+            out["mean"], out["var"] = t.mean[lo:hi], t.var[lo:hi]
         return out
 
     def _joint_log_likelihood(self, X):
@@ -464,24 +465,25 @@ class _WeightedAugmentedNB:
         from the :meth:`_evaluation_inputs` of the samples. A category or
         parent value never seen in training gets -1, a key no weight is
         trained for."""
-        codes, _, _, pcodes, punseen = inputs
+        codes = inputs.codes
         dims = _LEVEL_DIMS["factor"][self.weight_level]
-        pa, strides, n_parents, children, n_combos = self._tables[:5]
+        t = self._tables
         kind, _, _, cards = self._layout()
         if {"parents", "value"} <= set(dims) and np.any(
-            n_combos * cards[children].astype(float) >= 2**62
+            t.n_combos * cards[t.children].astype(float) >= 2**62
         ):
             raise ValueError(
                 "The parent states and values of an attribute exceed a 64-bit"
                 " index; use a lower weight_level, fewer parents or fewer bins."
             )
-        keys = np.zeros((len(codes), 1 + len(children)), dtype=np.int64)
-        for m, j in enumerate(children):
+        keys = np.zeros((len(codes), 1 + len(t.children)), dtype=np.int64)
+        for m, j in enumerate(t.children):
             unseen = np.zeros(len(codes), dtype=bool)
-            if "parents" in dims and n_parents[m]:
-                p = pa[m, : n_parents[m]]
-                keys[:, 1 + m] = pcodes[:, p] @ strides[m, : n_parents[m]]
-                unseen |= punseen[:, p].any(axis=1)
+            n_parents = t.n_parents[m]
+            if "parents" in dims and n_parents:
+                p = t.parents[m, :n_parents]
+                keys[:, 1 + m] = inputs.pcodes[:, p] @ t.strides[m, :n_parents]
+                unseen |= inputs.punseen[:, p].any(axis=1)
             # The value of a Gaussian child is not discretized
             if "value" in dims and kind[j] == DISCRETE:
                 keys[:, 1 + m] = keys[:, 1 + m] * cards[j] + codes[:, j]

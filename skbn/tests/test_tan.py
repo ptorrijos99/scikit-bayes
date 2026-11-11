@@ -388,7 +388,7 @@ def test_high_cardinality_matches_reference():
     )
     # Both layouts are in use: some discrete children keep only their
     # non-empty cells, others the dense table
-    cell_off, disc_off = model._tables[9], model._tables[7]
+    cell_off, disc_off = model._tables.cell_off, model._tables.disc_off
     sparse = np.diff(cell_off) > 0
     assert sparse.any() and not sparse.all()
     assert np.all(np.diff(disc_off)[sparse] <= len(y))
