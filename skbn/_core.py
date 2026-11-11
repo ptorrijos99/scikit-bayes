@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import warnings
+from numbers import Number
 
 import numpy as np
 import sklearn
@@ -11,6 +12,7 @@ from scipy.optimize import minimize
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.utils.fixes import parse_version
+from sklearn.utils.validation import check_array, check_X_y, validate_data
 from threadpoolctl import threadpool_limits
 
 from ._kernels import (
@@ -182,6 +184,257 @@ def _auto_type(col):
     if len(_unique_values(col)) <= _MAX_AUTO_CATEGORIES:
         return "categorical"
     return "gaussian"
+
+
+def _is_pandas_frame(X):
+    return hasattr(X, "dtypes") and hasattr(X, "iloc")
+
+
+def _column(X, j):
+    return X.iloc[:, j] if _is_pandas_frame(X) else X[:, j]
+
+
+def _is_category(col):
+    return getattr(col.dtype, "name", None) == "category"
+
+
+def _holds_labels(col, j, name):
+    """Whether the column ``col`` (``X[:, j]``) of dtype object, string or
+    category holds labels rather than numbers.
+
+    A pandas ``category`` column always does. Otherwise a column holds labels
+    when it holds strings; a column of numbers stored as objects is numeric,
+    as scikit-learn takes it. Strings mixed with numbers or with other
+    objects are rejected, and so are missing values among strings."""
+    if _is_category(col):
+        return True
+    values = col.to_numpy(dtype=object) if hasattr(col, "to_numpy") else col
+    types = set(map(type, values))
+    if not any(issubclass(t, str) for t in types):
+        return False
+    if all(issubclass(t, str) for t in types):
+        return True
+    missing = np.array([_is_missing(v) for v in values], dtype=bool)
+    other = {type(v) for v in values[~missing] if not isinstance(v, str)}
+    if other:
+        kinds = "numbers" if all(issubclass(t, Number) for t in other) else "objects"
+        # The words of the error that check_array raises on such objects,
+        # which scikit-learn's estimator checks look for
+        raise TypeError(
+            f"Column {j} of X mixes strings with {kinds}"
+            f" ({', '.join(sorted(t.__name__ for t in other))}): every argument"
+            " must be a string or a number, and one column holds only one kind."
+        )
+    _raise_missing(j, name)
+
+
+def _is_missing(value):
+    """Whether ``value`` is None, NaN or a pandas missing value."""
+    return (
+        value is None
+        or (isinstance(value, float) and value != value)
+        or type(value).__name__ in ("NAType", "NaTType")
+    )
+
+
+def _raise_missing(j, name):
+    raise ValueError(
+        f"Input X contains missing values (None or NaN) in its non-numeric column"
+        f" {j}.\n{name} does not support missing values yet; impute them first,"
+        " for example with sklearn.impute.SimpleImputer(strategy='most_frequent')."
+    )
+
+
+def _label_columns(X, name):
+    """Indices of the columns of ``X`` that hold labels (see
+    :func:`_holds_labels`), found from the dtypes alone unless a column has
+    dtype object. Empty for numeric arrays, sparse matrices and anything that
+    is not a pandas DataFrame or a NumPy array."""
+    if _is_pandas_frame(X):
+        return [
+            j
+            for j, dtype in enumerate(X.dtypes)
+            if dtype.kind in "OSU" and _holds_labels(X.iloc[:, j], j, name)
+        ]
+    if not isinstance(X, np.ndarray) or X.ndim != 2 or X.dtype.kind not in "OSU":
+        return []
+    if X.dtype.kind in "SU":
+        return list(range(X.shape[1]))
+    return [j for j in range(X.shape[1]) if _holds_labels(X[:, j], j, name)]
+
+
+class _LabelEncoder:
+    """Integer codes of the columns of ``X`` that hold labels: the position of
+    the label among the sorted labels of the column seen in training, -1 for
+    any other label.
+
+    A pandas ``category`` column is encoded by its labels too, not by the
+    order of its categories, so that the codes do not depend on that order
+    and categories absent from the training rows get no code.
+
+    Attributes
+    ----------
+    columns : list of int
+        The columns that hold labels.
+    labels : list of ndarray of object
+        Sorted training labels of each of them.
+    """
+
+    def __init__(self, columns):
+        self.columns = columns
+
+    def fit_transform(self, X, name):
+        self.labels, codes = [], []
+        for j in self.columns:
+            col = _column(X, j)
+            if _is_category(col):
+                cat_codes = col.cat.codes.to_numpy()
+                if np.any(cat_codes < 0):
+                    _raise_missing(j, name)
+                seen = np.unique(cat_codes)
+                values = col.cat.categories.to_numpy(dtype=object)[seen]
+                order = _label_order(values, j)
+                table = np.full(len(col.cat.categories), -1, dtype=np.int64)
+                table[seen[order]] = np.arange(len(seen))
+                self.labels.append(values[order])
+                codes.append(table[cat_codes])
+            else:
+                values = col.to_numpy(dtype=object) if hasattr(col, "to_numpy") else col
+                labels, inverse = np.unique(values, return_inverse=True)
+                self.labels.append(labels.astype(object))
+                codes.append(inverse.reshape(-1).astype(np.int64))
+        self._index = [{v: k for k, v in enumerate(lab)} for lab in self.labels]
+        return self._replace(X, codes)
+
+    def transform(self, X, name):
+        codes = []
+        for j, index in zip(self.columns, self._index):
+            col = _column(X, j)
+            if _is_category(col):
+                cat_codes = col.cat.codes.to_numpy()
+                if np.any(cat_codes < 0):
+                    _raise_missing(j, name)
+                table = np.array(
+                    [index.get(v, -1) for v in col.cat.categories], dtype=np.int64
+                )
+                codes.append(table[cat_codes])
+            else:
+                values = col.to_numpy(dtype=object) if hasattr(col, "to_numpy") else col
+                codes.append(
+                    np.fromiter(
+                        (index.get(v, -1) for v in values), np.int64, len(values)
+                    )
+                )
+        return self._replace(X, codes)
+
+    def _replace(self, X, codes):
+        """``X`` with the columns ``columns`` replaced by ``codes``, in a
+        container that ``check_array`` converts as it would the codes given
+        by the user."""
+        if _is_pandas_frame(X):
+            X = X.copy(deep=False)
+            for j, c in zip(self.columns, codes):
+                X.isetitem(j, c)
+            return X
+        if X.dtype.kind in "SU":
+            return np.column_stack(codes)
+        X = X.copy()
+        for j, c in zip(self.columns, codes):
+            X[:, j] = c
+        return X
+
+
+def _label_order(values, j):
+    try:
+        return np.argsort(values, kind="stable")
+    except TypeError:
+        raise TypeError(
+            f"The categories of column {j} of X cannot be sorted: every argument"
+            " must be a string or a number, and one column holds only one kind."
+        ) from None
+
+
+def _validate_input(estimator, X, y="no_validation", reset=True):
+    """:func:`~sklearn.utils.validation.validate_data` for the classifiers,
+    which also take columns of labels.
+
+    Columns that hold labels (pandas ``category`` columns and columns of
+    strings, see :func:`_label_columns`) are replaced by the codes of a
+    :class:`_LabelEncoder`, fitted when ``reset`` and kept in
+    ``estimator._label_encoder``; their indices are then those of
+    :func:`_label_feature_indices`. Input without such columns, the common
+    case, goes to ``validate_data`` as is, so that its validation, errors and
+    cost do not change.
+    """
+    name = type(estimator).__name__
+    encoder = None if reset else getattr(estimator, "_label_encoder", None)
+    if isinstance(X, (list, tuple)):
+        # Converted only to look for labels (NumPy would turn the numbers of
+        # a list that also holds strings into strings)
+        try:
+            array = np.asarray(X)
+            if array.dtype.kind in "SU":
+                array = np.asarray(X, dtype=object)
+        except (TypeError, ValueError):
+            array = None
+        if array is not None and array.dtype.kind in "OSU":
+            X = array
+    columns = _label_columns(X, name)
+    if encoder is None and not columns:
+        if reset:
+            estimator._label_encoder = None
+        return validate_data(estimator, X, y, reset=reset)
+    if encoder is None and not reset:
+        raise ValueError(
+            f"X has non-numeric values in the columns {columns}, but {name} was"
+            " fitted on numeric columns only."
+        )
+
+    # The feature names and their number, checked on X as given
+    validate_data(estimator, X, y, reset=reset, skip_check_array=True)
+    if reset:
+        encoder = estimator._label_encoder = _LabelEncoder(columns)
+        X = encoder.fit_transform(X, name)
+    elif columns != encoder.columns:
+        raise ValueError(
+            f"The columns of X that hold labels (strings or pandas categories)"
+            f" must be those that held them in fit, {encoder.columns}; got"
+            f" {columns}. Pass labels, not their codes, to these columns, and"
+            " numbers to the others."
+        )
+    else:
+        X = encoder.transform(X, name)
+    if isinstance(y, str) and y == "no_validation":
+        return check_array(X, input_name="X", estimator=estimator)
+    return check_X_y(X, y, estimator=estimator)
+
+
+def _label_feature_indices(estimator):
+    """Columns that held labels when ``estimator`` was fitted, which are
+    discrete whatever their values."""
+    encoder = getattr(estimator, "_label_encoder", None)
+    return [] if encoder is None else list(encoder.columns)
+
+
+def _check_label_types(label_columns, gaussian_features):
+    """Raise when a column of labels is declared Gaussian."""
+    bad = sorted(set(label_columns) & set(gaussian_features))
+    if bad:
+        raise ValueError(
+            f"The features {bad} hold labels (strings or pandas categories) and"
+            " cannot be in gaussian_features: they are categorical unless"
+            " declared Bernoulli."
+        )
+
+
+class _LabelInputMixin:
+    """Tags of the classifiers, which take strings through
+    :func:`_validate_input`."""
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.string = True
+        return tags
 
 
 def _row_chunks(n_rows, row_size):
