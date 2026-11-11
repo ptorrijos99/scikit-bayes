@@ -94,16 +94,15 @@ def test_unit_weights_reproduce_the_generative_model(
     assert _parents(model) == _parents(generative)
 
     # The test rows reach states never seen in training
-    codes, _, _, pcodes, punseen = model._evaluation_inputs(X_test)
-    pa, strides, n_parents, children, n_combos, state_off, keys = model._tables[:7]
+    inputs, t = model._evaluation_inputs(X_test), model._tables
     n_unseen = 0
-    for m in np.flatnonzero(n_parents):
-        p = pa[m, : n_parents[m]]
-        key = pcodes[:, p] @ strides[m, : n_parents[m]]
-        seen = keys[state_off[m] : state_off[m + 1]]
+    for m in np.flatnonzero(t.n_parents):
+        p = t.parents[m, : t.n_parents[m]]
+        key = inputs.pcodes[:, p] @ t.strides[m, : t.n_parents[m]]
+        seen = t.state_keys[t.state_off[m] : t.state_off[m + 1]]
         for c in range(3):
-            n_unseen += np.sum(~np.isin(c * n_combos[m] + key, seen))
-        n_unseen += punseen[:, p].any(axis=1).sum()
+            n_unseen += np.sum(~np.isin(c * t.n_combos[m] + key, seen))
+        n_unseen += inputs.punseen[:, p].any(axis=1).sum()
     assert n_unseen > 0
 
     model.learned_weights_ = np.ones(model.n_weights_)
@@ -180,7 +179,7 @@ def test_unseen_parent_value_takes_the_untrained_weight():
     X_test = X[:5].copy()
     X_test[:, 3] = 7.0  # never seen
     index = _training_design(model, X_test, np.zeros(len(X_test)))[1]
-    children = model._tables[3]
+    children = model._tables.children
     has_parent_3 = [1 + m for m, i in enumerate(children) if 3 in model.parents_[i]]
     assert has_parent_3
     assert np.all(index[:, :, has_parent_3] == model.n_weights_ - 1)
