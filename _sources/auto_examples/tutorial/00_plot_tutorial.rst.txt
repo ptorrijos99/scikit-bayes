@@ -395,15 +395,15 @@ compilation; they are approximate and depend on the machine.
  .. code-block:: none
 
                           accuracy  log loss  fit time (s)
-    MixedNB                  0.854     0.339         0.002
-    TAN                      0.936     0.226         0.003
-    KDB                      0.931     0.210         0.003
-    WeightedTAN              0.963     0.114         0.013
-    WeightedKDB              0.956     0.117         0.012
-    ALR                      0.987     0.112         0.011
-    LogisticRegression       0.910     0.229         0.010
-    RandomForest             0.960     0.184         0.065
-    HistGradientBoosting     0.987     0.033         0.246
+    MixedNB                  0.854     0.339         0.004
+    TAN                      0.936     0.226         0.005
+    KDB                      0.931     0.210         0.005
+    WeightedTAN              0.963     0.114         0.028
+    WeightedKDB              0.956     0.117         0.027
+    ALR                      0.987     0.112         0.024
+    LogisticRegression       0.910     0.229         0.021
+    RandomForest             0.960     0.184         0.132
+    HistGradientBoosting     0.987     0.033         0.439
 
 
 
@@ -1501,7 +1501,7 @@ column. The :ref:`user guide <user_guide>` describes these cases.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 12.793 seconds)
+   **Total running time of the script:** (0 minutes 21.002 seconds)
 
 
 .. _sphx_glr_download_auto_examples_tutorial_00_plot_tutorial.py:
