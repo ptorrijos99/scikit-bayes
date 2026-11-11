@@ -39,3 +39,17 @@ def test_every_estimator_imports_from_its_module(module, name):
     estimator = getattr(import_module(module), name)
     assert estimator is getattr(skbn, name)
     assert estimator.__module__ == module
+
+
+@pytest.mark.parametrize(
+    "module, name",
+    [
+        ("skbn.ande", "_Ensemble"),
+        ("skbn._kernels", "SPnDETables"),
+        ("skbn._kernels", "ConditionalTables"),
+    ],
+)
+def test_the_classes_of_fitted_attributes_keep_their_pickled_paths(module, name):
+    # Models pickled before the classes of their fitted attributes moved
+    # find them where they were
+    assert hasattr(import_module(module), name)
