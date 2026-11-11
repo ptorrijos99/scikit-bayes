@@ -203,18 +203,13 @@ plt.show()
 # parents ``k`` and the penalty ``l2_reg`` of :class:`~skbn.WeightedKDB`,
 # the penalty of :class:`~skbn.ALR` and the inverse penalty ``C`` of
 # logistic regression. The random forest and gradient boosting keep their
-# defaults. The weights of WeightedKDB are optimized with L-BFGS-B, which
-# stops after ``max_iter=100`` iterations by default; a small penalty
-# leaves the objective flatter, the optimizer needs more iterations, and
-# it stops at that limit with a
-# :class:`~sklearn.exceptions.ConvergenceWarning` on these data, so the
-# limit is raised. (ALR already allows 10,000 iterations.)
+# defaults.
 
 from sklearn.model_selection import GridSearchCV
 
 searches = {
     "WeightedKDB": GridSearchCV(
-        WeightedKDB(max_iter=1000), {"k": [1, 2, 3], "l2_reg": [0.01, 0.1, 1]}
+        WeightedKDB(), {"k": [1, 2, 3], "l2_reg": [0.01, 0.1, 1]}
     ),
     "ALR": GridSearchCV(ALR(), {"l2_reg": [0, 0.1, 1, 10]}),
     "LogisticRegression": GridSearchCV(

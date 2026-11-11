@@ -50,28 +50,32 @@ models_config = [
     ("AnDE", lambda: AnDE(n_dependence=1), "#0072B2", "-", "o"),
     (
         "Component weights, level 3",
-        lambda: WeightedAnDE(weight_level=3, l2_reg=1e-3),
+        lambda: WeightedAnDE(weight_level=3, l2_reg=1e-3, max_iter=100),
         "#CC79A7",
         "-",
         "s",
     ),
     (
         "Component weights, level 4",
-        lambda: WeightedAnDE(weight_level=4, l2_reg=1e-3),
+        lambda: WeightedAnDE(weight_level=4, l2_reg=1e-3, max_iter=100),
         "#CC79A7",
         "--",
         "D",
     ),
     (
         "Factor weights, level 3",
-        lambda: WeightedAnDE(weight_scope="factor", weight_level=3, l2_reg=1e-3),
+        lambda: WeightedAnDE(
+            weight_scope="factor", weight_level=3, l2_reg=1e-3, max_iter=100
+        ),
         "#7E2F8E",
         "-",
         "^",
     ),
     (
         "Factor weights, level 4",
-        lambda: WeightedAnDE(weight_scope="factor", weight_level=4, l2_reg=1e-3),
+        lambda: WeightedAnDE(
+            weight_scope="factor", weight_level=4, l2_reg=1e-3, max_iter=100
+        ),
         "#7E2F8E",
         "--",
         "v",

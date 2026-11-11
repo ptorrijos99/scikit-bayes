@@ -486,7 +486,7 @@ class WeightedKDB(_WeightedAugmentedNB, KDB):
         Non-negative L2 regularization towards the generative solution
         (``w = 1``), added to the summed conditional log-likelihood.
 
-    max_iter : int, default=100
+    max_iter : int, default=1000
         Maximum number of L-BFGS-B iterations (at least 1). A
         :class:`~sklearn.exceptions.ConvergenceWarning` is raised at the end of
         :meth:`fit` when L-BFGS-B stops at ``max_iter`` before converging;
@@ -627,7 +627,7 @@ class WeightedKDB(_WeightedAugmentedNB, KDB):
         n_jobs=None,
         weight_level=4,
         l2_reg=1.0,
-        max_iter=100,
+        max_iter=1000,
         tol=None,
         continuous_children="gaussian",
     ):

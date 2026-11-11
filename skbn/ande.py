@@ -525,7 +525,7 @@ class WeightedAnDE(AnDE):
         Non-negative L2 regularization towards the generative solution
         (``w = 1``), added to the summed conditional log-likelihood.
 
-    max_iter : int, default=100
+    max_iter : int, default=1000
         Maximum number of L-BFGS-B iterations (at least 1); with
         ``modular=True`` it applies to the fit of each component. A
         :class:`~sklearn.exceptions.ConvergenceWarning` is raised at the end of
@@ -672,7 +672,7 @@ class WeightedAnDE(AnDE):
         weight_scope="component",
         weight_level=1,
         l2_reg=1.0,
-        max_iter=100,
+        max_iter=1000,
         tol=None,
         modular=False,
         continuous_children="gaussian",
