@@ -7,7 +7,7 @@
 [![DOI](https://zenodo.org/badge/1081042310.svg)](https://doi.org/10.5281/zenodo.23950884)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green.svg)](LICENSE)
 
-scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model follows the scikit-learn estimator API, so it works in pipelines, cross-validation and grid search, and takes tables that mix continuous, categorical and binary attributes. Counting and prediction run in compiled Numba kernels.
+scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model follows the scikit-learn estimator API, so it works in pipelines, cross-validation and grid search, and takes tables that mix continuous, categorical and binary attributes, including pandas DataFrames with columns of strings or of `category` dtype. Counting and prediction run in compiled Numba kernels.
 
 ## Models
 

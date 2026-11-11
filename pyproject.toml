@@ -65,6 +65,10 @@ Issues = "https://github.com/ptorrijos99/scikit-bayes/issues"
 include = ["skbn*"]
 namespaces = false
 
+# The reference outputs of the tests, which run on the installed package
+[tool.setuptools.package-data]
+"skbn.tests.data" = ["*.json"]
+
 [tool.setuptools_scm]
 version_file = "skbn/_version.py"
 
