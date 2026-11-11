@@ -107,7 +107,9 @@ print(nb.categories_)
 # accuracy and on log loss, which also judges the probabilities (lower is
 # better). Every model keeps its default parameters, except a higher
 # ``max_iter`` for :class:`~skbn.WeightedAnDE`, whose optimizer needs 104
-# iterations on one of the folds.
+# iterations on one of the folds, and a second AODE that discretizes every
+# continuous attribute into MDL intervals instead of giving it a Gaussian
+# conditional (``continuous_children="discretized"``).
 #
 # Three scikit-learn baselines need encodings that the library does
 # without: :class:`~sklearn.naive_bayes.GaussianNB` sees the numeric columns
@@ -137,6 +139,7 @@ codes = make_column_transformer((OrdinalEncoder(), labels), remainder="passthrou
 models = {
     "MixedNB": MixedNB(),
     "AnDE (AODE)": AnDE(),
+    "AnDE, MDL intervals": AnDE(strategy="mdlp", continuous_children="discretized"),
     "TAN": TAN(),
     "KDB, k = 2": KDB(k=2),
     "WeightedAnDE": WeightedAnDE(max_iter=200),
@@ -148,7 +151,8 @@ models = {
 }
 # One colour per model of the library, as in the other examples, and one
 # for the three baselines
-library = ["#6E6E6E", "#0072B2", "#E69F00", "#332288", "#CC79A7", "#EE6677", "#D55E00"]
+library = ["#6E6E6E", "#0072B2", "#56B4E9", "#E69F00", "#332288", "#CC79A7", "#EE6677"]
+library.append("#D55E00")
 colors = dict(zip(models, library))
 BASELINE = "#1A1A1A"
 
@@ -195,7 +199,11 @@ plt.show()
 # so that each of its errors costs much. The models that relax the
 # independence assumption do better, AODE (0.47), KDB (0.29) and TAN
 # (0.27), and their weighted versions better still, WeightedAnDE (0.25) and
-# WeightedTAN (0.21). :class:`~skbn.ALR` is the worst, at 1.94, with
+# WeightedTAN (0.21). The Gaussian conditionals are part of the problem:
+# these measurements are skewed, and AODE on MDL intervals has the best
+# accuracy (0.960) and the best log loss (0.195) of the library, less than
+# half that of AODE with Gaussian children. :class:`~skbn.ALR` is the
+# worst, at 1.94, with
 # defaults that reproduce the protocol of its paper: no penalty on the
 # weights of its 465 pairs of attributes, here fitted on about 340 rows (the
 # :ref:`user guide <choosing_a_model>` discusses its parameters). Two
