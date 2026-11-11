@@ -308,10 +308,11 @@ def test_unseen_parent_category_is_uninformed(categorical_data):
     X_test = X[:3].copy()
     X_test[:, first] = 7  # never seen; every other attribute has it as parent
     jll = model._joint_log_likelihood(X_test)
-    nb_ll = model.backoff_._feature_log_likelihood(X_test)[:, :, first]
+    first_nb = MixedNB().fit(X[:, [first]], y)
     cards = model.backoff_._cat_cardinalities
     children = [i for i in range(X.shape[1]) if i != first]
-    expected = model.backoff_.class_log_prior_ + nb_ll - np.log(cards[children]).sum()
+    expected = first_nb._joint_log_likelihood(X_test[:, [first]])
+    expected -= np.log(cards[children]).sum()
     np.testing.assert_allclose(jll, expected, atol=1e-12)
     assert np.all(np.isfinite(model.predict_proba(X_test)))
 
