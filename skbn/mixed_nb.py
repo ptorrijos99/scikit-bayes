@@ -502,6 +502,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         C : ndarray of shape (n_samples,)
             Predicted target values for X.
         """
+        # predict_log_proba validates X; validated twice, a DataFrame would
+        # reach the second check as an array and warn about feature names
         check_is_fitted(self, attributes=["classes_", "estimators_"])
-        X = validate_data(self, X, reset=False)
         return self.classes_[np.argmax(self.predict_log_proba(X), axis=1)]

@@ -3,6 +3,8 @@
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
+import warnings
+
 import numpy as np
 import pytest
 from sklearn.naive_bayes import BernoulliNB, CategoricalNB, GaussianNB
@@ -107,3 +109,16 @@ def test_category_encoding_matches_unique_and_searchsorted(make_col):
         expected_codes, expected_mask = _searchsorted_codes(test, reference)
         np.testing.assert_array_equal(codes, expected_codes)
         np.testing.assert_array_equal(mask, expected_mask)
+
+
+def test_predict_on_a_dataframe_does_not_warn_about_feature_names():
+    # predict validates X once: a second check would see the array that the
+    # first one returned, without the feature names of the DataFrame
+    pd = pytest.importorskip("pandas")
+    rng = np.random.default_rng(0)
+    X = pd.DataFrame(rng.normal(size=(30, 2)), columns=["a", "b"])
+    y = rng.integers(0, 2, 30)
+    model = MixedNB().fit(X, y)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        model.predict(X)
