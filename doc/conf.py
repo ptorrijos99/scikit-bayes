@@ -133,6 +133,7 @@ sphinx_gallery_conf = {
     "filename_pattern": "plot_",
     # One section per folder, in this order; examples sorted by file name
     "subsection_order": [
+        "../examples/tutorial",
         "../examples/mixednb",
         "../examples/ande",
         "../examples/anje",

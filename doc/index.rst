@@ -12,6 +12,7 @@ scikit-bayes
 `Source Repository <https://github.com/ptorrijos99/scikit-bayes>`__ |
 `Issues & Ideas <https://github.com/ptorrijos99/scikit-bayes/issues>`__ |
 :ref:`Installation <install>` |
+:ref:`Tutorial <sphx_glr_auto_examples_tutorial_00_plot_tutorial.py>` |
 :ref:`Citing <citing>` |
 `Changelog <https://github.com/ptorrijos99/scikit-bayes/blob/main/CHANGELOG.md>`__ |
 `Contributing <https://github.com/ptorrijos99/scikit-bayes/blob/main/CONTRIBUTING.md>`__ |
@@ -101,6 +102,26 @@ categorical and binary attributes.
 
             To the gallery of examples
 
+.. grid:: 1
+    :gutter: 4
+    :padding: 2 2 0 0
+    :class-container: sd-text-center
+
+    .. grid-item-card::  Tutorial
+        :class-card: intro-card
+        :shadow: md
+
+        One problem on real data, from a pandas DataFrame to the fitted
+        network: model comparison, tuning, reading the model and evaluation.
+
+        .. button-ref:: sphx_glr_auto_examples_tutorial_00_plot_tutorial.py
+            :ref-type: ref
+            :click-parent:
+            :color: secondary
+            :expand:
+
+            To the tutorial
+
 
 .. toctree::
     :maxdepth: 3
@@ -109,6 +130,7 @@ categorical and binary attributes.
 
     install
     quick_start
+    Tutorial <auto_examples/tutorial/00_plot_tutorial>
     user_guide
     api
     auto_examples/index
