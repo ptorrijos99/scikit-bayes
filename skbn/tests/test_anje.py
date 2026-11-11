@@ -4,6 +4,7 @@ factors of the SPnDEs) against the formulas of Zaidi et al. (2016)."""
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
+import warnings
 from itertools import combinations
 from math import comb
 
@@ -13,6 +14,7 @@ from numpy.testing import assert_allclose, assert_array_equal
 from scipy.special import logsumexp
 from sklearn.base import clone
 from sklearn.datasets import load_iris
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.naive_bayes import GaussianNB
 
 from skbn import ALR, AnJE, GaussianALR, GaussianAnJE
@@ -85,18 +87,37 @@ def test_anje_with_more_join_size_than_features_uses_the_full_join(discrete_data
     assert_allclose(full.predict_proba(X), expected)
 
 
-def test_anje_unseen_value_falls_in_an_empty_cell(discrete_data):
+def test_unseen_value_leaves_out_its_joins(discrete_data):
     X, y = discrete_data
     model = AnJE(n_join=2).fit(X, y)
     x_new = np.array([[7, 1, 2, 0]])  # value 7 of attribute 0 never seen
     counts = np.bincount(y, minlength=3)
     expected = np.log((counts + 1 / 3) / (len(y) + 1))
     for alpha in combinations(range(4), 2):
-        if 0 in alpha:  # m-estimate of a cell with no counts, |X_alpha| = 9
-            expected = expected + np.log((1 / 9) / (counts + 1)) / 3
-        else:
+        if 0 not in alpha:
             expected = expected + _log_cond(X, y, list(alpha), x_new, 1.0) / 3
     assert_allclose(model.predict_log_proba(x_new), _normalize(expected), atol=1e-10)
+
+
+@pytest.mark.parametrize("Model", [AnJE, ALR])
+def test_unseen_value_does_not_favour_the_rare_class(Model):
+    # The estimate of an empty cell is 1 / (#y + m) per class: scoring an
+    # unseen value with it would cancel the class prior (in ALR, once per join)
+    rng = np.random.RandomState(0)
+    X = rng.randint(0, 3, size=(600, 5))
+    y = (rng.uniform(size=600) < 0.1).astype(int)  # attributes carry no signal
+    model = Model(n_join=2).set_params(**({"max_iter": 5} if Model is ALR else {}))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", ConvergenceWarning)
+        model.fit(X, y)
+    X_new = X[:50].copy()
+    X_new[:, 2] = 9
+    assert abs(model.predict_proba(X_new)[:, 1].mean() - y.mean()) < 0.05
+    # and several chunks of samples give the same scores as one
+    assert_allclose(
+        model.predict_log_proba(np.vstack([X_new, X[:50]]))[:50],
+        model.predict_log_proba(X_new),
+    )
 
 
 def test_anje_solves_categorical_xor():
@@ -159,7 +180,7 @@ def test_alr_weight_counts(discrete_data):
 def test_alr_gradient_matches_finite_differences(discrete_data, level):
     X, y = discrete_data
     model = ALR(n_join=2, weight_level=level, max_iter=1).fit(X, y)
-    codes_t = model._transform_codes(X)
+    codes_t = model._transform_codes(*model._encoder.transform(X))
     theta = np.random.RandomState(1).uniform(0.5, 1.5, size=model.n_weights_)
     _, grad = model._nll_and_grad(theta, codes_t, y)
     assert_gradient(lambda t: model._nll_and_grad(t, codes_t, y)[0], theta, grad)
@@ -250,7 +271,7 @@ def test_two_class_alr_objective_matches_the_predictions(cached):
     X = rng.randint(0, 3, size=(301, 5))
     y = (X[:, 0] + X[:, 1] * X[:, 2] + rng.randint(0, 2, 301)) % 2
     model = ALR(n_join=2, max_iter=1).fit(X, y)
-    codes_t = model._transform_codes(X)
+    codes_t = model._transform_codes(*model._encoder.transform(X))
     rows = join_rows(codes_t, *model._cell_args(), True) if cached else None
     theta = np.random.RandomState(1).uniform(0.5, 1.5, size=model.n_weights_)
     nll, grad = model._nll_and_grad(theta, codes_t, y, rows)

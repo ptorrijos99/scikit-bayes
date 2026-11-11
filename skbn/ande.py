@@ -391,8 +391,12 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         super-parents (at least 2). Children remain continuous and are modeled
         by Gaussian distributions.
 
-    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+    strategy : {'uniform', 'quantile', 'kmeans', 'mdlp'}, default='quantile'
         Strategy used for the discretization of super-parents.
+        ``'mdlp'`` places the cuts with the supervised entropy
+        discretization of Fayyad and Irani (see :class:`MDLPDiscretizer`),
+        which chooses the number of bins of each attribute, so ``n_bins`` is
+        not used.
 
     alpha : float, default=1.0
         Non-negative Laplace smoothing of the estimates of the SPnDEs and of
@@ -465,7 +469,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
     _parameter_constraints: dict = {
         "n_dependence": [Interval(Integral, 0, None, closed="left")],
         "n_bins": [Interval(Integral, 2, None, closed="left")],
-        "strategy": [StrOptions({"uniform", "quantile", "kmeans"})],
+        "strategy": [StrOptions({"uniform", "quantile", "kmeans", "mdlp"})],
         "alpha": [Interval(Real, 0, None, closed="left")],
         "n_jobs": [Integral, None],
         "categorical_features": ["array-like", None],
@@ -563,13 +567,13 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         )
         # The codes of the training samples, in 16 bits for nearly every
         # dataset (a single type, so that the kernels compile once)
-        widest = max([self.n_bins, 2] + [len(c) for c in self.backoff_.categories_])
-        code_type = np.uint16 if widest <= 1 << 16 else np.int32
         parent_codes = self._encoder.fit_transform(
             X,
+            y_int,
             known=(types["categorical"], self.backoff_.categories_, cat_codes),
-            dtype=code_type,
+            dtype=None,
         )
+        code_type = parent_codes.dtype
         gauss = types["gaussian"]
         Xg = np.asarray(X[:, gauss], dtype=float) if gauss else np.zeros((len(X), 0))
         self._pooled_mean = Xg.mean(axis=0) if gauss else np.zeros(0)
@@ -1015,8 +1019,12 @@ class AnDE(_BaseAnDE):
         super-parents (at least 2). Children remain continuous and are modeled
         by Gaussian distributions.
 
-    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+    strategy : {'uniform', 'quantile', 'kmeans', 'mdlp'}, default='quantile'
         Strategy used for the discretization of super-parents.
+        ``'mdlp'`` places the cuts with the supervised entropy
+        discretization of Fayyad and Irani (see :class:`MDLPDiscretizer`),
+        which chooses the number of bins of each attribute, so ``n_bins`` is
+        not used.
 
     alpha : float, default=1.0
         Non-negative Laplace smoothing of the estimates of the SPnDEs and of
@@ -1317,8 +1325,12 @@ class WeightedAnDE(AnDE):
         super-parents (at least 2). Children remain continuous and are modeled
         by Gaussian distributions.
 
-    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+    strategy : {'uniform', 'quantile', 'kmeans', 'mdlp'}, default='quantile'
         Strategy used for the discretization of super-parents.
+        ``'mdlp'`` places the cuts with the supervised entropy
+        discretization of Fayyad and Irani (see :class:`MDLPDiscretizer`),
+        which chooses the number of bins of each attribute, so ``n_bins`` is
+        not used.
 
     alpha : float, default=1.0
         Non-negative additive (Laplace/Lidstone) smoothing parameter for the

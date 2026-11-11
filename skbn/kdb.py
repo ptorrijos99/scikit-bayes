@@ -157,8 +157,12 @@ class KDB(_BaseAugmentedNB):
         structure learning and when they act as parents. Continuous children
         remain continuous.
 
-    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+    strategy : {'uniform', 'quantile', 'kmeans', 'mdlp'}, default='quantile'
         Strategy used for the discretization of continuous attributes.
+        ``'mdlp'`` places the cuts with the supervised entropy
+        discretization of Fayyad and Irani (see :class:`MDLPDiscretizer`),
+        which chooses the number of bins of each attribute, so ``n_bins`` is
+        not used.
 
     alpha : float, default=1.0
         Non-negative additive (Laplace/Lidstone) smoothing parameter for the
@@ -255,7 +259,7 @@ class KDB(_BaseAugmentedNB):
     _parameter_constraints: dict = {
         "k": [Interval(Integral, 0, None, closed="left")],
         "n_bins": [Interval(Integral, 2, None, closed="left")],
-        "strategy": [StrOptions({"uniform", "quantile", "kmeans"})],
+        "strategy": [StrOptions({"uniform", "quantile", "kmeans", "mdlp"})],
         "alpha": [Interval(Real, 0, None, closed="left")],
         "categorical_features": ["array-like", None],
         "bernoulli_features": ["array-like", None],

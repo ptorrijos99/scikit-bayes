@@ -4,6 +4,21 @@ All notable changes to scikit-bayes are listed here. The project follows [semant
 
 ## Unreleased
 
+### New
+
+- `strategy="mdlp"` in every model that discretizes (`AnDE`, `WeightedAnDE`, `AnJE`, `ALR`, `GaussianAnJE`, `GaussianALR`, `TAN`, `KDB`): the continuous attributes are cut with the entropy discretization of Fayyad and Irani instead of `KBinsDiscretizer`, wherever the model discretizes them (every continuous attribute in `AnJE` and `ALR`; the super-parents and the structure in the others, whose continuous children stay Gaussian). It needs no pipeline and no declaration of types, and reproduces the discretization of the AnDE, ALR and TAN papers.
+
+### Changed
+
+- `AnJE` and `ALR`: a value never seen in training no longer falls in an empty cell of the n-joins that contain it; those joins are left out for that sample, as the other models leave out the attribute. The estimate of an empty cell, `(m / |X_alpha|) / (#y + m)`, depends on the class only through its size, so it multiplied the posterior by the inverse of the class counts: once in `AnJE`, which cancelled the class prior, and once per join in `ALR`. Predictions change only for samples with unseen values.
+- `MDLPDiscretizer(max_bins=...)` keeps the cuts that remove the most class entropy. It used to keep the first ones its depth-first search reached, which could all lie at one end of the range. Without `max_bins` the cut-points are the same.
+- The models no longer let through the warning of `KBinsDiscretizer` about bins that are too narrow, which named the wrong attribute; the number of bins left is in the fitted model as before.
+
+### Fixed
+
+- The user guide said that the codes of a discretizer in a pipeline are typed as categorical. With more than 20 intervals, which `MDLPDiscretizer` produces on large samples, they are typed as continuous and discretized again unless declared in `categorical_features`. The guide now says so and recommends `strategy="mdlp"`.
+- The docstring of `ALR` said that `w = 1` is the `AnJE`; it is the unaveraged product of the n-joins, as the user guide states.
+
 ### Performance
 
 - `TAN` and `KDB` on attributes of thousands of values: the conditional mutual information of a pair whose (class, value, value) table has more than four cells per training sample sums over its non-empty cells only, and a conditional whose (state, value) table would be that large keeps only its non-empty cells. The probabilities, the structure and the tables are the same as before. On one fold of KDD Cup 09 Upselling (11 attributes of more than 100 values, up to 13 333), with one CPU, TAN fits in 5.2 s instead of 101 s and peaks at 0.68 GB instead of 35 GB, and KDB with `k=2` fits in 5.6 s instead of 124 s and peaks at 0.70 GB instead of 52 GB. On Amazon Employee Access, TAN peaks at 0.31 GB instead of 2.7 GB. Data without such attributes fit as before.
