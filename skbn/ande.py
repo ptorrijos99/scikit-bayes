@@ -431,7 +431,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
 
     min_parent_count : int, default=1
         Minimum training frequency of a parent instantiation for its SPnDE to
-        take part in the prediction of an instance. Values below 1 behave as 1.
+        take part in the prediction of an instance. ``0`` behaves as 1.
 
     unseen_state : {"laplace", "backoff"}, default="laplace"
         Child conditionals used for an augmented state never seen in training.
@@ -540,11 +540,6 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             raise ValueError(
                 "n_dependence must be an integer between 0 and the number of"
                 f" features ({self.n_features_in_}), got {self.n_dependence!r}"
-            )
-        if self.unseen_state not in ("backoff", "laplace"):
-            raise ValueError(
-                "unseen_state must be 'backoff' or 'laplace', got"
-                f" {self.unseen_state!r}"
             )
 
         # --- 1. Class-level back-off model (Naive Bayes on the original class),
@@ -1060,7 +1055,7 @@ class AnDE(_BaseAnDE):
 
     min_parent_count : int, default=1
         Minimum training frequency of a parent instantiation for its SPnDE to
-        take part in the prediction of an instance. Values below 1 behave as 1.
+        take part in the prediction of an instance. ``0`` behaves as 1.
 
     unseen_state : {"laplace", "backoff"}, default="laplace"
         Child conditionals used for an augmented state never seen in training.
@@ -1175,10 +1170,6 @@ class AnDE(_BaseAnDE):
         self : object
             Returns the instance itself.
         """
-        if self.mean not in ("arithmetic", "geometric"):
-            raise ValueError(
-                f"mean must be 'arithmetic' or 'geometric', got {self.mean!r}"
-            )
         return super().fit(X, y)
 
     def predict_log_proba(self, X):
@@ -1367,7 +1358,7 @@ class WeightedAnDE(AnDE):
 
     min_parent_count : int, default=1
         Minimum training frequency of a parent instantiation for its SPnDE to
-        take part in the prediction of an instance. Values below 1 behave as 1.
+        take part in the prediction of an instance. ``0`` behaves as 1.
 
     unseen_state : {"laplace", "backoff"}, default="laplace"
         Child conditionals used for an augmented state never seen in training.
@@ -1792,18 +1783,6 @@ class WeightedAnDE(AnDE):
         self : object
             Returns the instance itself.
         """
-        if self.weight_scope not in _LEVEL_DIMS:
-            raise ValueError(
-                "weight_scope must be 'component' or 'factor', got"
-                f" {self.weight_scope!r}"
-            )
-        if self.weight_level not in _LEVEL_DIMS[self.weight_scope]:
-            raise ValueError(f"weight_level must be in 1..4, got {self.weight_level}")
-        if self.average not in ("joint", "posterior"):
-            raise ValueError(
-                f"average must be 'joint' or 'posterior', got {self.average!r}"
-            )
-
         # 1. Generative phase (pre-conditioning)
         super().fit(X, y)
 

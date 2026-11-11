@@ -29,7 +29,6 @@ References
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import numbers
 from itertools import combinations
 from math import comb
 from numbers import Integral, Real
@@ -231,8 +230,6 @@ class AnJE(ClassifierMixin, BaseEstimator):
         """Fit the tables and return the transposed training codes and the
         class indices."""
         X, y = validate_data(self, X, y)
-        if not isinstance(self.n_join, numbers.Integral) or self.n_join < 1:
-            raise ValueError(f"n_join must be a positive integer, got {self.n_join!r}")
         self.classes_ = unique_labels(y)
         y_idx = np.searchsorted(self.classes_, y)
         n_samples, n_features = X.shape
@@ -576,6 +573,8 @@ class ALR(AnJE):
 
     _parameter_constraints: dict = {
         **AnJE._parameter_constraints,
+        # An empty cell would have log-probability -inf
+        "alpha": [Interval(Real, 0, None, closed="neither")],
         "weight_level": [Interval(Integral, 1, 3, closed="both")],
         "l2_reg": [Interval(Real, 0, None, closed="left")],
         "max_iter": [Interval(Integral, 1, None, closed="left")],
@@ -631,12 +630,6 @@ class ALR(AnJE):
         self : object
             Returns the instance itself.
         """
-        if self.weight_level not in (1, 2, 3):
-            raise ValueError(f"weight_level must be 1, 2 or 3, got {self.weight_level}")
-        if not self.alpha > 0:
-            raise ValueError(
-                "ALR needs alpha > 0: an empty cell would have log-probability -inf"
-            )
         codes_t, y_idx = self._fit_generative(X, y)
         n_classes = len(self.classes_)
 
@@ -837,7 +830,7 @@ class GaussianAnJE(_BaseAnDE):
 
     min_parent_count : int, default=1
         Minimum training frequency of a parent instantiation for its SPnDE to
-        take part in the prediction of an instance. Values below 1 behave as 1.
+        take part in the prediction of an instance. ``0`` behaves as 1.
 
     unseen_state : {"laplace", "backoff"}, default="laplace"
         Child conditionals of an augmented state never seen in training (see
@@ -987,7 +980,7 @@ class GaussianALR(WeightedAnDE):
 
     min_parent_count : int, default=1
         Minimum training frequency of a parent instantiation for its SPnDE to
-        take part in the prediction of an instance. Values below 1 behave as 1.
+        take part in the prediction of an instance. ``0`` behaves as 1.
 
     unseen_state : {"laplace", "backoff"}, default="laplace"
         Child conditionals of an augmented state never seen in training (see
@@ -1073,6 +1066,8 @@ class GaussianALR(WeightedAnDE):
 
     _parameter_constraints: dict = {
         **_BaseAnDE._parameter_constraints,
+        # An unseen augmented state would have log-probability -inf
+        "alpha": [Interval(Real, 0, None, closed="neither")],
         "l2_reg": [Interval(Real, 0, None, closed="left")],
         "max_iter": [Interval(Integral, 1, None, closed="left")],
         "tol": [Interval(Real, 0, None, closed="left"), None],
@@ -1132,11 +1127,6 @@ class GaussianALR(WeightedAnDE):
         self : object
             Returns the instance itself.
         """
-        if not self.alpha > 0:
-            raise ValueError(
-                "GaussianALR needs alpha > 0: an unseen augmented state would"
-                " have log-probability -inf"
-            )
         return super().fit(X, y)
 
     def _design(self, X):
