@@ -6,21 +6,36 @@ All notable changes to scikit-bayes are listed here. The project follows [semant
 
 ### New
 
+- `WeightedTAN` and `WeightedKDB`: the weighted CCBN of Zaidi et al. (2017) on the structure and the conditionals of TAN and KDB. Exponent weights on the class prior and on every conditional are learned by maximising the conditional log-likelihood with L-BFGS-B, starting at and regularized towards the generative model (`l2_reg`). `weight_level` from 1 to 4 has the meaning it has for the factor weights of `WeightedAnDE`, and 4, one weight per parameter, is the default. With every weight at 1 they predict exactly as `TAN` and `KDB`, and `WeightedKDB(k=0)` fits the same weights as `WeightedAnDE(n_dependence=0, weight_scope="factor", mean="geometric")` when `var_prior_weight=0`. They reuse the compiled objective of `WeightedAnDE`; on 60 000 samples, 24 attributes and 3 classes, 20 iterations take 1.6 s and 0.1 GB over the generative fit.
+- `MDLPDiscretizer` and `DecisionTreeDiscretizer` have `get_feature_names_out` and support `set_output(transform="pandas")`.
+- Docstring examples for `AnDE`, `WeightedAnDE`, `AnJE`, `ALR`, `GaussianAnJE` and `GaussianALR`.
 - `strategy="mdlp"` in every model that discretizes (`AnDE`, `WeightedAnDE`, `AnJE`, `ALR`, `GaussianAnJE`, `GaussianALR`, `TAN`, `KDB`): the continuous attributes are cut with the entropy discretization of Fayyad and Irani instead of `KBinsDiscretizer`, wherever the model discretizes them (every continuous attribute in `AnJE` and `ALR`; the super-parents and the structure in the others, whose continuous children stay Gaussian). It needs no pipeline and no declaration of types, and reproduces the discretization of the AnDE, ALR and TAN papers.
 
 ### Changed
 
 - `AnJE` and `ALR`: a value never seen in training no longer falls in an empty cell of the n-joins that contain it; those joins are left out for that sample, as the other models leave out the attribute. The estimate of an empty cell, `(m / |X_alpha|) / (#y + m)`, depends on the class only through its size, so it multiplied the posterior by the inverse of the class counts: once in `AnJE`, which cancelled the class prior, and once per join in `ALR`. Predictions change only for samples with unseen values.
 - `MDLPDiscretizer(max_bins=...)` keeps the cuts that remove the most class entropy. It used to keep the first ones its depth-first search reached, which could all lie at one end of the range. Without `max_bins` the cut-points are the same.
+- Invalid parameters are rejected by the parameter validation of scikit-learn only. `ALR(alpha=0)` and `GaussianALR(alpha=0)` raise its `InvalidParameterError`, which is still a `ValueError`.
+- `skbn.utils`, the estimator discovery of the project template, is removed; only the tests used it.
+- `threadpoolctl`, which scikit-learn already requires, is a declared dependency.
 - The models no longer let through the warning of `KBinsDiscretizer` about bins that are too narrow, which named the wrong attribute; the number of bins left is in the fitted model as before.
 
 ### Fixed
 
+- Reading the scikit-learn version no longer fails on pre-releases and development versions (1.7rc1, 1.8.dev0).
 - The user guide said that the codes of a discretizer in a pipeline are typed as categorical. With more than 20 intervals, which `MDLPDiscretizer` produces on large samples, they are typed as continuous and discretized again unless declared in `categorical_features`. The guide now says so and recommends `strategy="mdlp"`.
 - The docstring of `ALR` said that `w = 1` is the `AnJE`; it is the unaveraged product of the n-joins, as the user guide states.
 
+### Documentation and project
+
+- New pages: installation, citing, and a section of the user guide on choosing a model; the changelog, the contributing guide and the comparison with related software are linked from the documentation.
+- The licence is declared with an SPDX expression (PEP 639), so PyPI shows BSD-3-Clause; the four authors are listed and the development status is Beta.
+- A code of conduct and a security policy. Pre-commit uses the linter versions of pixi, and CI lints once and uses one version of pixi.
+
 ### Performance
 
+- Gaussian children: `log(2 pi var)` is computed once per table instead of at every evaluation, with the same operations in the same order, so `AnDE`, `WeightedAnDE`, `GaussianAnJE` and `GaussianALR` predict the same to the last bit. On 60 000 samples and 24 continuous attributes, A1DE predicts 20 000 rows in 0.35 s instead of 0.67 s and A2DE in 4.8 s instead of 6.8 s.
+- The weighted models run L-BFGS-B with a single BLAS thread. Its vectors are too small for threads, which slowed it down (`ALR` fits about 20% faster with four) and made its sums, and so the last digits of the weights, depend on their number.
 - `TAN` and `KDB` on attributes of thousands of values: the conditional mutual information of a pair whose (class, value, value) table has more than four cells per training sample sums over its non-empty cells only, and a conditional whose (state, value) table would be that large keeps only its non-empty cells. The probabilities, the structure and the tables are the same as before. On one fold of KDD Cup 09 Upselling (11 attributes of more than 100 values, up to 13 333), with one CPU, TAN fits in 5.2 s instead of 101 s and peaks at 0.68 GB instead of 35 GB, and KDB with `k=2` fits in 5.6 s instead of 124 s and peaks at 0.70 GB instead of 52 GB. On Amazon Employee Access, TAN peaks at 0.31 GB instead of 2.7 GB. Data without such attributes fit as before.
 
 ## 1.3.2 (2026-11-06)

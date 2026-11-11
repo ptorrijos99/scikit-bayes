@@ -32,8 +32,7 @@ from scipy.special import logsumexp
 from sklearn.base import BaseEstimator, ClassifierMixin, _fit_context
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.multiclass import unique_labels
-from sklearn.utils.validation import check_is_fitted, column_or_1d, validate_data
-from threadpoolctl import threadpool_limits
+from sklearn.utils.validation import check_is_fitted, validate_data
 
 from ._core import _AttributeEncoder, _fit_weights, _row_chunks, _warn_not_converged
 from ._kernels import (
@@ -127,6 +126,8 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
     """
 
     def _fit(self, X, y):
+        """Learn the structure and count the conditionals; returns the
+        validated ``X`` and the class indices of ``y``."""
         X, y = validate_data(self, X, y)
         self.classes_ = unique_labels(y)
         self._check_structure_params()
@@ -165,7 +166,7 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
                 codes, y_idx, self._encoder.cards_, n_classes
             )
             self._fit_conditionals(X, y_idx, codes, parents)
-        return self
+        return X, y_idx
 
     def _fit_conditionals(self, X, y_idx, codes, parents):
         """Count ``P(x_i | y, x_parents[i])`` for every attribute that is not
@@ -432,24 +433,19 @@ class _WeightedAugmentedNB:
         self : object
             Returns the instance itself.
         """
-        self._fit(X, y)
-        X = validate_data(self, X, reset=False)
-        y_idx = np.searchsorted(self.classes_, column_or_1d(y))
+        X, y_idx = self._fit(X, y)
         inputs = self._evaluation_inputs(X)
         self._setup_weights(self._term_keys(inputs))
         terms, index = self._design(inputs)
         del inputs
         Y = np.eye(len(self.classes_))[y_idx]
-        # L-BFGS-B works on vectors of the size of the weights, too small for
-        # threads: BLAS threads made it up to 200 times slower on a busy CPU
-        with threadpool_limits(limits=1, user_api="blas"):
-            weights, self.n_iter_, converged = _fit_weights(
-                lambda w: self._nll_and_grad(w, terms, index, Y),
-                np.ones(self.n_weights_),
-                self.l2_reg,
-                self.max_iter,
-                tol=self.tol,
-            )
+        weights, self.n_iter_, converged = _fit_weights(
+            lambda w: self._nll_and_grad(w, terms, index, Y),
+            np.ones(self.n_weights_),
+            self.l2_reg,
+            self.max_iter,
+            tol=self.tol,
+        )
         _warn_not_converged(not converged, 1, self.max_iter)
         self.learned_weights_ = weights
         return self
@@ -765,7 +761,8 @@ class TAN(_BaseAugmentedNB):
         self : object
             Returns the instance itself.
         """
-        return self._fit(X, y)
+        self._fit(X, y)
+        return self
 
     def _check_structure_params(self):
         if (
@@ -825,9 +822,9 @@ class WeightedTAN(_WeightedAugmentedNB, TAN):
     A factor is the class prior :math:`P(y)` or the conditional of an
     attribute; the class prior has a single value and no parents, so it gets
     one weight per class at levels 3 and 4. Level 4 (the default), one weight
-    per parameter of the network, is the wCCBN of [1]_, equivalent to
-    discriminative parameter learning of the same network but faster to
-    optimize. The value of a Gaussian child is not discretized, so its
+    per parameter of the network, is the wCCBN of [1]_: a reparameterization
+    of the discriminative learning of the parameters of that network, which
+    [1]_ found faster to optimize. The value of a Gaussian child is not discretized, so its
     weights ignore the "value" dimension. Only the combinations that occur in
     training get a weight; the others share one weight that keeps its
     generative value, so the number of weights is bounded by the data. This is
@@ -849,8 +846,12 @@ class WeightedTAN(_WeightedAugmentedNB, TAN):
         structure learning and when they act as parents. Continuous children
         remain continuous.
 
-    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+    strategy : {'uniform', 'quantile', 'kmeans', 'mdlp'}, default='quantile'
         Strategy used for the discretization of continuous attributes.
+        ``'mdlp'`` places the cuts with the supervised entropy
+        discretization of Fayyad and Irani (see :class:`MDLPDiscretizer`),
+        which chooses the number of bins of each attribute, so ``n_bins`` is
+        not used.
 
     alpha : float, default=1.0
         Non-negative additive (Laplace/Lidstone) smoothing parameter for the
