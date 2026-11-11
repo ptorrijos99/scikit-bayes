@@ -30,7 +30,7 @@ import numpy as np
 from sklearn.base import _fit_context
 from sklearn.utils._param_validation import Interval, StrOptions
 
-from .tan import (
+from ._augmented import (
     _TIE_RTOL,
     _BaseAugmentedNB,
     _conditional_mutual_info,
