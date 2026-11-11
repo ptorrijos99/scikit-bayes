@@ -1,26 +1,29 @@
 """
 =====================================================
-Tutorial: from a table to a fitted network
+Tutorial: from a table of labels to a fitted network
 =====================================================
 
 This tutorial follows one classification problem from the table to the
-final evaluation, on the breast cancer data that ship with scikit-learn. It
-shows how to:
+final evaluation, on the Car Evaluation data: 1728 cars described by six
+categorical attributes, each rated ``unacceptable``, ``acceptable``,
+``good`` or ``very good``. Tables of categories whose attributes act on
+the class together, not one by one, are what Bayesian network classifiers
+are built for. The tutorial shows how to:
 
-1.  fit a model on a pandas DataFrame with numeric, text, ``category`` and
-    boolean columns, and see how each column was typed;
-2.  compare the models of the library with scikit-learn baselines by
-    cross-validation, on accuracy and on log loss;
-3.  tune a model with :class:`~sklearn.model_selection.GridSearchCV`;
-4.  read the fitted model: the tree of dependencies between the attributes
-    and the weight learned for each of them;
-5.  evaluate the models once on a held-out test set, and predict a row with
-    a category never seen in training.
+1.  fit a model on a pandas DataFrame of labels, without an encoder;
+2.  compare naive Bayes, the networks and their weighted versions with
+    scikit-learn baselines by cross-validation, on accuracy and log loss;
+3.  tune the models with :class:`~sklearn.model_selection.GridSearchCV`;
+4.  read the fitted model: its arcs against the known structure of the
+    problem, the weights it learned and the probabilities it gives;
+5.  evaluate the models once on a held-out test set, and predict a car
+    with a label never seen in training.
 
-The models of the library are fitted on the DataFrame as it is, without an
-encoder, a scaler or a discretizer in front. The first fit of each model
-compiles its kernels, which takes some seconds once; ``python -m skbn``
-does it for every model after installing, and checks the installation.
+The first fit of each model compiles its kernels, which takes some seconds
+once; ``python -m skbn`` does it for every model after installing.
+:ref:`sphx_glr_auto_examples_integration_23_plot_continuous_table.py` is the
+counterpart on a table of continuous measurements, where these models are
+not the best choice.
 """
 
 # Author: The scikit-bayes Developers
@@ -30,393 +33,442 @@ does it for every model after installing, and checks the installation.
 # The data
 # --------
 #
-# The table has 569 tumours, described by 30 continuous measurements of their
-# cell nuclei, and the class is ``malignant`` or ``benign``. Clinical and
-# laboratory tables usually also hold coded fields, so three such columns are
-# added here. They are *derived from the measurements*, not recorded in the
-# original study:
+# The evaluations were not given car by car: they come from a hierarchical
+# decision model that Bohanec and Rajkovic (1988) built with experts, which
+# rates every combination of the attribute values. It combines the
+# attributes in two concepts, the price and the technical characteristics,
+# the second with a concept of its own, the comfort:
 #
-# * ``texture grade``, strings: a ``"low"``, ``"medium"`` or ``"high"`` mean
-#   texture, which replaces the measurement;
-# * ``symmetry class``, a pandas ``category``: four classes of mean symmetry,
-#   ``I`` to ``IV``, which replace the measurement;
-# * ``many concave points``, a boolean: a worst number of concave points
-#   above 0.15.
+# * PRICE: ``buying price`` and ``maintenance cost``;
+# * TECH: ``safety`` and COMFORT (``doors``, ``seats``, ``luggage boot``).
 #
-# The table has no missing values; the models do not take them, and
-# :ref:`sphx_glr_auto_examples_integration_16_plot_pipeline_grid_search.py`
-# shows how to impute them in a pipeline. A quarter of the rows is set aside
-# for the final evaluation.
+# The table holds every combination once, so the class is a deterministic
+# function of the attributes, which the classifiers must learn from
+# examples. Every cell is a label, such as ``"very high"`` or
+# ``"5 or more"``. The file comes with this example (UCI Machine Learning
+# Repository, licence CC BY 4.0); the script reads the copy on GitHub when
+# it is run on its own. A quarter of the cars is set aside for the final
+# evaluation.
+
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.ticker import NullLocator, StrMethodFormatter
-from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
 
-data = load_breast_cancer(as_frame=True)
-X = data.data.copy()
-y = data.target_names[data.target]  # The class names, as strings
-
-texture = X.pop("mean texture")
-X["texture grade"] = np.select([texture < 16, texture < 21], ["low", "medium"], "high")
-X["symmetry class"] = pd.cut(
-    X.pop("mean symmetry"), [0, 0.16, 0.18, 0.2, 1], labels=["I", "II", "III", "IV"]
+# Next to this script, or on GitHub (``__file__`` is not defined in a notebook)
+local = Path(globals().get("__file__", "")).parent / "car_evaluation.csv"
+URL = (
+    "https://raw.githubusercontent.com/ptorrijos99/scikit-bayes/main/examples/tutorial/"
 )
-X["many concave points"] = X["worst concave points"] > 0.15
+cars = pd.read_csv(local if local.exists() else URL + local.name)
 
+X = cars.drop(columns="evaluation")
+y = cars["evaluation"]
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.25, stratify=y, random_state=0
 )
-print(X.dtypes.value_counts().to_string())
-X_train.iloc[:5, -4:]
+print(y.value_counts().to_string())
+X_train.head()
 
 # %%
 # A first model
 # -------------
 #
 # :class:`~skbn.MixedNB`, naive Bayes for mixed data, takes the DataFrame
-# and gives the probability of each class.
+# as it is: the text columns are typed as categorical (``feature_types_``,
+# by column index), and their labels are the categories. ``categories_``
+# holds the labels of each column in the sorted order of their codes; the
+# order does not matter, since the models do not treat categories as
+# ordered.
 
 from skbn import MixedNB
 
 nb = MixedNB().fit(X_train, y_train)
-pd.DataFrame(nb.predict_proba(X_test[:3]), columns=nb.classes_).round(4)
-
-# %%
-# Each column was typed from its dtype and values: the measurements are
-# Gaussian, the strings and the ``category`` categorical, and the boolean
-# Bernoulli (two values). ``feature_types_`` holds column indices and
-# ``categories_`` the labels of each categorical column, coded in this
-# sorted order. The :ref:`user guide <user_guide>` gives the rule, and how
-# to declare the types instead.
-
-for kind, columns in nb.feature_types_.items():
-    print(f"{kind:11s} {len(columns):2d}: {', '.join(X.columns[columns][:3])}")
-print(nb.categories_)
+print(nb.feature_types_)
+print(dict(zip(X.columns, nb.categories_)))
+pd.DataFrame(nb.predict_proba(X_test[:3]), columns=nb.classes_).round(3)
 
 # %%
 # Comparing the models
 # --------------------
 #
-# The models follow the scikit-learn API, so
-# :func:`~sklearn.model_selection.cross_validate` scores them like any
-# other estimator: here by 5-fold cross-validation on the training rows, on
-# accuracy and on log loss, which also judges the probabilities (lower is
-# better). Every model keeps its default parameters, except a higher
-# ``max_iter`` for :class:`~skbn.WeightedAnDE`, whose optimizer needs 104
-# iterations on one of the folds.
+# The models go from independence to a network to weights.
+# :class:`~skbn.MixedNB` treats the attributes as independent given the
+# class. :class:`~skbn.TAN` and :class:`~skbn.KDB` add arcs between them: a
+# tree, and up to ``k`` attribute parents per attribute (``k = 2`` here; the
+# default ``k = 1`` gives nearly the tree of TAN).
+# :class:`~skbn.WeightedTAN` and :class:`~skbn.WeightedKDB` keep these
+# networks and learn an exponent weight on each of their parameters, by
+# maximising the conditional likelihood of the class; :class:`~skbn.ALR`
+# does the same on an ensemble of a model per pair of attributes. Apart
+# from ``k``, every model keeps its defaults.
 #
-# Three scikit-learn baselines need encodings that the library does
-# without: :class:`~sklearn.naive_bayes.GaussianNB` sees the numeric columns
-# only, :class:`~sklearn.linear_model.LogisticRegression` standardized
-# measurements and one-hot encoded labels, and
-# :class:`~sklearn.ensemble.RandomForestClassifier` integer codes of the
-# labels.
+# The scikit-learn baselines need the labels encoded first: one-hot columns
+# for :class:`~sklearn.linear_model.LogisticRegression`, integer codes for
+# the two ensembles of trees. They also keep their defaults, except more
+# iterations for logistic regression.
 
-from sklearn.compose import make_column_selector, make_column_transformer
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, cross_validate
-from sklearn.naive_bayes import GaussianNB
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
-from skbn import ALR, KDB, TAN, AnDE, WeightedAnDE, WeightedTAN
+from skbn import ALR, KDB, TAN, WeightedKDB, WeightedTAN
 
-numeric = make_column_selector(dtype_include="number")
-labels = ["texture grade", "symmetry class", "many concave points"]
-only_numeric = make_column_transformer(("passthrough", numeric))
-one_hot = make_column_transformer(
-    (StandardScaler(), numeric), (OneHotEncoder(), labels)
-)
-codes = make_column_transformer((OrdinalEncoder(), labels), remainder="passthrough")
-
+logistic = make_pipeline(OneHotEncoder(), LogisticRegression(max_iter=1000))
 models = {
     "MixedNB": MixedNB(),
-    "AnDE (AODE)": AnDE(),
     "TAN": TAN(),
-    "KDB, k = 2": KDB(k=2),
-    "WeightedAnDE": WeightedAnDE(max_iter=200),
+    "KDB": KDB(k=2),
     "WeightedTAN": WeightedTAN(),
+    "WeightedKDB": WeightedKDB(k=2),
     "ALR": ALR(),
-    "GaussianNB": make_pipeline(only_numeric, GaussianNB()),
-    "LogisticRegression": make_pipeline(one_hot, LogisticRegression(max_iter=1000)),
-    "RandomForest": make_pipeline(codes, RandomForestClassifier(random_state=0)),
+    "LogisticRegression": logistic,
+    "RandomForest": make_pipeline(
+        OrdinalEncoder(), RandomForestClassifier(random_state=0)
+    ),
+    "HistGradientBoosting": make_pipeline(
+        OrdinalEncoder(), HistGradientBoostingClassifier(random_state=0)
+    ),
 }
-# One colour per model of the library, as in the other examples, and one
-# for the three baselines
-library = ["#6E6E6E", "#0072B2", "#E69F00", "#332288", "#CC79A7", "#EE6677", "#D55E00"]
-colors = dict(zip(models, library))
+# The colour of each model of the library in the gallery
+palette = ["#6E6E6E", "#E69F00", "#332288", "#EE6677", "#228833", "#D55E00"]
+colors = dict(zip(models, palette))
 BASELINE = "#1A1A1A"
 
+# %%
+# Each model is scored by 5-fold cross-validation on the training cars, on
+# accuracy and on log loss, which also judges the probabilities (lower is
+# better). Each model is fitted once beforehand, so that the fit times
+# measured by :func:`~sklearn.model_selection.cross_validate` leave out the
+# compilation; they are approximate and depend on the machine.
+
 cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
-scoring = ["accuracy", "neg_log_loss"]
 scores = {}
 for name, model in models.items():
-    r = cross_validate(model, X_train, y_train, cv=cv, scoring=scoring)
-    scores[name] = {"accuracy": r["test_accuracy"], "log loss": -r["test_neg_log_loss"]}
-
-# Mean and standard deviation over the folds
-table = pd.DataFrame(scores).T.map(lambda v: f"{v.mean():.3f} ± {v.std():.3f}")
-print(table.to_string())
+    model.fit(X_train, y_train)  # Compiles the kernels once
+    r = cross_validate(
+        model, X_train, y_train, cv=cv, scoring=["accuracy", "neg_log_loss"]
+    )
+    scores[name] = {
+        "accuracy": r["test_accuracy"],
+        "log loss": -r["test_neg_log_loss"],
+        "fit time (s)": r["fit_time"],
+    }
+print(pd.DataFrame(scores).T.map(np.mean).round(3).to_string())
 
 # %%
 # The figure gives the mean and the standard deviation over the five folds.
 
-fig, axes = plt.subplots(1, 2, figsize=(10, 4.8), sharey=True)
+fig, axes = plt.subplots(1, 2, figsize=(10, 4.4), sharey=True)
 names = list(models)[::-1]  # The first model at the top
 for ax, metric in zip(axes, ["accuracy", "log loss"]):
     for i, name in enumerate(names):
         color = colors.get(name, BASELINE)
+        fill = color if name in colors else "white"  # Open: the baselines
         values = scores[name][metric]
-        fill = "white" if name not in colors else color  # Open: the baselines
         ax.errorbar(values.mean(), i, xerr=values.std(), fmt="o", c=color, mfc=fill)
     ax.axhline(2.5, color="#999999", lw=1)  # The library above, the baselines below
     ax.set_xlabel(f"Cross-validated {metric}")
 axes[0].set_yticks(range(len(names)), names)
-axes[1].set_xscale("log")
 axes[0].set_title("Accuracy (higher is better)")
 axes[1].set_title("Log loss (lower is better)")
-fig.suptitle("Default models and scikit-learn baselines, 5-fold cross-validation")
+fig.suptitle("Models with their defaults, 5-fold cross-validation on 1296 cars")
 plt.show()
 
 # %%
-# On accuracy the models are hard to tell apart: all lie between 0.93 and
-# 0.96 except :class:`~sklearn.linear_model.LogisticRegression`, at 0.984,
-# and the standard deviations over the folds, up to 0.04, are as large as
-# the differences. Log loss separates them more. The two naive Bayes models
-# are the worst calibrated but one (0.67 for MixedNB, 0.65 for GaussianNB):
-# many measurements repeat each other (the radius, the perimeter and the
-# area of a nucleus), naive Bayes counts that evidence several times, and
-# its probabilities are close to 0 or 1, as on the three rows shown above,
-# so that each of its errors costs much. The models that relax the independence assumption do
-# better, AODE (0.47), KDB (0.29) and TAN (0.27), and their weighted
-# versions better still, WeightedAnDE (0.25) and WeightedTAN (0.21).
-# :class:`~skbn.ALR` is the worst, at 1.94, with defaults that reproduce
-# the protocol of its paper: no penalty on the weights of its 465 pairs of
-# attributes, here fitted on about 340 rows (the
-# :ref:`user guide <choosing_a_model>` discusses its parameters). Two baselines are better than
-# every model of the library on log loss: logistic regression (0.079) and
-# the random forest (0.132).
+# Each step of the family buys a visible gain. Naive Bayes reaches an
+# accuracy of 0.854 and a log loss of 0.339; the arcs of TAN and KDB raise
+# the accuracy to about 0.93 and lower the log loss to about 0.22; the
+# weights on the same networks raise the accuracy to about 0.96 and halve
+# the log loss, to 0.11-0.12. ALR is as accurate as gradient boosting, at
+# 0.987, but its log loss varies much over the folds: with its default
+# ``l2_reg=0``, no penalty on its weights, it is far too confident on a few
+# cars.
 #
-# Tuning a model
-# --------------
+# The weighted models do better than logistic regression on both measures
+# (0.910 and 0.229) and than the random forest on log loss (0.184), with
+# about the same accuracy (0.956 and 0.963 against 0.960). Gradient boosting is still better than every
+# model of the library, with an accuracy of 0.987 and a log loss of 0.033,
+# and each of its fits takes about 0.7 s here, against about 0.01-0.05 s
+# for the models of the library.
 #
-# :class:`~skbn.WeightedTAN` keeps the tree and the probabilities of
-# :class:`~skbn.TAN` and learns an exponent weight on each factor, which
-# can discount the attributes that repeat the evidence of others. The search
-# chooses how the continuous attributes are discretized to learn the tree
-# and to act as parents (``strategy``: bins of equal frequency, or the
-# supervised ``"mdlp"``), how finely the weights are tied (``weight_level``)
-# and the penalty that keeps them close to the generative model
-# (``l2_reg``), by log loss on the same folds.
+# Tuning the models
+# -----------------
+#
+# Three models are tuned by log loss on the same folds: the number of
+# parents ``k`` and the penalty ``l2_reg`` of :class:`~skbn.WeightedKDB`,
+# the penalty of :class:`~skbn.ALR` and the inverse penalty ``C`` of
+# logistic regression. The random forest and gradient boosting keep their
+# defaults. The weights of WeightedKDB are optimized with L-BFGS-B, which
+# stops after ``max_iter=100`` iterations by default; a small penalty
+# leaves the objective flatter, the optimizer needs more iterations, and
+# it stops at that limit with a
+# :class:`~sklearn.exceptions.ConvergenceWarning` on these data, so the
+# limit is raised. (ALR already allows 10,000 iterations.)
 
 from sklearn.model_selection import GridSearchCV
 
-grid = {
-    "strategy": ["quantile", "mdlp"],
-    "weight_level": [1, 2, 3, 4],
-    "l2_reg": [1, 10],
+searches = {
+    "WeightedKDB": GridSearchCV(
+        WeightedKDB(max_iter=1000), {"k": [1, 2, 3], "l2_reg": [0.01, 0.1, 1]}
+    ),
+    "ALR": GridSearchCV(ALR(), {"l2_reg": [0, 0.1, 1, 10]}),
+    "LogisticRegression": GridSearchCV(
+        logistic, {"logisticregression__C": [1, 10, 100, 1000]}
+    ),
 }
-search = GridSearchCV(WeightedTAN(), grid, scoring="neg_log_loss", cv=cv)
-search.fit(X_train, y_train)
+for name, search in searches.items():
+    search.set_params(cv=cv, scoring="neg_log_loss").fit(X_train, y_train)
+    print(f"{name:18s} log loss {-search.best_score_:.3f} with {search.best_params_}")
 
-results = pd.DataFrame(search.cv_results_)
+# The log loss of WeightedKDB for every k (rows) and l2_reg (columns)
+results = pd.DataFrame(searches["WeightedKDB"].cv_results_)
 results["log loss"] = -results["mean_test_score"]
-columns = ["param_strategy", "param_weight_level", "param_l2_reg", "log loss"]
-print(results.sort_values("log loss")[columns].head(6).round(3).to_string(index=False))
+results.pivot(index="param_k", columns="param_l2_reg", values="log loss").round(3)
 
 # %%
-# The supervised discretization helps most: the four best combinations use
-# ``"mdlp"``, and the best one lowers the log loss of WeightedTAN from
-# 0.211 with the defaults to 0.146, close to the random forest (0.132) but
-# still behind logistic regression (0.079). Levels 1 and 2 tie; they differ
-# only on the three label columns. The score of the chosen combination is
-# optimistic, since it was chosen on these same folds; the test set below
-# gives an unbiased estimate.
+# The search lowers the log loss of WeightedKDB from 0.117 with ``k = 2``
+# and the default penalty to 0.076 with ``k = 1`` and ``l2_reg=0.1``: with
+# 1296 cars, a second and a third parent per attribute cost more than they
+# bring. ALR gains most, from 0.112 to 0.029 with ``l2_reg=0.1``, below
+# the 0.033 of gradient boosting with its defaults, and logistic
+# regression goes from 0.229 to 0.164 with ``C=100``. The best scores are
+# optimistic, since they were chosen on these same folds; the test set
+# below gives an unbiased comparison.
 #
 # Reading the model
 # -----------------
 #
-# ``search.best_estimator_`` was refitted on all the training rows.
-# ``edges_`` lists the arcs of its tree as ``(parent, child)`` column
-# indices, and :meth:`~skbn.WeightedTAN.to_dot` writes the whole network,
-# class included, for Graphviz.
+# ``best_estimator_`` was refitted on all the training cars. ``edges_``
+# lists the arcs of its network as ``(parent, child)`` column indices, and
+# :meth:`~skbn.WeightedKDB.to_dot` writes the whole network, class
+# included, for Graphviz.
 
-model = search.best_estimator_
+model = searches["WeightedKDB"].best_estimator_
 names = np.asarray(X.columns)
-for parent, child in model.edges_[:3]:
+for parent, child in model.edges_:
     print(f"{names[parent]} -> {names[child]}")
 print(model.to_dot().splitlines()[:3])
 
 # %%
-# The figure draws the tree with matplotlib, one attribute per row and the
-# children of each attribute below it; every attribute also has the class
-# as a parent, not drawn. On the right are the weights of the conditional of
-# each attribute, ``feature_weights_``: 1 is the generative model, and a
-# weight below 1 discounts the attribute. At ``weight_level=2`` a continuous
-# attribute has one weight and a categorical or Bernoulli one a weight per
-# value.
+# The arcs were chosen by the conditional mutual information
+# :math:`I(A_i; A_j \mid C)` of every pair of attributes given the class,
+# in nats, ``conditional_mutual_info_``:
 
-children = {i: [] for i in range(len(names))}
-for parent, child in model.edges_:
-    children[parent].append(child)
+pd.DataFrame(model.conditional_mutual_info_, index=names, columns=names).round(3)
 
-# Depth-first order from the root: the row and the depth of every attribute
-order, depth = [], {model.parents_.argmin(): 0}
-stack = [model.parents_.argmin()]
-while stack:
-    node = stack.pop()
-    order.append(node)
-    for child in sorted(children[node], reverse=True):
-        depth[child] = depth[node] + 1
-        stack.append(child)
-row = {node: r for r, node in enumerate(order)}
+# %%
+# The figure draws the arcs of the tuned model and those of
+# :class:`~skbn.KDB` with ``k = 2`` over the concepts of the decision
+# model; every attribute also has the class as a parent, not drawn. The
+# width of an arc grows with the conditional mutual information of its two
+# attributes.
 
-types = model.backoff_.feature_types_
-shape = {i: s for kind, s in zip(types, "osD") for i in types[kind]}
-cmi = model.conditional_mutual_info_
-max_cmi = max(cmi[p, c] for p, c in model.edges_)
+PRICE = ["buying price", "maintenance cost"]  # The other attributes: TECH
+position = {  # Of each attribute, and alignment of its label
+    "buying price": (0, 1.6, "center", "bottom"),
+    "maintenance cost": (0, 0.4, "center", "top"),
+    "safety": (1.6, 1.0, "right", "center"),
+    "seats": (2.9, 1.6, "left", "center"),
+    "luggage boot": (2.9, 0.35, "center", "top"),
+    "doors": (3.9, 1.0, "left", "center"),
+}
+boxes = {"PRICE": (-0.6, 0, 1.2), "TECH": (1, -0.1, 3.5), "COMFORT": (2.3, 0, 2.1)}
 
-fig, (ax, ax_w) = plt.subplots(1, 2, figsize=(10, 9), sharey=True, width_ratios=[5, 4])
-STEP = 0.5  # Indentation of each level of the tree
-for p, c in model.edges_:
-    x = [STEP * depth[p], STEP * depth[p], STEP * depth[c]]
-    ax.plot(
-        x, [row[p], row[c], row[c]], color="#EE6677", lw=0.8 + 3 * cmi[p, c] / max_cmi
-    )
-for node in order:
-    x = STEP * depth[node]
-    ax.scatter(x, row[node], marker=shape[node], s=40, color=BASELINE, zorder=2)
-    ax.text(x + 0.15, row[node], names[node], va="center", fontsize=9)
-ax.set_xlim(-0.2, STEP * max(depth.values()) + 2.4)
-ax.set_ylim(len(names) - 0.5, -0.5)
-ax.axis("off")
-ax.set_title(
-    "Tree; line width: $I(A_i; A_j \\mid C)$\n"
-    "Circle: Gaussian, square: categorical, diamond: Bernoulli"
-)
-
-for node in order:
-    w = model.feature_weights_[node].ravel()
-    ax_w.plot([w.min(initial=1), w.max(initial=1)], [row[node]] * 2, color="#EE6677")
-    ax_w.scatter(w, np.full(len(w), row[node]), color="#EE6677", s=25, zorder=2)
-ax_w.axvline(1, color=BASELINE, ls=":", lw=1)
-ax_w.grid(False, axis="y")
-ax_w.set_xlabel("Weight of the conditional of the attribute")
-ax_w.set_title(f"Learned weights (class prior: {model.prior_weights_[0]:.2f})")
-fig.suptitle("WeightedTAN chosen by the grid search")
+fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
+for ax, net in zip(axes, [model, models["KDB"]]):
+    label = type(net).__name__
+    for box, (x0, y0, width) in boxes.items():  # Boxes centred on y = 1
+        ax.add_patch(
+            plt.Rectangle((x0, y0), width, 2 - 2 * y0, fc="white", ec="#999999")
+        )
+        ax.text(x0 + 0.08, 1.92 - y0, box, va="top", fontsize=9, color="#575757")
+    cmi = net.conditional_mutual_info_
+    for p, c in net.edges_:
+        across = (names[p] in PRICE) != (names[c] in PRICE)
+        style = dict(arrowstyle="-|>", color=colors[label], lw=0.8 + 30 * cmi[p, c])
+        style.update(ls="--" if across else "-", connectionstyle="arc3,rad=0.15")
+        tail, head = position[names[p]][:2], position[names[c]][:2]
+        ax.annotate("", head, tail, arrowprops=dict(style, shrinkA=6, shrinkB=6))
+    for name, (x, y_, ha, va) in position.items():
+        dx = {"left": 0.12, "right": -0.12}.get(ha, 0)
+        dy = {"bottom": 0.1, "top": -0.1}.get(va, 0)
+        ax.scatter(x, y_, s=40, color=BASELINE, zorder=3)
+        ax.text(x + dx, y_ + dy, name, ha=ha, va=va, fontsize=9.5)
+    ax.set(xlim=(-0.7, 4.6), ylim=(-0.2, 2.2))
+    ax.axis("off")
+    title = f"{label}, $k = {net.k}$: {len(net.edges_)} arcs"
+    ax.set_title(title + "\nDashed: across PRICE and TECH")
 plt.show()
 
 # %%
-# The tree joins the measurements of the same quantity: the radius, the
-# perimeter and the area hang from one another, and so do the compactness,
-# the concavity and the concave points. Each derived column sits next to
-# a measurement it comes from or is close to: ``many concave points`` under
-# ``worst concave points``, from which it was computed, and the two grades
-# above ``worst texture`` and ``worst symmetry``, the measurements closest
-# to the mean ones they replaced.
+# With ``k = 1`` each attribute has one attribute parent, and the five arcs
+# form a tree (the tree of TAN, up to the direction of one arc). The
+# strongest dependence, 0.075 nats, joins the two attributes of PRICE.
+# Three arcs stay within TECH, one of them between two attributes of
+# COMFORT (``luggage boot`` and ``doors``, 0.006). A tree must also join
+# PRICE to TECH, and does so with ``safety -> buying price`` (0.010). One
+# disagreement: the decision model combines ``seats`` and ``luggage boot``
+# in COMFORT before it brings in ``safety``, but the network hangs both from
+# ``safety`` (0.032 and 0.025), and the pairs within COMFORT have a
+# conditional mutual information of 0.006 at most. Low safety and two seats
+# each make a car unacceptable whatever the rest (the table of
+# probabilities below shows it), which ties these attributes to safety
+# given the class more than to each other.
 #
-# The table gives the continuous attributes with the lowest and the highest
-# weights, with their parents in the tree. The lowest are mostly attributes
-# that their parent nearly determines, such as the perimeter and the area
-# given the radius. The network sees a continuous parent only through its
-# bin, so their conditionals still repeat the evidence of the parent; the
-# weights remove most of it. A weight above 1 strengthens a conditional
-# that the network underuses. A weight is not an importance: it says how
-# much a conditional is trusted next to the others of this network.
+# With ``k = 2`` the four second parents are weaker (0.004 to 0.007), and
+# three of them cross from PRICE to TECH or back, which the decision model
+# does not do; in the search above, the weighted network with ``k = 2``
+# scored worse than with ``k = 1``.
+#
+# The weights
+# ~~~~~~~~~~~
+#
+# The tuned model has ``weight_level=4``, the default: one weight per
+# parameter of the network, that is per value of an attribute, class and
+# value of its parent seen in training. ``prior_weights_`` holds those of
+# the class prior and ``feature_weights_`` those of each attribute; a
+# weight multiplies the logarithm of its probability, so 1 keeps the
+# generative network, a weight above 1 strengthens the evidence of that
+# probability and a weight below 1 weakens it.
 
-gaussian = types["gaussian"]
-parents = np.where(model.parents_ < 0, "", names[model.parents_])[gaussian]
-weights = [model.feature_weights_[i][0, 0] for i in gaussian]
-weights = pd.DataFrame({"parent": parents, "weight": weights}, index=names[gaussian])
-weights = weights.sort_values("weight")
-pd.concat([weights.head(6), weights.tail(3)]).round(2)
+fig, ax = plt.subplots(figsize=(8, 3.6))
+rng = np.random.RandomState(0)
+rows = {"class prior": model.prior_weights_, **dict(zip(names, model.feature_weights_))}
+for i, w in enumerate(rows.values()):
+    w = w.ravel()
+    ax.scatter(w, i + rng.uniform(-0.2, 0.2, w.size), s=12, color=colors["WeightedKDB"])
+    ax.scatter(np.median(w), i, marker="|", s=300, color=BASELINE)
+ax.axvline(1, color=BASELINE, ls=":", lw=1)
+ax.set_yticks(range(len(rows)), list(rows))
+ax.set_ylim(len(rows) - 0.5, -0.5)
+ax.set_xlabel("Weight (dotted: 1, the generative network; bar: median)")
+ax.set_title("Weights of the tuned WeightedKDB, one per parameter")
+plt.show()
 
 # %%
+# The medians stay close to 1, but the weights spread from -1.3 to 4.1:
+# they correct single cells of the tables in both directions, and a
+# negative weight reverses the evidence of its cell. The same network with
+# ``weight_level=1``, one weight per factor, gives a coarser summary:
+
+from sklearn.base import clone
+
+coarse = clone(model).set_params(weight_level=1).fit(X_train, y_train)
+weights = [coarse.prior_weights_[0]] + [w.item() for w in coarse.feature_weights_]
+pd.Series(weights, index=list(rows)).round(2)
+
+# %%
+# Every weight is well above 1: the probabilities counted from the data are
+# too flat for a rule that is deterministic, and the weights sharpen all of
+# them. This differs from duplicated attributes, which get weights below 1
+# (:ref:`sphx_glr_auto_examples_hybrid_22_plot_weighted_networks.py`).
+#
+# The probabilities
+# ~~~~~~~~~~~~~~~~~
+#
+# The model gives a probability for any car, so tables can be read off it.
+# The table below gives, for every safety and number of seats, the
+# probability of each evaluation averaged over the 192 combinations of the
+# other four attributes. The data hold each combination once, so the share
+# of each evaluation among these 192 cars, as the decision model rates
+# them, is known exactly; the printed line compares the two.
+
+ORDER = ["unacceptable", "acceptable", "good", "very good"]
+read_off = {}
+for safety in ["low", "medium", "high"]:
+    for seats in ["2", "4", "more"]:
+        combinations = X.assign(safety=safety, seats=seats).drop_duplicates()
+        read_off[safety, seats] = model.predict_proba(combinations).mean(axis=0)
+read_off = pd.DataFrame(read_off, index=model.classes_).T[ORDER]
+exact = cars.groupby(["safety", "seats"])["evaluation"].value_counts(normalize=True)
+exact = exact.unstack(fill_value=0).reindex(read_off.index)[ORDER]
+gap = (read_off - exact).abs().to_numpy().max()
+print(f"Largest difference from the decision model: {gap:.3f}")
+read_off.round(3)
+
+# %%
+# Low safety and two seats give ``unacceptable`` with a probability of at
+# least 0.996, as the decision model does with a share of 1, and every
+# probability is within 0.02 of the share, although the model saw only
+# 1296 of the 1728 cars in training.
+#
 # Final evaluation
 # ----------------
 #
-# The test rows are used once, for four of the models, all fitted on the
-# whole training set.
+# The test cars are used once, for the tuned models, the baselines and two
+# models of the library with their defaults, all fitted on the whole
+# training set.
 
-from sklearn.metrics import accuracy_score, log_loss
+from sklearn.metrics import accuracy_score, log_loss, recall_score
 
 final = {
     "MixedNB": nb,
-    "TAN": TAN().fit(X_train, y_train),
-    "WeightedTAN, tuned": model,
-    "LogisticRegression": models["LogisticRegression"].fit(X_train, y_train),
+    "TAN": models["TAN"],
+    "WeightedKDB, tuned": model,
+    "ALR, tuned": searches["ALR"].best_estimator_,
+    "LogisticRegression, tuned": searches["LogisticRegression"].best_estimator_,
+    "RandomForest": models["RandomForest"],
+    "HistGradientBoosting": models["HistGradientBoosting"],
 }
-colors["WeightedTAN, tuned"] = colors["WeightedTAN"]
-log_odds = {}
+test, recall = {}, {}
 for name, m in final.items():
-    log_proba = m.predict_log_proba(X_test)  # Columns: benign, malignant
-    log_odds[name] = log_proba[:, 1] - log_proba[:, 0]
-    wrong = m.predict(X_test) != y_test
-    print(
-        f"{name:19s} accuracy {accuracy_score(y_test, m.predict(X_test)):.3f}"
-        f" ({wrong.sum()} errors)   log loss {log_loss(y_test, np.exp(log_proba)):.3f}"
-        f"   largest |log-odds| of an error {np.abs(log_odds[name][wrong]).max():.1f}"
-    )
+    pred, proba = m.predict(X_test), m.predict_proba(X_test)
+    test[name] = [accuracy_score(y_test, pred), log_loss(y_test, proba)]
+    test[name].append((pred != y_test).sum())
+    recall[name] = recall_score(y_test, pred, labels=ORDER, average=None)
+test = pd.DataFrame(test, index=["accuracy", "log loss", "errors"]).T
+print(test.astype({"errors": int}).round(3).to_string())
 
 # %%
-# The tuned WeightedTAN does not keep its lead on these 143 tumours: it
-# makes 8 errors where TAN makes 6, and its log loss, 0.205, is above the
-# 0.178 of TAN. With so few test rows two tumours make that difference, but
-# the cross-validated gain of the search did not carry over here. Logistic
-# regression is again the best, with 4 errors and a log loss of 0.070.
-#
-# The figure shows why log loss punishes naive Bayes: each point is a test
-# tumour, at the log-odds of malignant that the model gives it, and a point
-# on the wrong side of 0 is an error. The log-odds of MixedNB reach several
-# hundreds, and one of its errors has a log-odds of 34.8, a probability
-# of about :math:`10^{-15}` for the true class. The errors of TAN and of
-# WeightedTAN are less extreme (up to 14.2 and 9.1), and those of logistic
-# regression all lie within 1.8 of 0.
+# On the 432 test cars, the tuned WeightedKDB makes 8 errors and the tuned
+# ALR 6, with log losses of 0.065 and 0.026, against 42 errors for logistic
+# regression and 15 for the random forest, with log losses of 0.163 and
+# 0.158. Gradient boosting is
+# better still, with 2 errors and a log loss of 0.008. The figure gives
+# the share of the cars of each class that each model finds: the frequent
+# ``unacceptable`` cars are found by every model, and the models differ on
+# the rare ``good`` and ``very good`` ones.
 
-fig, ax = plt.subplots(figsize=(9, 4.5))
-rng = np.random.RandomState(0)
-for i, name in enumerate(final):
-    color = colors.get(name, BASELINE)
-    for label, offset, fill in (("malignant", 0.18, color), ("benign", -0.18, "white")):
-        x = log_odds[name][y_test == label]
-        jitter = rng.uniform(-0.1, 0.1, len(x))
-        ax.scatter(x, offset - i + jitter, s=14, color=color, facecolors=fill, lw=0.8)
-ax.axvline(0, color=BASELINE, lw=1)
-ax.set_xscale("symlog", linthresh=1)
-ax.set_xticks([-100, -10, -1, 0, 1, 10, 100])
-ax.xaxis.set_major_formatter(StrMethodFormatter("{x:g}"))
-ax.xaxis.set_minor_locator(NullLocator())
-ax.set_yticks(-np.arange(len(final)), list(final))
-ax.set_xlabel(
-    "Log-odds of malignant, $\\log P(\\mathrm{malignant} \\mid x) - \\log P(\\mathrm{benign} \\mid x)$"
-)
-ax.set_title("Test tumours: malignant filled (upper), benign open (lower)")
+recall = pd.DataFrame(recall, index=ORDER).T
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.imshow(recall, cmap="Blues", vmin=0, vmax=1, aspect="auto")
+for (i, j), value in np.ndenumerate(recall.to_numpy()):
+    color = "white" if value > 0.6 else BASELINE
+    ax.text(j, i, f"{value:.2f}", ha="center", va="center", color=color)
+counts = y_test.value_counts()[ORDER]
+ax.set_xticks(range(4), [f"{label}\n{n} cars" for label, n in counts.items()])
+ax.set_yticks(range(len(final)), list(final))
+ax.grid(False)
+ax.set_title("Test recall: share of the cars of each class predicted as such")
 plt.show()
 
 # %%
-# A category never seen in training
-# ---------------------------------
+# A label never seen in training
+# ------------------------------
 #
-# A row whose ``texture grade`` holds a label the model never saw, here
-# ``"not graded"``, is accepted: that value carries no information, as a
-# missing one would. The tumour below is the test tumour on which the tuned
-# model is least certain, with its texture grade replaced by each label.
+# The models accept a label that was never seen in training. The car below
+# is the first ``very good`` car of the test set, with its number of seats
+# replaced by each label, including ``"7"``. The table gives the
+# probability of ``very good`` for the tuned model and for KDB with
+# ``k = 2``.
 
-i = np.argmin(np.abs(log_odds["WeightedTAN, tuned"]))
-print("True class:", y_test[i])
-variants = pd.concat([X_test.iloc[[i]]] * 4)
-variants["texture grade"] = ["low", "medium", "high", "not graded"]
-proba = model.predict_proba(variants)
-pd.DataFrame(proba, columns=model.classes_, index=variants["texture grade"]).round(3)
+car = X_test[y_test == "very good"].iloc[[0]]
+variants = pd.concat([car] * 4).assign(seats=["2", "4", "more", "7"])
+compared = {"WeightedKDB, tuned": model, "KDB, k = 2": models["KDB"]}
+very_good = {name: m.predict_proba(variants)[:, -1] for name, m in compared.items()}
+pd.DataFrame(very_good, index=variants["seats"]).round(3)
 
 # %%
-# This benign tumour is graded ``"medium"``, where the model gives it a
-# probability of 0.613 of being malignant. Without a grade it gives 0.897:
-# the model relies on the other attributes, and the conditional of ``worst
-# texture``, whose parent in the tree is the grade, falls back as for any
-# parent value never seen in training. No error is raised, and the
-# probability stays within those of the three grades the model knows.
+# An unseen label carries no information: the factor of ``seats`` is left
+# out. In the tuned model ``seats`` has no child, so this is all that
+# changes, and the probability, 0.924, lies between those of 4 seats and
+# of more. In KDB with ``k = 2``, ``seats`` is also a parent of ``buying
+# price``, whose conditional then falls back to the uninformed estimate of
+# a parent value never seen, and the probability of ``very good`` drops to
+# 0.286: the prediction is not the one the model would give without the
+# column. The :ref:`user guide <user_guide>` describes these cases.

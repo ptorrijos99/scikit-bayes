@@ -8,5 +8,7 @@ All examples use matplotlib for visualization and can be downloaded as Python
 scripts or Jupyter notebooks.
 
 Start with the :ref:`tutorial <tutorial_examples>`, which follows one problem
-on real data from the table to the final evaluation. The other examples
-mostly use synthetic data, each built to show one property of a model.
+on real data, a table of labels, from the table to the final evaluation. The
+other examples mostly use synthetic data, each built to show one property of
+a model; the last one shows what to expect on a table of continuous
+measurements.

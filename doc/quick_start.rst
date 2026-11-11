@@ -119,9 +119,9 @@ Further reading
 ===============
 
 * :ref:`Tutorial <sphx_glr_auto_examples_tutorial_00_plot_tutorial.py>`:
-  one problem on real data, from a pandas DataFrame with mixed columns to
-  the comparison with scikit-learn baselines, the tuning, the fitted network
-  and the test set.
+  one problem on real data, a table of labels (car evaluations), from the
+  pandas DataFrame to the comparison with scikit-learn baselines, the
+  tuning, the learned structure and weights, and the test set.
 * :ref:`User guide <user_guide>`: how each model is defined and estimated,
   and how to choose its parameters.
 * :ref:`API reference <api>`: parameters, attributes and methods of every
