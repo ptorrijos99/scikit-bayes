@@ -51,15 +51,17 @@ from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import (
     check_is_fitted,
     column_or_1d,
-    validate_data,
 )
 
 from ._core import (
     _AttributeEncoder,
     _fit_weights,
     _fold_padding,
+    _label_feature_indices,
+    _LabelInputMixin,
     _pad_last,
     _row_chunks,
+    _validate_input,
     _warn_not_converged,
 )
 from ._kernels import (
@@ -350,7 +352,7 @@ class _ChildEncodingMixin:
         return EvaluationInputs(codes, xg, uninf, parent_codes, unseen)
 
 
-class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
+class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEstimator):
     """
     Base class for the AnDE family of algorithms.
 
@@ -535,7 +537,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         self : object
             Returns the instance itself.
         """
-        X, y = validate_data(self, X, y)
+        X, y = _validate_input(self, X, y)
         self.classes_ = unique_labels(y)
         if (
             not isinstance(self.n_dependence, numbers.Integral)
@@ -557,7 +559,9 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             bernoulli_features=self.bernoulli_features,
             gaussian_features=self.gaussian_features,
             var_prior_weight=self.var_prior_weight,
-        )._fit_encoded(X, y_int, self.classes_, return_codes=True)
+        )._fit_encoded(
+            X, y_int, self.classes_, _label_feature_indices(self), return_codes=True
+        )
         types = self.backoff_.feature_types_
 
         # --- 2. Discretize parents, with the types the children use ---
@@ -572,7 +576,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         parent_codes = self._encoder.fit_transform(
             X,
             y_int,
-            known=(types["categorical"], self.backoff_.categories_, cat_codes),
+            known=(types["categorical"], self.backoff_._categories, cat_codes),
             dtype=None,
         )
         code_type = parent_codes.dtype
@@ -900,7 +904,7 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             SPODE. Only rows where ``active.any(axis=1)`` is False are filled.
         """
         check_is_fitted(self, attributes=["classes_", "ensemble_"])
-        return self._jll_per_model(validate_data(self, X, reset=False), per_factor)
+        return self._jll_per_model(_validate_input(self, X, reset=False), per_factor)
 
     def _jll_per_model(self, X, per_factor=False):
         """:meth:`_get_jll_per_model` on an already validated ``X``."""
@@ -1215,7 +1219,7 @@ class AnDE(_BaseAnDE):
             bounded below by the logarithm of the smallest positive float.
         """
         check_is_fitted(self, attributes=["classes_", "ensemble_"])
-        X = validate_data(self, X, reset=False)
+        X = _validate_input(self, X, reset=False)
         return self._normalize(self._pooled_scores(X, self.mean == "geometric"))
 
 
@@ -1855,7 +1859,7 @@ class WeightedAnDE(AnDE):
         super().fit(X, y)
 
         # 2. Weight layout and design on the training set
-        X = validate_data(self, X, reset=False)
+        X = _validate_input(self, X, reset=False)
         self._setup_weights(X)
         design, _ = self._design(X)
 
@@ -1917,7 +1921,7 @@ class WeightedAnDE(AnDE):
             the smallest positive float.
         """
         check_is_fitted(self, attributes=["classes_", "ensemble_", "coef_theta_"])
-        X = validate_data(self, X, reset=False)
+        X = _validate_input(self, X, reset=False)
         n_classes, n_models = len(self.classes_), len(self.ensemble_)
         n_terms = 1 + self.n_features_in_ - self.n_dependence
         out = np.empty((X.shape[0], n_classes))

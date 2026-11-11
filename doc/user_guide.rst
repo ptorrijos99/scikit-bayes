@@ -90,6 +90,40 @@ Each type is estimated as follows:
   their range, so that two values such as {1, 2} stay apart.
 * **Gaussian** features with zero variance in training are ignored.
 
+Labels and pandas categories
+----------------------------
+
+Every estimator of the library also takes columns of labels: pandas
+``category`` columns, whatever their categories, and columns of strings (in a
+DataFrame, or in a NumPy object or string array). Such a column is
+categorical whatever its values, even a ``category`` column with more than 20
+integer categories; it may be declared Bernoulli but not Gaussian, and it is
+ignored when constant. Its labels are coded by their position among the
+sorted labels seen in training, so the model is exactly the one fitted on
+these codes declared categorical. The order of the categories of a
+``category`` dtype is not used, and its categories absent from the training
+rows get no estimate. A label never seen in training is an unseen category,
+and :attr:`~skbn.MixedNB.categories_` holds the labels of each column.
+
+.. code-block:: python
+
+    import pandas as pd
+    from skbn import MixedNB
+
+    X = pd.DataFrame({
+        "age": [23.0, 45.5, 31.2, 52.8, 38.1, 27.4],
+        "plan": pd.Categorical(["basic", "pro", "pro", "basic", "pro", "basic"]),
+        "city": ["Madrid", "Paris", "Paris", "Rome", "Madrid", "Rome"],
+    })
+    clf = MixedNB().fit(X, [0, 1, 1, 0, 1, 0])
+    print(clf.feature_types_)
+    # {'gaussian': [0], 'categorical': [1, 2], 'bernoulli': []}
+
+A column that holds labels in ``fit`` must hold labels in ``predict`` (strings
+and categories may be swapped), and the other columns must hold numbers. The
+estimators do not take missing values yet: impute them first, for example
+with :class:`~sklearn.impute.SimpleImputer`.
+
 Example
 -------
 

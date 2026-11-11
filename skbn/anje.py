@@ -39,13 +39,17 @@ from scipy.special import logsumexp
 from sklearn.base import BaseEstimator, ClassifierMixin, _fit_context
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.multiclass import unique_labels
-from sklearn.utils.validation import check_is_fitted, validate_data
+from sklearn.utils.validation import check_is_fitted
 
 from ._core import (
     _AttributeEncoder,
+    _check_label_types,
     _feature_indices,
     _fit_weights,
+    _label_feature_indices,
+    _LabelInputMixin,
     _row_chunks,
+    _validate_input,
     _warn_not_converged,
 )
 from ._kernels import (
@@ -80,7 +84,7 @@ _ZAIDI_GTOL = 1e-33
 _ZAIDI_MAXCOR = 5
 
 
-class AnJE(ClassifierMixin, BaseEstimator):
+class AnJE(_LabelInputMixin, ClassifierMixin, BaseEstimator):
     """
     Averaged n-Join Estimators (AnJE) [Generative].
 
@@ -137,7 +141,8 @@ class AnJE(ClassifierMixin, BaseEstimator):
         (binned) regardless of their dtype.
         The attributes in none of the three parameters are typed from their
         training values with the rules of :class:`MixedNB`, and only those
-        typed as Gaussian are binned.
+        typed as Gaussian are binned. Columns of labels (strings, pandas
+        categories) are discrete and cannot be declared continuous.
 
     n_jobs : int, default=None
         Number of threads used to count and evaluate the n-joins.
@@ -243,24 +248,28 @@ class AnJE(ClassifierMixin, BaseEstimator):
     def _fit_generative(self, X, y):
         """Fit the tables and return the transposed training codes and the
         class indices."""
-        X, y = validate_data(self, X, y)
+        X, y = _validate_input(self, X, y)
         self.classes_ = unique_labels(y)
         y_idx = np.searchsorted(self.classes_, y)
         n_samples, n_features = X.shape
         n_classes = len(self.classes_)
 
+        gaussian = _feature_indices(
+            self.gaussian_features, n_features, "gaussian_features"
+        )
+        labelled = _label_feature_indices(self)
+        _check_label_types(labelled, gaussian)
         self._encoder = _AttributeEncoder(
             self.n_bins,
             self.strategy,
-            gaussian_features=_feature_indices(
-                self.gaussian_features, n_features, "gaussian_features"
-            ),
+            gaussian_features=gaussian,
             discrete_features=_feature_indices(
                 self.categorical_features, n_features, "categorical_features"
             )
             + _feature_indices(
                 self.bernoulli_features, n_features, "bernoulli_features"
-            ),
+            )
+            + labelled,
         )
         codes = self._encoder.fit_transform(X, y_idx, dtype=np.int32)
 
@@ -399,7 +408,7 @@ class AnJE(ClassifierMixin, BaseEstimator):
             ``classes_``.
         """
         check_is_fitted(self, attributes=["classes_", "joins_"])
-        X = validate_data(self, X, reset=False)
+        X = _validate_input(self, X, reset=False)
         codes, unseen = self._encoder.transform(X)
         codes_t = self._transform_codes(codes, unseen)
         table = self._table()
@@ -515,7 +524,8 @@ class ALR(AnJE):
         (binned) regardless of their dtype.
         The attributes in none of the three parameters are typed from their
         training values with the rules of :class:`MixedNB`, and only those
-        typed as Gaussian are binned.
+        typed as Gaussian are binned. Columns of labels (strings, pandas
+        categories) are discrete and cannot be declared continuous.
 
     weight_level : int, default=3
         Granularity of the weights, 1, 2 or 3 (see the table above).
@@ -936,7 +946,7 @@ class GaussianAnJE(_BaseAnDE):
             bounded below by the logarithm of the smallest positive float.
         """
         check_is_fitted(self, attributes=["classes_", "ensemble_"])
-        X = validate_data(self, X, reset=False)
+        X = _validate_input(self, X, reset=False)
         root, child = _join_exponents(self.n_features_in_, self.n_dependence)
         log_marginals = _root_log_marginals(self)
         n_classes, n_models = len(self.classes_), len(self.ensemble_)

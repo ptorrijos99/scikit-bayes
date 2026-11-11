@@ -45,6 +45,19 @@ values:
     clf.fit(X, y)
     print(clf.predict([[-0.5, 1, 1]]))  # [1]
 
+A pandas DataFrame may also hold labels, as strings or ``category`` columns,
+which are categorical:
+
+.. code-block:: python
+
+    import pandas as pd
+
+    df = pd.DataFrame({
+        "x": [0.5, -1.2, 0.6, -0.1],
+        "colour": ["red", "blue", "blue", "red"],
+    })
+    print(MixedNB().fit(df, y).predict(df))  # [0 1 1 0]
+
 
 AnDE on XOR
 -----------

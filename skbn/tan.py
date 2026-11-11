@@ -32,14 +32,17 @@ from scipy.special import logsumexp
 from sklearn.base import BaseEstimator, ClassifierMixin, _fit_context
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.multiclass import unique_labels
-from sklearn.utils.validation import check_is_fitted, validate_data
+from sklearn.utils.validation import check_is_fitted
 
 from ._core import (
     _AttributeEncoder,
     _fit_weights,
     _fold_padding,
+    _label_feature_indices,
+    _LabelInputMixin,
     _pad_last,
     _row_chunks,
+    _validate_input,
     _warn_not_converged,
 )
 from ._kernels import (
@@ -123,7 +126,9 @@ def _maximum_spanning_tree(weights, root):
     return parents
 
 
-class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
+class _BaseAugmentedNB(
+    _LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEstimator
+):
     """Naive Bayes whose attributes may also have other attributes as parents
     (TAN, KDB).
 
@@ -137,7 +142,7 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
     def _fit(self, X, y):
         """Learn the structure and count the conditionals; returns the
         validated ``X`` and the class indices of ``y``."""
-        X, y = validate_data(self, X, y)
+        X, y = _validate_input(self, X, y)
         self.classes_ = unique_labels(y)
         self._check_structure_params()
         n_classes = len(self.classes_)
@@ -150,7 +155,7 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             bernoulli_features=self.bernoulli_features,
             gaussian_features=self.gaussian_features,
             var_prior_weight=self.var_prior_weight,
-        ).fit(X, y)
+        )._fit_encoded(X, y_idx, self.classes_, _label_feature_indices(self))
         types = self.backoff_.feature_types_
 
         # --- 2. Discretize attributes (structure learning and parents), with
@@ -409,7 +414,7 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         jll : ndarray of shape (n_samples, n_classes)
         """
         check_is_fitted(self, attributes=["classes_", "parents_"])
-        X = validate_data(self, X, reset=False)
+        X = _validate_input(self, X, reset=False)
         with _threads(self.n_jobs):
             jll = conditional_scores(
                 self._evaluation_inputs(X), self._tables, len(self.classes_), False
@@ -678,7 +683,7 @@ class _WeightedAugmentedNB:
         jll : ndarray of shape (n_samples, n_classes)
         """
         check_is_fitted(self, attributes=["classes_", "parents_", "learned_weights_"])
-        X = validate_data(self, X, reset=False)
+        X = _validate_input(self, X, reset=False)
         n_classes, n_terms = len(self.classes_), len(self._key_off) - 1
         jll = np.empty((X.shape[0], n_classes))
         for rows in _row_chunks(X.shape[0], n_classes * n_terms):
