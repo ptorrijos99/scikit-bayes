@@ -62,7 +62,7 @@ from ._kernels import (
     join_rows,
     join_scores,
 )
-from .ande import WeightedAnDE, _BaseAnDE, _geometric_scores
+from .ande import WeightedAnDE, _BaseAnDE
 
 # Key spaces of the n-joins up to this size map keys to table rows with a
 # dense array (4 bytes per key); larger ones use a binary search
@@ -792,6 +792,16 @@ def _root_log_marginals(model):
     return np.log(counts + model.alpha * combos) - np.log(
         counts.sum() + model.alpha * len(model.classes_) * combos
     )
+
+
+def _geometric_scores(jll, active, nb_jll):
+    """Mean of the active components' log-joints (log geometric mean)."""
+    n_active = active.sum(axis=1)
+    scores = np.where(active[:, None, :], jll, 0.0).sum(axis=2)
+    scores /= np.maximum(n_active, 1)[:, None]
+    fallback = n_active == 0
+    scores[fallback] = nb_jll[fallback]
+    return scores
 
 
 class GaussianAnJE(_BaseAnDE):
