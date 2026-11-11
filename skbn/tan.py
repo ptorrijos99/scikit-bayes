@@ -35,7 +35,10 @@ from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted
 
 from ._core import (
+    _LEVEL_DIMS,
+    _VAR_SMOOTHING,
     _AttributeEncoder,
+    _ChildEncodingMixin,
     _fit_weights,
     _fold_padding,
     _label_feature_indices,
@@ -60,7 +63,6 @@ from ._kernels import (
     count_states,
     gaussian_log_norms,
 )
-from .ande import _LEVEL_DIMS, _VAR_SMOOTHING, _ChildEncodingMixin
 from .mixed_nb import MixedNB
 
 
