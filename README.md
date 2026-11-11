@@ -56,6 +56,14 @@ The development version installs from GitHub:
 pip install git+https://github.com/ptorrijos99/scikit-bayes.git
 ```
 
+The models run in Numba kernels that are compiled the first time each model is used and then cached on disk, so the first fit after installing takes from a couple of seconds (`MixedNB`) to some ten (`AnDE`), and later sessions start in a fraction of a second. To pay that once and check the installation:
+
+```bash
+python -m skbn
+```
+
+It prints the versions, fits and evaluates every model on the iris data and verifies the results.
+
 ## Documentation
 
 - [User guide](https://ptorrijos99.github.io/scikit-bayes/user_guide.html): how each model is defined and estimated, and how to choose its parameters.

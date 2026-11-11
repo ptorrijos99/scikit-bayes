@@ -91,3 +91,14 @@ a pipeline.
 
    MDLPDiscretizer
    DecisionTreeDiscretizer
+
+
+Utilities
+=========
+
+.. autosummary::
+   :toctree: generated/
+   :template: function.rst
+
+   show_versions
+   check_installation
