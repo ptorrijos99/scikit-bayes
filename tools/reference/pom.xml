@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Resolves the Weka jars used by make_reference.py from Maven Central:
+     mvn -q -B -f tools/reference/pom.xml dependency:copy-dependencies -DoutputDirectory=<dir> -->
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>local</groupId>
+  <artifactId>skbn-weka-reference</artifactId>
+  <version>1</version>
+  <packaging>pom</packaging>
+  <dependencies>
+    <dependency>
+      <groupId>nz.ac.waikato.cms.weka</groupId>
+      <artifactId>weka-stable</artifactId>
+      <version>3.8.6</version>
+    </dependency>
+    <dependency>
+      <!-- weka.classifiers.bayes.AODE; its open range on weka-dev is excluded
+           so that it runs on weka-stable 3.8.6 -->
+      <groupId>nz.ac.waikato.cms.weka</groupId>
+      <artifactId>averagedOneDependenceEstimators</artifactId>
+      <version>1.2.1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>nz.ac.waikato.cms.weka</groupId>
+          <artifactId>weka-dev</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies>
+</project>
