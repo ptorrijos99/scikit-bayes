@@ -10,6 +10,7 @@ except ImportError:
         __version__ = version("scikit-bayes")
     except (ImportError, PackageNotFoundError):
         __version__ = "0.0.0"
+from ._check import check_installation, show_versions
 from .ande import AnDE, WeightedAnDE
 from .anje import ALR, AnJE, GaussianALR, GaussianAnJE
 from .discretization import DecisionTreeDiscretizer, MDLPDiscretizer
@@ -31,5 +32,7 @@ __all__ = [
     "WeightedKDB",
     "DecisionTreeDiscretizer",
     "MDLPDiscretizer",
+    "check_installation",
+    "show_versions",
     "__version__",
 ]

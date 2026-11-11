@@ -21,7 +21,7 @@ body:
     id: versions
     attributes:
       label: Versions
-      description: Output of `python -c "import sklearn; sklearn.show_versions(); import skbn; print(skbn.__version__)"`.
+      description: Output of `python -c "import skbn; skbn.show_versions()"` (or of `python -m skbn`, which also checks the installation).
       render: text
     validations:
       required: true

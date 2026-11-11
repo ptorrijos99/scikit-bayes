@@ -227,7 +227,9 @@ AnDE
 Main parameters:
 
 * ``n_dependence``: order of dependence. ``0`` is Naive Bayes
-  (:class:`skbn.MixedNB`), ``1`` is AODE and ``2`` is A2DE.
+  (:class:`skbn.MixedNB` with its defaults: ``var_prior_weight`` shrinks the
+  variances of the components that have super-parents, and the one of order 0
+  has none), ``1`` is AODE and ``2`` is A2DE.
 * ``n_bins``: number of bins of the continuous super-parents.
 * ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``,
   ``'kmeans'``, or ``'mdlp'``, which also chooses how many: see
@@ -492,7 +494,8 @@ as parents.
     P(y, \mathbf{x}) = P(y) \prod_{i} P(x_i | y, \mathbf{x}_{\Pi(i)}), \qquad |\Pi(i)| \leq k
 
 Where :math:`\Pi(i)` is the set of attribute parents of attribute :math:`i`.
-With ``k=0`` the model is Naive Bayes.
+With ``k=0`` the model is Naive Bayes: :class:`skbn.MixedNB` with the same
+``var_prior_weight``, which is 1 by default in KDB and 0 in MixedNB.
 
 Learning the structure
 ----------------------

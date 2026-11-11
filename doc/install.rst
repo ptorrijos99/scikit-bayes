@@ -46,4 +46,24 @@ The counting and the prediction run in Numba kernels, compiled the first time
 each model is used, so the first fit of a model after installing or upgrading
 the package takes longer. The compiled code is cached on disk by Numba, and
 later sessions load it instead of compiling again (see
-:ref:`computational_considerations`).
+:ref:`computational_considerations`). On a laptop the first fit takes from a
+couple of seconds (:class:`skbn.MixedNB`) to some ten
+(:class:`skbn.AnDE`).
+
+Checking the installation
+=========================
+
+.. prompt:: bash $
+
+    python -m skbn
+
+prints the versions of the package and of its dependencies, fits and
+evaluates every model once on the iris data, which compiles and caches all
+the kernels (about half a minute the first time, a couple of seconds
+afterwards), and verifies the results: probabilities that are finite and sum
+to one, the equality of :class:`skbn.MixedNB` with scikit-learn's
+``GaussianNB`` and the cut-points of :class:`skbn.MDLPDiscretizer`. With
+``--n-jobs 4`` it compiles the threaded versions of the kernels. From Python,
+:func:`skbn.check_installation` does the same and
+:func:`skbn.show_versions` prints the versions alone, to paste in a bug
+report.
