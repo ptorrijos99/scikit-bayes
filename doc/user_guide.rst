@@ -366,10 +366,16 @@ released with the paper: weights start at ``w = 1``, there is no penalty, and
 L-BFGS-B keeps 5 corrections and runs until the relative reduction of the
 objective falls below 1e7 machine epsilons (its ``factr = 1e7``) or for
 10\ :sup:`4` iterations, with the test on the projected gradient disabled.
-The starting point is not the AnJE but the unaveraged
-product of all n-joins, so on small samples the unpenalized model overfits.
-``l2_reg`` adds the penalty towards ``w = 1`` that the paper suggests for
-small datasets, and ``max_iter`` and ``tol`` stop the optimizer earlier.
+The starting point is not the AnJE but the unaveraged product of all
+n-joins, which counts every attribute once per join that holds it and is
+overconfident. On large samples the weights correct it; on small ones the
+training set is fitted before they do, and the probabilities stay close to 0
+and 1 (the labels are much less affected). ``l2_reg`` adds the penalty towards
+``w = 1`` that the paper suggests for small datasets: it limits the
+overfitting, but it pulls towards that same starting point, not towards the
+AnJE, so it does not make the probabilities of a small sample reliable; AnJE,
+WeightedAnDE or a weighted network do better there. ``max_iter`` and ``tol``
+stop the optimizer earlier.
 
 .. code-block:: python
 
@@ -727,8 +733,8 @@ generative model.
      - Counting of the :math:`\binom{d}{n}` n-joins; ALR then runs L-BFGS-B
        with one weight per n-join touched by each sample.
      - Discrete data, or data discretized with :class:`~skbn.MDLPDiscretizer`
-       as in Zaidi et al. [4]_. Unpenalized ALR overfits small samples;
-       ``l2_reg`` adds the penalty the paper suggests for them.
+       as in Zaidi et al. [4]_. ALR needs large samples: on small ones
+       its probabilities are overconfident, with or without ``l2_reg``.
    * - :class:`~skbn.GaussianAnJE` / :class:`~skbn.GaussianALR`
      - The same pool as AnJE, written on the factors of the SPnDEs of order
        ``n_dependence``: only the super-parents are discretized and
@@ -845,8 +851,11 @@ What the models do not handle
   impute them first, for example with
   :class:`~sklearn.impute.SimpleImputer` in a pipeline. A categorical value
   that was never seen in training is accepted at prediction time and carries
-  no information. The two discretizers accept ``NaN`` and impute it with the
-  median of the attribute.
+  no information: its own factor is left out. Where the attribute is a parent
+  (a super-parent of AnDE, a parent in TAN or KDB), the component is left out
+  or the child takes the estimate of a parent value never seen, so the
+  prediction is not the one a removed column would give. The two discretizers
+  accept ``NaN`` and impute it with the median of the attribute.
 * **Sample weights.** ``fit`` takes no ``sample_weight``: the parameters are
   estimated from integer counts.
 * **Incremental learning.** There is no ``partial_fit``: the bins of the
