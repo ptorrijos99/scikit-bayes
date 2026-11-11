@@ -367,7 +367,22 @@ def _label_order(values, j):
 
 def _validate_input(estimator, X, y="no_validation", reset=True):
     """:func:`~sklearn.utils.validation.validate_data` for the classifiers,
-    which also take columns of labels.
+    which also take columns of labels (see :func:`_validate_labels`). The
+    data to predict of a model that discretizes its continuous children come
+    back binned, as the model was fitted (see :func:`_discretized_children`).
+    """
+    out = _validate_labels(estimator, X, y, reset)
+    binning = None if reset else getattr(estimator, "_binning", None)
+    if binning is None:
+        return out
+    if isinstance(y, str) and y == "no_validation":
+        return binning.transform(out)
+    return binning.transform(out[0]), out[1]
+
+
+def _validate_labels(estimator, X, y, reset):
+    """:func:`~sklearn.utils.validation.validate_data` on input that may hold
+    columns of labels.
 
     Columns that hold labels (pandas ``category`` columns and columns of
     strings, see :func:`_label_columns`) are replaced by the codes of a
@@ -514,6 +529,109 @@ class _Cuts:
         return np.digitize(col.ravel(), self.cuts)
 
 
+def _fit_bins(col, y_idx, n_classes, n_bins, strategy):
+    """Bins of the continuous column ``col`` (2-D, one column): the cut-points
+    of Fayyad and Irani when ``strategy`` is ``"mdlp"`` (``n_bins`` is then
+    not used), else a fitted :class:`KBinsDiscretizer`. Either has a
+    ``transform`` that gives the bin of every value of a column."""
+    if strategy == "mdlp":
+        return _Cuts(_mdlp_cuts(col.ravel().astype(float), y_idx, n_classes))
+    kwargs = {"subsample": None}
+    # quantile_method was added in scikit-learn 1.7
+    if strategy == "quantile" and parse_version(
+        parse_version(sklearn.__version__).base_version
+    ) >= parse_version("1.7"):
+        kwargs["quantile_method"] = "linear"
+    bins = KBinsDiscretizer(
+        n_bins=n_bins, encode="ordinal", strategy=strategy, **kwargs
+    )
+    with warnings.catch_warnings():
+        # Repeated values leave fewer bins than asked for, which the callers
+        # account for
+        warnings.filterwarnings("ignore", message="Bins whose width are too small")
+        return bins.fit(col)
+
+
+class _Binning:
+    """Bins of the continuous attributes of a model that discretizes them as
+    children too (``continuous_children="discretized"``): the model is then
+    fitted, and evaluated, on a copy of the data in which those columns hold
+    the index of the bin of each value, as categorical attributes.
+
+    Attributes
+    ----------
+    columns : list of int
+        The attributes that are binned.
+    bins : list
+        Their bins, as :func:`_fit_bins` gives them.
+    """
+
+    def __init__(self, columns, bins):
+        self.columns = columns
+        self.bins = bins
+
+    @classmethod
+    def fit_transform(cls, X, y_idx, columns, n_bins, strategy):
+        """The binning of the columns ``columns`` of ``X`` and the binned
+        copy of ``X``."""
+        n_classes = int(y_idx.max()) + 1 if len(y_idx) else 0
+        bins = [
+            _fit_bins(X[:, [j]], y_idx, n_classes, n_bins, strategy) for j in columns
+        ]
+        binning = cls(list(columns), bins)
+        return binning, binning.transform(X)
+
+    def transform(self, X):
+        """Copy of ``X`` with the bin of every value in the binned columns.
+        Values beyond the range seen in training fall in the first or the
+        last bin."""
+        X = np.array(X, dtype=np.float64)
+        for j, bins in zip(self.columns, self.bins):
+            X[:, j] = bins.transform(X[:, [j]]).ravel()
+        return X
+
+
+def _discretized_children(estimator, X, y_idx):
+    """Apply ``continuous_children`` to the validated training ``X`` of
+    ``estimator``.
+
+    Returns the data to fit on, the columns that are categorical whatever
+    their values and the declaration of Gaussian features to use. With
+    ``"gaussian"`` these are ``X``, the columns of labels and the
+    ``gaussian_features`` of the estimator. With ``"discretized"`` the
+    continuous attributes (those declared Gaussian, and the undeclared ones
+    typed as such) are binned with ``n_bins`` and ``strategy``, and become
+    categorical: none is left Gaussian. The binning is kept in
+    ``estimator._binning`` (None when nothing is binned), which
+    :func:`_validate_input` applies to the data to predict.
+    """
+    labels = _label_feature_indices(estimator)
+    estimator._binning = None
+    # The models without the parameter (GaussianAnJE, GaussianALR) keep
+    # their continuous children
+    if getattr(estimator, "continuous_children", "gaussian") == "gaussian":
+        return X, labels, estimator.gaussian_features
+    n_features = X.shape[1]
+    gaussian = _feature_indices(
+        estimator.gaussian_features, n_features, "gaussian_features"
+    )
+    _check_label_types(labels, gaussian)
+    declared = set(labels) | set(gaussian)
+    for name in ("categorical_features", "bernoulli_features"):
+        declared |= set(_feature_indices(getattr(estimator, name), n_features, name))
+    undeclared = [i for i in range(n_features) if i not in declared]
+    types = _auto_types(X, undeclared)
+    columns = sorted(
+        gaussian + [i for i, t in zip(undeclared, types) if t == "gaussian"]
+    )
+    if not columns:
+        return X, labels, None
+    estimator._binning, X = _Binning.fit_transform(
+        X, y_idx, columns, estimator.n_bins, estimator.strategy
+    )
+    return X, labels + columns, None
+
+
 class _AttributeEncoder:
     """Integer codes of the attributes, as used for parents and joins.
 
@@ -549,12 +667,6 @@ class _AttributeEncoder:
             known_columns = {int(c): k for k, c in enumerate(known[0])}
         declared_gaussian = {int(i) for i in self.gaussian_features or []}
         declared_discrete = {int(i) for i in self.discrete_features or []}
-        kwargs = {"subsample": None}
-        # quantile_method was added in scikit-learn 1.7
-        sklearn_version = parse_version(parse_version(sklearn.__version__).base_version)
-        if self.strategy == "quantile" and sklearn_version >= parse_version("1.7"):
-            kwargs["quantile_method"] = "linear"
-
         # The encoders whose number of codes is only known once fitted come
         # first, since that number decides the type of the codes
         self.encoders_ = [None] * X.shape[1]
@@ -574,8 +686,7 @@ class _AttributeEncoder:
             else:
                 continuous = auto[i] == "gaussian"
             if continuous and self.strategy == "mdlp":
-                col = X[:, i].astype(float)
-                self.encoders_[i] = _Cuts(_mdlp_cuts(col, y_idx, n_classes))
+                self.encoders_[i] = _fit_bins(X[:, [i]], y_idx, n_classes, None, "mdlp")
             elif continuous:
                 binned.append(i)
             elif i in known_columns:
@@ -604,16 +715,8 @@ class _AttributeEncoder:
             if isinstance(enc, _Cuts):
                 codes[:, i] = enc.transform(X[:, i])
         for i in binned:
-            enc = KBinsDiscretizer(
-                n_bins=self.n_bins, encode="ordinal", strategy=self.strategy, **kwargs
-            )
-            with warnings.catch_warnings():
-                # Repeated values leave fewer bins than asked for, which
-                # cards_ accounts for
-                warnings.filterwarnings(
-                    "ignore", message="Bins whose width are too small"
-                )
-                codes[:, i] = enc.fit_transform(X[:, [i]]).ravel()
+            enc = _fit_bins(X[:, [i]], y_idx, n_classes, self.n_bins, self.strategy)
+            codes[:, i] = enc.transform(X[:, [i]]).ravel()
             self.encoders_[i] = enc
         if reused:
             codes[:, reused] = known[2][:, [known_columns[i] for i in reused]]

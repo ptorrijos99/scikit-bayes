@@ -655,12 +655,72 @@ models, whose continuous children stay Gaussian.
     clf = TAN(strategy="mdlp")
     clf.fit(X, y)
 
+Discretized children
+--------------------
+
+By default a continuous attribute is discretized only where it is a parent,
+and keeps its values and a Gaussian conditional as a child, as in HAODE. The
+original AODE, TAN and KDB are defined on discrete attributes instead, and
+are run on continuous data after discretizing it. ``AnDE``, ``TAN``, ``KDB``
+and their weighted versions do that with ``continuous_children="discretized"``:
+every continuous attribute is replaced by its bin, of ``n_bins`` and
+``strategy``, as a child and as a parent, and the other attributes are left
+as they are.
+
+.. code-block:: python
+
+    from skbn import AnDE, WeightedTAN
+
+    # AODE on MDL intervals, as in Webb et al. (2005)
+    clf = AnDE(strategy="mdlp", continuous_children="discretized")
+
+    # The weighted TAN on the same intervals
+    clf = WeightedTAN(strategy="mdlp", continuous_children="discretized")
+    clf.fit(X, y)
+
+Which one fits better depends on the data, and cross-validation decides. A
+Gaussian conditional needs few samples and suits attributes that are close to
+Gaussian within each class; it is wrong for skewed or multimodal ones, and a
+model with many such children gives overconfident probabilities. Bins make no
+assumption on the shape and cost a parameter per bin. In 5-fold
+cross-validation repeated twice (accuracy / log loss):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 20 20 20
+
+   * - Model
+     - iris
+     - wine
+     - breast cancer
+   * - ``AnDE()``
+     - 0.957 / 0.107
+     - 0.975 / 0.140
+     - 0.941 / 0.376
+   * - ``AnDE(strategy="mdlp", continuous_children="discretized")``
+     - 0.927 / 0.171
+     - 0.980 / 0.077
+     - 0.956 / 0.190
+   * - ``TAN()``
+     - 0.960 / 0.096
+     - 0.955 / 0.394
+     - 0.957 / 0.232
+   * - ``TAN(strategy="mdlp", continuous_children="discretized")``
+     - 0.927 / 0.177
+     - 0.963 / 0.112
+     - 0.949 / 0.189
+
+On the 150 samples of iris the Gaussians win; on wine and on the 30 skewed
+measurements of the breast cancer data the intervals halve the log loss.
+
 The same discretization is available as a transformer,
 :class:`skbn.MDLPDiscretizer`, together with
 :class:`skbn.DecisionTreeDiscretizer`, which uses the thresholds of a
 decision tree fitted on each attribute, with at most ``n_bins`` leaves. In a
 pipeline they discretize every attribute they are given, so the model that
-follows has no continuous children.
+follows has no continuous children; ``continuous_children="discretized"``
+gives the same model without the pipeline, and leaves the columns of labels
+alone.
 
 .. warning::
 

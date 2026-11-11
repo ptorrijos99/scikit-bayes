@@ -156,6 +156,16 @@ class TAN(_BaseAugmentedNB):
         and to count and evaluate the conditionals. ``None`` means 1 and
         ``-1`` all the processors.
 
+    continuous_children : {"gaussian", "discretized"}, default="gaussian"
+        How a continuous attribute is modelled as a child. With
+        ``"gaussian"`` it keeps its values and has a Gaussian conditional,
+        and only its role as a parent uses the bins of ``n_bins`` and
+        ``strategy``. With ``"discretized"`` every continuous attribute is
+        replaced by its bin, as a categorical attribute, in both roles: the
+        model on discretized data of the original works, without a
+        discretizer in a pipeline. Values beyond the training range fall in
+        the first or the last bin.
+
     Attributes
     ----------
     classes_ : ndarray of shape (n_classes,)
@@ -229,6 +239,7 @@ class TAN(_BaseAugmentedNB):
         "gaussian_features": ["array-like", None],
         "var_prior_weight": [Interval(Real, 0, None, closed="left")],
         "n_jobs": [Integral, None],
+        "continuous_children": [StrOptions({"gaussian", "discretized"})],
     }
 
     def __init__(
@@ -242,6 +253,7 @@ class TAN(_BaseAugmentedNB):
         gaussian_features=None,
         var_prior_weight=1.0,
         n_jobs=None,
+        continuous_children="gaussian",
     ):
         self.root = root
         self.n_bins = n_bins
@@ -252,6 +264,7 @@ class TAN(_BaseAugmentedNB):
         self.gaussian_features = gaussian_features
         self.var_prior_weight = var_prior_weight
         self.n_jobs = n_jobs
+        self.continuous_children = continuous_children
 
     @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
@@ -414,6 +427,16 @@ class WeightedTAN(_WeightedAugmentedNB, TAN):
         Stopping tolerance of L-BFGS-B on the relative reduction of the
         objective and on the projected gradient; None uses SciPy's defaults.
 
+    continuous_children : {"gaussian", "discretized"}, default="gaussian"
+        How a continuous attribute is modelled as a child. With
+        ``"gaussian"`` it keeps its values and has a Gaussian conditional,
+        and only its role as a parent uses the bins of ``n_bins`` and
+        ``strategy``. With ``"discretized"`` every continuous attribute is
+        replaced by its bin, as a categorical attribute, in both roles: the
+        model on discretized data of the original works, without a
+        discretizer in a pipeline. Values beyond the training range fall in
+        the first or the last bin.
+
     Attributes
     ----------
     classes_ : ndarray of shape (n_classes,)
@@ -501,6 +524,7 @@ class WeightedTAN(_WeightedAugmentedNB, TAN):
     _parameter_constraints: dict = {
         **TAN._parameter_constraints,
         **_WeightedAugmentedNB._weight_constraints,
+        "continuous_children": [StrOptions({"gaussian", "discretized"})],
     }
 
     def __init__(
@@ -518,6 +542,7 @@ class WeightedTAN(_WeightedAugmentedNB, TAN):
         l2_reg=1.0,
         max_iter=100,
         tol=None,
+        continuous_children="gaussian",
     ):
         super().__init__(
             root=root,
@@ -534,3 +559,4 @@ class WeightedTAN(_WeightedAugmentedNB, TAN):
         self.l2_reg = l2_reg
         self.max_iter = max_iter
         self.tol = tol
+        self.continuous_children = continuous_children

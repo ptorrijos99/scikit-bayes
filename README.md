@@ -19,7 +19,7 @@ scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model foll
 - `TAN`: Tree Augmented Naive Bayes, with a Chow-Liu tree of attribute dependencies.
 - `KDB`: K-Dependence Bayesian classifier, in which every attribute has at most k attribute parents chosen by conditional mutual information.
 - `WeightedTAN` and `WeightedKDB`: TAN and KDB with discriminative weights on their parameters (the weighted CCBN of Zaidi et al., 2017), which correct the dependencies the structure leaves out.
-- `MDLPDiscretizer` and `DecisionTreeDiscretizer`: supervised discretization of continuous attributes, to place before a model in a pipeline. Every model also takes the MDL discretization of Fayyad and Irani directly, as `strategy="mdlp"`.
+- `MDLPDiscretizer` and `DecisionTreeDiscretizer`: supervised discretization of continuous attributes, to place before a model in a pipeline. Every model also takes the MDL discretization of Fayyad and Irani directly, as `strategy="mdlp"`, and `continuous_children="discretized"` runs AnDE, TAN and KDB on the discretized attributes, as in the original works, instead of with Gaussian children.
 
 ## Quick start
 

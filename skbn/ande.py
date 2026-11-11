@@ -168,6 +168,16 @@ class AnDE(_BaseAnDE):
     mean : {"arithmetic", "geometric"}, default="arithmetic"
         Pooling of the components' joint probabilities.
 
+    continuous_children : {"gaussian", "discretized"}, default="gaussian"
+        How a continuous attribute is modelled as a child. With
+        ``"gaussian"`` it keeps its values and has a Gaussian conditional,
+        and only its role as a parent uses the bins of ``n_bins`` and
+        ``strategy``. With ``"discretized"`` every continuous attribute is
+        replaced by its bin, as a categorical attribute, in both roles: the
+        model on discretized data of the original works, without a
+        discretizer in a pipeline. Values beyond the training range fall in
+        the first or the last bin.
+
     Attributes
     ----------
     classes_ : ndarray of shape (n_classes,)
@@ -240,6 +250,7 @@ class AnDE(_BaseAnDE):
     _parameter_constraints: dict = {
         **_BaseAnDE._parameter_constraints,
         "mean": [StrOptions({"arithmetic", "geometric"})],
+        "continuous_children": [StrOptions({"gaussian", "discretized"})],
     }
 
     def __init__(
@@ -256,6 +267,7 @@ class AnDE(_BaseAnDE):
         min_parent_count=1,
         unseen_state="laplace",
         mean="arithmetic",
+        continuous_children="gaussian",
     ):
         super().__init__(
             n_dependence,
@@ -271,6 +283,7 @@ class AnDE(_BaseAnDE):
             unseen_state,
         )
         self.mean = mean
+        self.continuous_children = continuous_children
 
     @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
@@ -524,6 +537,16 @@ class WeightedAnDE(AnDE):
         are identifiable; levels 1 and 2 reduce to the generative AnDE, the
         weights stay at 1 and a :class:`UserWarning` is raised.
 
+    continuous_children : {"gaussian", "discretized"}, default="gaussian"
+        How a continuous attribute is modelled as a child. With
+        ``"gaussian"`` it keeps its values and has a Gaussian conditional,
+        and only its role as a parent uses the bins of ``n_bins`` and
+        ``strategy``. With ``"discretized"`` every continuous attribute is
+        replaced by its bin, as a categorical attribute, in both roles: the
+        model on discretized data of the original works, without a
+        discretizer in a pipeline. Values beyond the training range fall in
+        the first or the last bin.
+
     Attributes
     ----------
     classes_ : ndarray of shape (n_classes,)
@@ -616,6 +639,7 @@ class WeightedAnDE(AnDE):
         "max_iter": [Interval(Integral, 1, None, closed="left")],
         "tol": [Interval(Real, 0, None, closed="left"), None],
         "modular": ["boolean"],
+        "continuous_children": [StrOptions({"gaussian", "discretized"})],
     }
 
     def __init__(
@@ -639,6 +663,7 @@ class WeightedAnDE(AnDE):
         max_iter=100,
         tol=None,
         modular=False,
+        continuous_children="gaussian",
     ):
         super().__init__(
             n_dependence,
@@ -661,6 +686,7 @@ class WeightedAnDE(AnDE):
         self.max_iter = max_iter
         self.tol = tol
         self.modular = modular
+        self.continuous_children = continuous_children
 
     # Projected-gradient tolerance (None: that of ``tol``) and number of
     # corrections of L-BFGS-B
