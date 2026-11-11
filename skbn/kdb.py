@@ -220,6 +220,11 @@ class KDB(_BaseAugmentedNB):
         decreasing ``conditional_mutual_info_``; it is empty for the
         attributes that depend only on the class.
 
+    edges_ : list of tuple of int
+        Arcs between attributes, as ``(parent, child)`` pairs of feature
+        indices: ``parents_`` in the form :class:`TAN` and :class:`KDB`
+        share. :meth:`to_dot` gives the whole network, class included.
+
     backoff_ : MixedNB
         Naive Bayes on the original class. Provides the class prior, the
         conditionals of the attributes without attribute parents and the
@@ -487,6 +492,11 @@ class WeightedKDB(_WeightedAugmentedNB, KDB):
         decreasing ``conditional_mutual_info_``; it is empty for the
         attributes that depend only on the class.
 
+    edges_ : list of tuple of int
+        Arcs between attributes, as ``(parent, child)`` pairs of feature
+        indices: ``parents_`` in the form :class:`TAN` and :class:`KDB`
+        share. :meth:`to_dot` gives the whole network, class included.
+
     backoff_ : MixedNB
         Naive Bayes on the original class. Provides the class prior, the
         conditionals of the attributes without attribute parents and the
@@ -497,6 +507,15 @@ class WeightedKDB(_WeightedAugmentedNB, KDB):
 
     n_weights_ : int
         Number of weights, including the shared one for unseen combinations.
+
+    prior_weights_ : ndarray of shape (n_classes,) or (1,)
+        Weights of the class prior, taken from ``learned_weights_``.
+
+    feature_weights_ : list of ndarray
+        Weights of the conditional of every attribute, taken from
+        ``learned_weights_``: a row per combination that ``weight_level``
+        tells apart and a column per class when it has one. At level 1
+        ``feature_weights_[i]`` is the single weight of attribute ``i``.
 
     n_iter_ : int
         Number of L-BFGS-B iterations.

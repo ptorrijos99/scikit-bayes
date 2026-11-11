@@ -440,6 +440,8 @@ Example:
 
     clf.parents_                   # parent of each attribute (-1 for the root)
     clf.conditional_mutual_info_   # edge weights used to learn the tree
+    clf.edges_                     # the arcs as (parent, child) pairs
+    print(clf.to_dot())            # the network, for Graphviz or networkx
 
 
 .. _kdb:
@@ -505,6 +507,8 @@ Example:
     clf.parents_                   # attribute parents of each attribute
     clf.mutual_info_               # I(A_i; C), used to order the attributes
     clf.conditional_mutual_info_   # I(A_i; A_j | C), used to choose parents
+    clf.edges_                     # the arcs as (parent, child) pairs
+    print(clf.to_dot())            # the network, for Graphviz or networkx
 
 
 .. _weighted_networks:
@@ -572,6 +576,8 @@ of the conditionals of a network.
     clf.fit(X, y)
 
     clf.learned_weights_   # the weights, 1 for the generative model
+    clf.prior_weights_     # those of the class prior
+    clf.feature_weights_   # those of every attribute: below 1, it is discounted
 
 
 .. _discretization:
