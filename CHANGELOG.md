@@ -28,6 +28,7 @@ All notable changes to scikit-bayes are listed here. The project follows [semant
 
 ### Fixed
 
+- `TAN` and `KDB` choose their structure the same way on every platform when two edges tie. Attributes that are copies or relabellings of each other have the same mutual information in exact arithmetic, but the sums gave values one ulp apart and the tree followed the rounding instead of the documented rule (the first parent to reach the best weight is kept). Weights closer than 1e-10 of the largest one are now tied. Found by comparing with Weka and pgmpy.
 - Reading the scikit-learn version no longer fails on pre-releases and development versions (1.7rc1, 1.8.dev0).
 - The user guide said that the codes of a discretizer in a pipeline are typed as categorical. With more than 20 intervals, which `MDLPDiscretizer` produces on large samples, they are typed as continuous and discretized again unless declared in `categorical_features`. The guide now says so and recommends `strategy="mdlp"`.
 - The docstring of `ALR` said that `w = 1` is the `AnJE`; it is the unaveraged product of the n-joins, as the user guide states.

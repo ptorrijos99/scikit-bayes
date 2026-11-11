@@ -30,7 +30,13 @@ import numpy as np
 from sklearn.base import _fit_context
 from sklearn.utils._param_validation import Interval, StrOptions
 
-from .tan import _BaseAugmentedNB, _conditional_mutual_info, _WeightedAugmentedNB
+from .tan import (
+    _TIE_RTOL,
+    _BaseAugmentedNB,
+    _conditional_mutual_info,
+    _snap_ties,
+    _WeightedAugmentedNB,
+)
 
 
 def _mutual_info_with_class(codes, y_idx, cards, n_classes):
@@ -77,7 +83,8 @@ def _kdb_structure(mi, cmi, k):
     parents the ``min(k, n_placed)`` already placed attributes with the
     highest ``cmi``. Ties are broken deterministically: the attribute with the
     lowest index is placed first, and among candidate parents the one placed
-    first is preferred.
+    first is preferred. Values within ``_TIE_RTOL`` of the largest one count
+    as tied.
 
     Parameters
     ----------
@@ -95,12 +102,14 @@ def _kdb_structure(mi, cmi, k):
     parents : list of ndarray
         Attribute parents of every attribute, by decreasing ``cmi``.
     """
-    order = np.argsort(-mi, kind="stable").astype(np.int64)
+    mi_tol = _TIE_RTOL * np.max(np.abs(mi), initial=0.0)
+    cmi_tol = _TIE_RTOL * np.max(np.abs(cmi), initial=0.0)
+    order = np.argsort(-_snap_ties(mi, mi_tol), kind="stable").astype(np.int64)
     parents = [None] * len(order)
     for t, i in enumerate(order):
         placed = order[:t]
-        best = np.argsort(-cmi[i, placed], kind="stable")[: min(k, t)]
-        parents[i] = placed[best]
+        weights = _snap_ties(cmi[i, placed], cmi_tol)
+        parents[i] = placed[np.argsort(-weights, kind="stable")[: min(k, t)]]
     return order, parents
 
 
