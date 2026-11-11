@@ -12,7 +12,7 @@ from numpy.testing import assert_allclose, assert_array_equal
 from sklearn.datasets import load_iris
 from sklearn.exceptions import ConvergenceWarning, NotFittedError
 
-from skbn import KDB, TAN, WeightedKDB, WeightedTAN
+from skbn import KDB, TAN, AnDE, GaussianAnJE, WeightedKDB, WeightedTAN
 
 
 @pytest.fixture
@@ -133,3 +133,19 @@ def test_ties_between_edges_do_not_follow_the_rounding():
         if position[2] > position[1]:
             assert_array_equal(kdb.parents_[2], [0])
     assert differ > 0  # the case the tolerance is for did occur
+
+
+@pytest.mark.parametrize(
+    "model",
+    [TAN(), KDB(k=2), WeightedTAN(max_iter=5), AnDE(), GaussianAnJE()],
+    ids=lambda m: type(m).__name__,
+)
+def test_feature_types_are_those_of_the_backoff_model(model, iris):
+    X, y = iris
+    X = X.assign(wide=X.iloc[:, 3] > 1.6, grade=np.digitize(X.iloc[:, 2], [2.5, 4.9]))
+    X["constant"] = 1.0
+    with pytest.raises(NotFittedError):
+        model.feature_types_
+    types = _fit(model, X, y).feature_types_
+    assert types == {"gaussian": [0, 1, 2, 3], "categorical": [5], "bernoulli": [4]}
+    assert types is model.backoff_.feature_types_

@@ -180,6 +180,11 @@ class TAN(_BaseAugmentedNB):
         indices: ``parents_`` in the form :class:`TAN` and :class:`KDB`
         share. :meth:`to_dot` gives the whole network, class included.
 
+    feature_types_ : dict
+        Indices of the attributes of each type the model uses, under the keys
+        ``"gaussian"``, ``"categorical"`` and ``"bernoulli"`` (those of
+        ``backoff_``). An attribute that is constant in training is in none.
+
     backoff_ : MixedNB
         Naive Bayes on the original class. Provides the class prior, the root
         conditional and the detected feature types (``feature_types_``).
@@ -432,6 +437,11 @@ class WeightedTAN(_WeightedAugmentedNB, TAN):
         Arcs between attributes, as ``(parent, child)`` pairs of feature
         indices: ``parents_`` in the form :class:`TAN` and :class:`KDB`
         share. :meth:`to_dot` gives the whole network, class included.
+
+    feature_types_ : dict
+        Indices of the attributes of each type the model uses, under the keys
+        ``"gaussian"``, ``"categorical"`` and ``"bernoulli"`` (those of
+        ``backoff_``). An attribute that is constant in training is in none.
 
     backoff_ : MixedNB
         Naive Bayes on the original class. Provides the class prior, the root

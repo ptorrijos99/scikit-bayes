@@ -909,6 +909,11 @@ class GaussianAnJE(_BaseAnDE):
         the estimates of all the components are stored together in flat
         tables.
 
+    feature_types_ : dict
+        Indices of the attributes of each type the model uses, under the keys
+        ``"gaussian"``, ``"categorical"`` and ``"bernoulli"`` (those of
+        ``backoff_``). An attribute that is constant in training is in none.
+
     backoff_ : MixedNB
         Naive Bayes on the original class, used for the class prior, the
         class-level conditionals and as the fallback when no SPnDE qualifies.
@@ -1089,6 +1094,11 @@ class GaussianALR(WeightedAnDE):
         (``"n_parent_combos"``) and of the augmented states :math:`Y^*` seen in
         training (``"n_states"``); the estimates of all the components are
         stored together in flat tables.
+
+    feature_types_ : dict
+        Indices of the attributes of each type the model uses, under the keys
+        ``"gaussian"``, ``"categorical"`` and ``"bernoulli"`` (those of
+        ``backoff_``). An attribute that is constant in training is in none.
 
     backoff_ : MixedNB
         Naive Bayes on the original class, used for the class prior, the
