@@ -8,6 +8,7 @@ import platform
 
 import numpy as np
 import pytest
+from scipy.sparse import csr_matrix
 from scipy.special import logsumexp
 from sklearn.base import clone
 
@@ -225,6 +226,25 @@ def test_modular_factor_weights_fit_each_component_alone(mixed_data, mean):
     )
 
 
+def _operator(design, n_weights):
+    """The linear map of a design as a sparse matrix, one row per (sample,
+    class, component): the form the compiled kernels replace."""
+    n_samples, n_models, n_terms = design.index.shape
+    n_classes = (
+        design.intercept.shape[1] if design.values is None else (design.values.shape[1])
+    )
+    shift = np.arange(n_classes)[:, None, None] * design.class_step
+    columns = design.index[:, None] + shift
+    # The keys unseen in training have one weight, the last, for every class
+    columns = np.where(design.index[:, None] == n_weights - 1, n_weights - 1, columns)
+    values = np.ones(columns.shape) if design.values is None else design.values
+    indptr = np.arange(0, columns.size + 1, n_terms)
+    return csr_matrix(
+        (values.ravel(), columns.ravel(), indptr),
+        shape=(n_samples * n_classes * n_models, n_weights),
+    )
+
+
 # --- Average of posteriors --------------------------------------------------
 
 
@@ -232,7 +252,7 @@ def _component_log_posteriors(model, X, theta):
     """log P^w_m(y | x) of every component, shape (n, C, M)."""
     design, _ = model._design(X)
     n_samples, n_models = design.active.shape
-    u = (design.operator @ theta).reshape(n_samples, -1, n_models)
+    u = (_operator(design, theta.size) @ theta).reshape(n_samples, -1, n_models)
     if design.intercept is not None:
         u = u + design.intercept
     return u - logsumexp(u, axis=1, keepdims=True), design.active
@@ -334,7 +354,7 @@ def _array_objective(model, theta, design, Y):
     class and component: the sparse product, NumPy sums and SciPy's
     log-sum-exp, the form the compiled kernels replace."""
     n_samples, n_models = design.active.shape
-    u = (design.operator @ theta).reshape(n_samples, -1, n_models)
+    u = (_operator(design, theta.size) @ theta).reshape(n_samples, -1, n_models)
     if design.intercept is not None:
         u = u + design.intercept
     n_active = design.active.sum(axis=1)
@@ -357,7 +377,7 @@ def _array_objective(model, theta, design, Y):
     du = dscores[:, :, None] * weight
     if q is not None:
         du -= q * du.sum(axis=1, keepdims=True)
-    return -np.sum(log_prob * Y), design.operator.T @ du.ravel()
+    return -np.sum(log_prob * Y), _operator(design, theta.size).T @ du.ravel()
 
 
 @pytest.mark.parametrize("scope", SCOPES)
@@ -434,7 +454,7 @@ def test_component_gradient_matches_finite_differences(mixed_data, mean):
     design, Y = _training_design(model, X, y)
     lo, hi = model._component_bounds[1], model._component_bounds[2]
     rows = design.active[:, 1]
-    sub = design.component(1, rows, lo, hi)
+    sub = design.component(1, rows, lo)
     theta = np.random.RandomState(2).uniform(0.7, 1.3, size=hi - lo)
     _, grad = model._nll_and_grad(theta, sub, Y[rows])
     assert_gradient(lambda t: model._nll_and_grad(t, sub, Y[rows])[0], theta, grad)

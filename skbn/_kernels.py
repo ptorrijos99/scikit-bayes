@@ -1787,20 +1787,24 @@ def _pairwise_sum(a, lo, n):
 
 @nb.njit(cache=True)
 def _weighted_geometric_scores(
-    indptr, indices, data, n_terms, theta, intercept, active, n_classes
+    index, class_step, values, n_terms, theta, intercept, active, n_classes
 ):
     """Pooled scores ``sum_m share[i, m] * u[i, c, m]`` of the geometric
-    weighted ensemble, shape (n, n_classes): ``u`` is the product of the CSR
-    operator (rows ``(i * n_classes + c) * n_models + m``) with ``theta``,
-    plus ``intercept`` unless it is empty, and
+    weighted ensemble, shape (n, n_classes).
+
+    ``u[i, c, m]`` is the sum over the ``n_terms`` terms of the component of
+    ``values[k] * theta[index[kb] + c * class_step]``, with
+    ``k = ((i * n_classes + c) * n_models + m) * n_terms + t`` and
+    ``kb = (i * n_models + m) * n_terms + t`` (the weights of the classes of
+    a term are consecutive, or the same one), plus ``intercept`` unless it is
+    empty. An empty ``values`` stands for ones, with a single term.
     ``share[i, m]`` is ``active[i, m]`` over the number of active components
-    (at least 1). The operations, and their order, are those of
-    ``(operator @ theta).reshape(n, C, M) * share`` summed over the last axis
-    by NumPy, without the arrays of every sample, class and component.
-    With ``n_terms > 0`` every row holds that many entries and ``indptr`` is
-    not read: it is as large as the indices, and reading it cost a third of
-    the time."""
+    (at least 1). The operations, and their order, are those of the sparse
+    product ``(operator @ theta).reshape(n, C, M) * share`` summed over the
+    last axis by NumPy, without the arrays of every sample, class and
+    component."""
     n, n_models = active.shape
+    ones = values.shape[0] == 0
     scores = np.empty((n, n_classes))
     terms = np.empty(n_models)
     share = np.empty(n_models)
@@ -1812,23 +1816,24 @@ def _weighted_geometric_scores(
             share[m] = (1.0 if active[i, m] else 0.0) / max(n_active, 1)
         for c in range(n_classes):
             row = (i * n_classes + c) * n_models
+            shift = c * class_step
             if n_terms == 1:  # One weight per component, without a loop
                 for m in range(n_models):
-                    k = row + m
-                    u = 0.0 + data[k] * theta[indices[k]]
+                    w = theta[np.uintp(index[i * n_models + m] + shift)]
+                    u = 0.0 + (w if ones else values[row + m] * w)
                     if intercept.shape[0]:
                         u += intercept[i, c, m]
                     terms[m] = u * share[m]
             else:
                 for m in range(n_models):
-                    if n_terms:
-                        start = (row + m) * n_terms
-                        end = start + n_terms
-                    else:
-                        start, end = indptr[row + m], indptr[row + m + 1]
+                    start = np.uintp((row + m) * n_terms)
+                    base = np.uintp((i * n_models + m) * n_terms)
                     u = 0.0
-                    for k in range(np.uintp(start), np.uintp(end)):
-                        u += data[k] * theta[np.uintp(indices[k])]
+                    # Unsigned indices: no check for negative ones at every read
+                    for t in range(np.uintp(n_terms)):
+                        u += (
+                            values[start + t] * theta[np.uintp(index[base + t] + shift)]
+                        )
                     if intercept.shape[0]:
                         u += intercept[i, c, m]
                     terms[m] = u * share[m]
@@ -1838,13 +1843,16 @@ def _weighted_geometric_scores(
 
 @nb.njit(cache=True)
 def _weighted_geometric_gradient(
-    indptr, indices, data, n_terms, dscores, active, n_weights
+    index, class_step, values, n_terms, dscores, active, n_weights
 ):
-    """``operator.T @ (dscores[:, :, None] * share).ravel()`` for the operator
-    and shares of :func:`_weighted_geometric_scores`, accumulated in the order of the
-    rows, as SciPy does."""
+    """Gradient of the loss with respect to ``theta`` given its derivative
+    ``dscores`` with respect to the scores of
+    :func:`_weighted_geometric_scores`: the transposed sparse product
+    ``operator.T @ (dscores[:, :, None] * share).ravel()``, accumulated in the
+    order of its rows, as SciPy does."""
     n, n_models = active.shape
     n_classes = dscores.shape[1]
+    ones = values.shape[0] == 0
     grad = np.zeros(n_weights)
     share = np.empty(n_models)
     for i in range(n):
@@ -1855,43 +1863,41 @@ def _weighted_geometric_gradient(
             share[m] = (1.0 if active[i, m] else 0.0) / max(n_active, 1)
         for c in range(n_classes):
             row = (i * n_classes + c) * n_models
+            shift = c * class_step
             if n_terms == 1:
                 for m in range(n_models):
-                    k = row + m
-                    grad[indices[k]] += data[k] * (dscores[i, c] * share[m])
+                    du = dscores[i, c] * share[m]
+                    j = np.uintp(index[i * n_models + m] + shift)
+                    grad[j] += du if ones else values[row + m] * du
                 continue
             for m in range(n_models):
-                if n_terms:
-                    start = (row + m) * n_terms
-                    end = start + n_terms
-                else:
-                    start, end = indptr[row + m], indptr[row + m + 1]
+                start = np.uintp((row + m) * n_terms)
+                base = np.uintp((i * n_models + m) * n_terms)
                 du = dscores[i, c] * share[m]
-                for k in range(np.uintp(start), np.uintp(end)):
-                    grad[np.uintp(indices[k])] += data[k] * du
+                for t in range(np.uintp(n_terms)):
+                    grad[np.uintp(index[base + t] + shift)] += values[start + t] * du
     return grad
 
 
 @nb.njit(cache=True)
 def _component_terms(
-    i, indptr, indices, data, n_terms, theta, intercept, n_classes, posterior, u
+    i, index, class_step, values, n_terms, theta, intercept, n_classes, posterior, u
 ):
-    """Component scores ``u[c, m]`` of sample ``i``: the operator rows times
-    ``theta``, plus the intercept when there is one; with ``posterior``, each
-    component's scores minus their log-sum-exp over the classes."""
+    """Component scores ``u[c, m]`` of sample ``i``, as in
+    :func:`_weighted_geometric_scores`; with ``posterior``, each component's
+    scores minus their log-sum-exp over the classes."""
     n_models = u.shape[1]
+    ones = values.shape[0] == 0
     for c in range(n_classes):
         row = (i * n_classes + c) * n_models
+        shift = c * class_step
         for m in range(n_models):
-            if n_terms:
-                start = (row + m) * n_terms
-                end = start + n_terms
-            else:
-                start, end = indptr[row + m], indptr[row + m + 1]
+            start = np.uintp((row + m) * n_terms)
+            base = np.uintp((i * n_models + m) * n_terms)
             v = 0.0
-            # Unsigned indices: no check for negative ones at every read
-            for k in range(np.uintp(start), np.uintp(end)):
-                v += data[k] * theta[np.uintp(indices[k])]
+            for t in range(np.uintp(n_terms)):
+                w = theta[np.uintp(index[base + t] + shift)]
+                v += w if ones else values[start + t] * w
             if intercept.shape[0]:
                 v += intercept[i, c, m]
             u[c, m] = v
@@ -1937,15 +1943,22 @@ def _log_sum_exp(v, work, pairwise):
 
 @nb.njit(cache=True)
 def _weighted_arithmetic_scores(
-    indptr, indices, data, n_terms, theta, intercept, active, n_classes, posterior
+    index,
+    class_step,
+    values,
+    n_terms,
+    theta,
+    intercept,
+    active,
+    n_classes,
+    posterior,
 ):
     """Pooled scores ``log sum_m exp(u[i, c, m])`` over the active components
     of the arithmetic weighted ensemble, shape (n, n_classes), 0 for a sample
     with no active component, and the component scores ``u``, shape
-    (n, n_classes, n_models), which the gradient reuses. ``u`` is the product
-    of the CSR operator (rows ``(i * n_classes + c) * n_models + m``) with
-    ``theta``, plus ``intercept`` unless it is empty; with ``posterior``
-    every component's scores are normalized over the classes first."""
+    (n, n_classes, n_models), which the gradient reuses. ``u`` is that of
+    :func:`_weighted_geometric_scores`; with ``posterior`` every component's
+    scores are normalized over the classes first."""
     n, n_models = active.shape
     scores = np.empty((n, n_classes))
     terms = np.empty((n, n_classes, n_models))
@@ -1954,7 +1967,16 @@ def _weighted_arithmetic_scores(
     for i in range(n):
         u = terms[i]
         _component_terms(
-            i, indptr, indices, data, n_terms, theta, intercept, n_classes, posterior, u
+            i,
+            index,
+            class_step,
+            values,
+            n_terms,
+            theta,
+            intercept,
+            n_classes,
+            posterior,
+            u,
         )
         n_active = 0
         for m in range(n_models):
@@ -1971,16 +1993,26 @@ def _weighted_arithmetic_scores(
 
 @nb.njit(cache=True)
 def _weighted_arithmetic_gradient(
-    indptr, indices, data, n_terms, terms, active, scores, dscores, posterior, n_weights
+    index,
+    class_step,
+    values,
+    n_terms,
+    terms,
+    active,
+    scores,
+    dscores,
+    posterior,
+    n_weights,
 ):
     """Gradient of the loss with respect to ``theta`` for the scores and the
     component scores ``terms`` of :func:`_weighted_arithmetic_scores`, given
     the derivative ``dscores`` with respect to the scores: every component
     score gets ``dscores`` times its responsibility ``exp(u - score)``
     (through the normalization over the classes with ``posterior``), spread
-    over the weights of its row."""
+    over the weights of its terms."""
     n, n_models = active.shape
     n_classes = dscores.shape[1]
+    ones = values.shape[0] == 0
     grad = np.zeros(n_weights)
     du = np.empty((n_classes, n_models))
     for i in range(n):
@@ -2003,14 +2035,13 @@ def _weighted_arithmetic_gradient(
                     du[c, m] -= np.exp(u[c, m]) * total
         for c in range(n_classes):
             row = (i * n_classes + c) * n_models
+            shift = c * class_step
             for m in range(n_models):
-                if n_terms:
-                    start = (row + m) * n_terms
-                    end = start + n_terms
-                else:
-                    start, end = indptr[row + m], indptr[row + m + 1]
-                for k in range(np.uintp(start), np.uintp(end)):
-                    grad[np.uintp(indices[k])] += data[k] * du[c, m]
+                start = np.uintp((row + m) * n_terms)
+                base = np.uintp((i * n_models + m) * n_terms)
+                for t in range(np.uintp(n_terms)):
+                    j = np.uintp(index[base + t] + shift)
+                    grad[j] += du[c, m] if ones else values[start + t] * du[c, m]
     return grad
 
 

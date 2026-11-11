@@ -1193,7 +1193,7 @@ class GaussianALR(WeightedAnDE):
         root, child = _join_exponents(self.n_features_in_, self.n_dependence)
         n_samples, n_models = design.active.shape
         n_classes = len(self.classes_)
-        terms = design.operator.data.reshape(n_samples, n_classes, n_models, -1)
+        terms = design.values
         terms[..., 0] -= _root_log_marginals(self)
         terms[..., 0] *= root
         terms[..., 1:] *= child

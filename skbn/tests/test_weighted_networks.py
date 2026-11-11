@@ -62,8 +62,15 @@ def _test_rows(X):
 
 
 def _training_design(model, X, y):
-    terms, index = model._design(model._evaluation_inputs(X))
-    return terms, index, np.eye(len(model.classes_))[np.searchsorted(model.classes_, y)]
+    """Log-terms, the weight of every (sample, class, term) and the one-hot
+    targets. The design keeps the weight of class 0 of each term; those of
+    the other classes follow it, and the untrained weight is its own for
+    every class."""
+    terms, base = model._design(model._evaluation_inputs(X))
+    n_classes, untrained = terms.shape[1], model.n_weights_ - 1
+    step = np.arange(n_classes)[:, None] * (model._class_weights > 1)
+    index = np.where(base[:, None] == untrained, untrained, base[:, None] + step)
+    return terms, index, np.eye(n_classes)[np.searchsorted(model.classes_, y)]
 
 
 def _parents(model):
@@ -172,7 +179,7 @@ def test_unseen_parent_value_takes_the_untrained_weight():
     model = WeightedKDB(k=2, max_iter=5, **TYPES).fit(X, y)
     X_test = X[:5].copy()
     X_test[:, 3] = 7.0  # never seen
-    index = model._design(model._evaluation_inputs(X_test))[1]
+    index = _training_design(model, X_test, np.zeros(len(X_test)))[1]
     children = model._tables[3]
     has_parent_3 = [1 + m for m, i in enumerate(children) if 3 in model.parents_[i]]
     assert has_parent_3
@@ -195,13 +202,14 @@ def test_gradient_matches_finite_differences(
         model.fit(X, y)
     terms, index, Y = _training_design(model, X, y)
     w = np.random.RandomState(1).uniform(0.4, 1.6, model.n_weights_)
-    nll, grad = model._nll_and_grad(w, terms, index, Y)
+    base = model._design(model._evaluation_inputs(X))[1]
+    nll, grad = model._nll_and_grad(w, terms, base, Y)
 
     # The objective in array form
     scores = (w[index] * terms).sum(axis=2)
     expected = -np.sum((scores - logsumexp(scores, axis=1, keepdims=True)) * Y)
     assert_allclose(nll, expected, rtol=1e-12)
-    assert_gradient(lambda t: model._nll_and_grad(t, terms, index, Y)[0], w, grad)
+    assert_gradient(lambda t: model._nll_and_grad(t, terms, base, Y)[0], w, grad)
 
 
 @pytest.mark.parametrize("level", LEVELS)
@@ -220,7 +228,8 @@ def test_weighted_naive_bayes_matches_factor_weighted_ande(level, n_classes):
     ).fit(X, y)
     assert kdb.n_weights_ == ande.n_weights_
 
-    terms, index, Y = _training_design(kdb, X, y)
+    terms, _, Y = _training_design(kdb, X, y)
+    index = kdb._design(kdb._evaluation_inputs(X))[1]
     design, _ = ande._design(X)
     w = np.random.RandomState(2).uniform(0.4, 1.6, kdb.n_weights_)
     nll, grad = kdb._nll_and_grad(w, terms, index, Y)

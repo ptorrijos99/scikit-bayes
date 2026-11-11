@@ -43,7 +43,6 @@ from numbers import Integral, Real
 from typing import NamedTuple, Optional
 
 import numpy as np
-from scipy.sparse import csr_matrix
 from scipy.special import logsumexp
 from sklearn.base import BaseEstimator, ClassifierMixin, _fit_context
 from sklearn.utils._param_validation import Interval, StrOptions
@@ -57,6 +56,8 @@ from sklearn.utils.validation import (
 from ._core import (
     _AttributeEncoder,
     _fit_weights,
+    _fold_padding,
+    _pad_last,
     _row_chunks,
     _warn_not_converged,
 )
@@ -1237,30 +1238,46 @@ class _Design(NamedTuple):
     """Linear map from the weights to the component scores.
 
     The score of component ``m`` for sample ``i`` and class ``c`` is
-    ``u[i, c, m] = intercept[i, c, m] + (operator @ theta)[(i * C + c) * M + m]``.
-    Each operator row holds the log-terms of a component at the indices of
-    their weights (exponent weights), or a one (mixture weights, with the
-    log-joint as intercept). ``active[i, m]`` marks the components that take
-    part in the prediction of sample ``i``. ``n_terms`` is the number of
-    entries of every operator row, or 0 when the rows differ.
+    ``u[i, c, m] = intercept[i, c, m] + sum_t values[i, c, m, t] *
+    theta[index[i, m, t] + c * class_step]``. Each term is a log-term of the
+    component times its weight (exponent weights), or, without ``values``,
+    the weight alone (mixture weights, with the log-joint as intercept).
+
+    The weights of the classes of a term are consecutive (``class_step`` 1)
+    or one and the same (0), so ``index`` holds the weight of class 0 only:
+    an index per class would repeat it ``n_classes`` times.
     """
 
-    operator: csr_matrix
-    intercept: Optional[np.ndarray]
-    active: np.ndarray
-    n_terms: int = 0
+    index: np.ndarray  # (n_samples, n_models, n_terms)
+    class_step: int
+    values: Optional[np.ndarray]  # (n_samples, n_classes, n_models, n_terms)
+    intercept: Optional[np.ndarray]  # (n_samples, n_classes, n_models)
+    active: np.ndarray  # (n_samples, n_models): takes part in the prediction
 
-    def component(self, m_idx, mask, lo, hi):
+    def component(self, m_idx, mask, lo):
         """Component ``m_idx`` alone, on the samples in ``mask`` and with its
-        weights ``theta[lo:hi]``."""
-        n_samples, n_models = self.active.shape
-        n_classes = self.operator.shape[0] // max(n_samples * n_models, 1)
-        samples = np.flatnonzero(mask)
-        rows = (samples[:, None] * n_classes + np.arange(n_classes)) * n_models + m_idx
+        weights, which start at ``lo``."""
+
+        def own(a):  # Its slice of an array with the models on the third axis
+            return None if a is None else a[:, :, m_idx][mask][:, :, None]
+
         return _Design(
-            self.operator[rows.ravel()][:, lo:hi],
-            None if self.intercept is None else self.intercept[mask][:, :, [m_idx]],
-            np.ones((len(samples), 1), dtype=bool),
+            self.index[:, m_idx][mask][:, None] - lo,
+            self.class_step,
+            own(self.values),
+            own(self.intercept),
+            np.ones((int(mask.sum()), 1), dtype=bool),
+        )
+
+    def kernel_args(self):
+        """Arguments of the compiled scores and gradients: the index, the
+        class step, the values and the number of terms."""
+        values = np.zeros(0) if self.values is None else self.values
+        return (
+            np.ascontiguousarray(self.index).reshape(-1),
+            self.class_step,
+            np.ascontiguousarray(values).reshape(-1),
+            self.index.shape[2],
         )
 
 
@@ -1631,19 +1648,24 @@ class WeightedAnDE(AnDE):
         """Lay out the weights on a validated training ``X``.
 
         Every term owns a block of keys, contiguous per component, indexed by
-        the dimensions of the level. Only the keys that occur in training get
-        a weight, so their number is bounded by the data rather than by the
-        cardinalities; one extra weight, never trained, stands for every key
-        unseen in training and keeps its generative value.
+        the dimensions of the level, the class innermost. Only the keys that
+        occur in training get a weight, so their number is bounded by the
+        data rather than by the cardinalities; one extra weight, never
+        trained, stands for every key unseen in training and keeps its
+        generative value.
+
+        A key that occurs is given a weight for every class, so the keys are
+        collected for class 0 alone (``_base_keys``) and the weight of class
+        ``c`` follows that of class 0 by ``c`` places.
         """
         dims = _LEVEL_DIMS[self.weight_scope][self.weight_level]
         n_classes = len(self.classes_)
         value_cards, parent_cards = self._term_cardinalities()
+        self._class_step = int("class" in dims)
+        per_key = n_classes if self._class_step else 1
 
         # Strides of the dimensions, innermost first: class, value, parents
-        size = np.ones_like(value_cards)
-        self._class_stride = size * ("class" in dims)
-        size = size * (n_classes if "class" in dims else 1)
+        size = np.full_like(value_cards, per_key)
         self._value_stride = size * ("value" in dims)
         size = size * (value_cards if "value" in dims else 1)
         self._parent_stride = size * ("parents" in dims)
@@ -1651,17 +1673,16 @@ class WeightedAnDE(AnDE):
         self._term_offsets = np.cumsum(size.ravel()).reshape(size.shape) - size
 
         X_parents_disc = self._encoder.transform(X)[0]
-        seen = []
-        for rows in _row_chunks(len(X), size.size):
-            base = self._weight_base(X[rows], X_parents_disc[rows])
-            seen.append(
-                np.unique([base + c * self._class_stride for c in range(n_classes)])
-            )
-        self._weight_keys = np.unique(np.concatenate(seen))
-        self.n_weights_ = len(self._weight_keys) + 1
+        seen = [
+            np.unique(self._weight_base(X[rows], X_parents_disc[rows]))
+            for rows in _row_chunks(len(X), size.size)
+        ]
+        self._base_keys = np.unique(np.concatenate(seen))
+        self._n_seen = len(self._base_keys) * per_key
+        self.n_weights_ = self._n_seen + 1
         self._component_bounds = np.append(
-            np.searchsorted(self._weight_keys, self._term_offsets[:, 0]),
-            len(self._weight_keys),
+            np.searchsorted(self._base_keys, self._term_offsets[:, 0]) * per_key,
+            self._n_seen,
         )
 
     def _weight_base(self, X, X_parents_disc):
@@ -1674,76 +1695,74 @@ class WeightedAnDE(AnDE):
         )
 
     def _weight_index(self, keys):
-        """Weight of each key; keys unseen in training share the last one."""
-        n_seen = len(self._weight_keys)
-        pos = np.minimum(np.searchsorted(self._weight_keys, keys), n_seen - 1)
-        return np.where(self._weight_keys[pos] == keys, pos, n_seen)
+        """Class-0 weight of each class-0 key; the keys unseen in training
+        share the last weight, whatever the class."""
+        last = len(self._base_keys) - 1
+        pos = np.minimum(np.searchsorted(self._base_keys, keys), last)
+        per_key = len(self.classes_) if self._class_step else 1
+        return np.where(self._base_keys[pos] == keys, pos * per_key, self._n_seen)
 
     def _design(self, X):
         """Weighted-score design for a validated ``X``, and the NB fallback.
 
-        The per-term log-likelihoods become the operator's values in place,
-        and the weight indices are built in row chunks, so the operator costs
-        one float64 and one int32 per (sample, class, component, term).
+        The per-term log-likelihoods become the values of the design in
+        place, and the weight indices are built in row chunks, so the design
+        costs one float64 per (sample, class, component, term) and one int32
+        per (sample, component, term).
         """
         per_factor = self.weight_scope == "factor"
         ll, X_parents_disc, active, nb_jll = self._jll_per_model(X, per_factor)
-        n_samples, n_classes, n_models = ll.shape[:3]
+        n_samples, _, n_models = ll.shape[:3]
         n_terms = ll.shape[3] if per_factor else 1
-        nnz = ll.size
-        idx_dtype = np.int32 if max(nnz, self.n_weights_) < 2**31 else np.int64
+        idx_dtype = (
+            np.int32 if self.n_weights_ + len(self.classes_) < 2**31 else np.int64
+        )
 
-        indices = np.empty((n_samples, n_classes, n_models, n_terms), dtype=idx_dtype)
-        for rows in _row_chunks(n_samples, n_classes * n_models * n_terms):
-            base = self._weight_base(X[rows], X_parents_disc[rows])
-            for c in range(n_classes):
-                indices[rows, c] = self._weight_index(base + c * self._class_stride)
+        index = np.empty((n_samples, n_models, n_terms), dtype=idx_dtype)
+        for rows in _row_chunks(n_samples, n_models * n_terms):
+            index[rows] = self._weight_index(
+                self._weight_base(X[rows], X_parents_disc[rows])
+            )
 
         # Exponent weights multiply the log-terms; mixture weights add to the
         # log-joint, which becomes the intercept
-        data = np.ones(nnz) if self._offset else ll.reshape(-1)
-        operator = csr_matrix(
-            (
-                data,
-                indices.reshape(-1),
-                np.arange(0, nnz + 1, n_terms, dtype=idx_dtype),
-            ),
-            shape=(n_samples * n_classes * n_models, self.n_weights_),
-        )
-        intercept = ll if self._offset else None
-        return _Design(operator, intercept, active, n_terms), nb_jll
+        if self._offset:
+            design = _Design(index, self._class_step, None, ll, active)
+        else:
+            values = ll.reshape(n_samples, -1, n_models, n_terms)
+            design = _Design(index, self._class_step, values, None, active)
+        return design, nb_jll
 
     # --- Objective ----------------------------------------------------------
-    def _kernel_args(self, theta, design):
-        """Arguments of the compiled scores and gradient for ``design``."""
-        op = design.operator
-        intercept = design.intercept
-        if intercept is None:
-            intercept = np.zeros((0, 0, 0))
-        return (op.indptr, op.indices, op.data, design.n_terms, theta, intercept)
-
     def _scores(self, theta, design):
         """Pooled scores of the samples of ``design``, shape (n, C), and, for
         the arithmetic pool, the component scores the gradient reuses.
 
         The geometric pool is ``sum_m share[i, m] * u[i, c, m]`` over the
         active components, the arithmetic one ``log sum_m exp(u[i, c, m])``
-        (of the components' posteriors with ``average="posterior"``), where
-        ``u = intercept + operator @ theta``. Samples without an active
-        component score 0 for every class; they do not depend on the weights
-        and are predicted by the NB fallback. Compiled kernels compute them
-        sample by sample, without arrays of every sample, class and component
-        but ``u`` for the arithmetic pool, with the operations of the sparse
-        product, NumPy's sums and SciPy's ``logsumexp`` (from SciPy 1.15) in
-        the same order.
+        (of the components' posteriors with ``average="posterior"``), with
+        ``u`` as in :class:`_Design`. Samples without an active component
+        score 0 for every class; they do not depend on the weights and are
+        predicted by the NB fallback. Compiled kernels compute them sample by
+        sample, without arrays of every sample, class and component but ``u``
+        for the arithmetic pool, with the operations of a sparse product,
+        NumPy's sums and SciPy's ``logsumexp`` (from SciPy 1.15) in the same
+        order.
         """
         n_classes = len(self.classes_)
-        args = self._kernel_args(theta, design)
-        if self.mean == "geometric":
-            return _weighted_geometric_scores(*args, design.active, n_classes), None
-        return _weighted_arithmetic_scores(
-            *args, design.active, n_classes, self._pools_posteriors
+        intercept = design.intercept
+        if intercept is None:
+            intercept = np.zeros((0, 0, 0))
+        args = (
+            *design.kernel_args(),
+            _pad_last(theta, design.class_step * (n_classes - 1)),
+            intercept,
+            design.active,
+            n_classes,
         )
+        if self.mean == "geometric":
+            return _weighted_geometric_scores(*args), None
+        return _weighted_arithmetic_scores(*args, self._pools_posteriors)
 
     def _nll_and_grad(self, theta, design, Y):
         """Conditional negative log-likelihood and its gradient. Rows of ``Y``
@@ -1752,12 +1771,11 @@ class WeightedAnDE(AnDE):
         log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
         nll = -np.sum(log_prob * Y)
         dscores = np.exp(log_prob) * Y.sum(axis=1, keepdims=True) - Y
-        op = design.operator
-        args = (op.indptr, op.indices, op.data, design.n_terms)
+        n_classes = len(self.classes_)
+        n_padded = theta.size + design.class_step * (n_classes - 1)
+        args = design.kernel_args()
         if self.mean == "geometric":
-            grad = _weighted_geometric_gradient(
-                *args, dscores, design.active, theta.size
-            )
+            grad = _weighted_geometric_gradient(*args, dscores, design.active, n_padded)
         else:
             grad = _weighted_arithmetic_gradient(
                 *args,
@@ -1766,9 +1784,9 @@ class WeightedAnDE(AnDE):
                 scores,
                 dscores,
                 self._pools_posteriors,
-                theta.size,
+                n_padded,
             )
-        return nll, grad
+        return nll, _fold_padding(grad, theta.size)
 
     def _optimize(self, theta, design, Y):
         bounds = (
@@ -1855,7 +1873,7 @@ class WeightedAnDE(AnDE):
                 rows = design.active[:, m_idx]
                 if rows.any():
                     theta[lo:hi] = self._optimize(
-                        theta[lo:hi], design.component(m_idx, rows, lo, hi), Y[rows]
+                        theta[lo:hi], design.component(m_idx, rows, lo), Y[rows]
                     )
 
         _warn_not_converged(self._n_failed, self._n_problems, self.max_iter)
