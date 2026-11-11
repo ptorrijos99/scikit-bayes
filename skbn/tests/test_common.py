@@ -9,7 +9,7 @@ import pytest
 from sklearn.utils.estimator_checks import check_estimator
 
 from skbn import AnDE, WeightedAnDE
-from skbn.utils.discovery import all_estimators
+from skbn.tests._discovery import all_estimators
 
 
 def _few_iterations(estimator):
