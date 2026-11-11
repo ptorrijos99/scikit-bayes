@@ -91,12 +91,35 @@ def _conditional_mutual_info(codes, y_idx, cards, n_classes):
     )
 
 
+# Weights closer than this fraction of the largest one are taken as equal when
+# a structure is chosen. Attributes that are copies or relabellings of each
+# other have the same mutual information in exact arithmetic but come out a
+# few ulps apart, and a comparison between them would follow the rounding of
+# the platform instead of the documented rule for ties.
+_TIE_RTOL = 1e-10
+
+
+def _snap_ties(values, tol):
+    """``values`` (1-D) with every run of values closer than ``tol`` to their
+    neighbour replaced by the smallest of the run, so that exact comparisons
+    see them as ties."""
+    if len(values) < 2:
+        return values
+    order = np.argsort(values, kind="stable")
+    ranked = values[order]
+    first = np.concatenate([[0], np.flatnonzero(np.diff(ranked) > tol) + 1])
+    run = np.searchsorted(first, np.arange(len(ranked)), side="right") - 1
+    snapped = np.empty_like(ranked)
+    snapped[order] = ranked[first[run]]
+    return snapped
+
+
 def _maximum_spanning_tree(weights, root):
     """Directed maximum weight spanning tree (Prim's algorithm).
 
     Ties are broken deterministically: the vertex with the lowest index is
     added first, and a vertex keeps the parent that reached its best weight
-    first.
+    first. Weights within ``_TIE_RTOL`` of the largest one count as tied.
 
     Parameters
     ----------
@@ -111,16 +134,18 @@ def _maximum_spanning_tree(weights, root):
         Parent of every vertex, ``-1`` for the root.
     """
     n_features = weights.shape[0]
+    tol = _TIE_RTOL * np.max(np.abs(weights), initial=0.0)
     parents = np.full(n_features, -1, dtype=np.int64)
     in_tree = np.zeros(n_features, dtype=bool)
     in_tree[root] = True
     best = weights[root].astype(np.float64)
     best_parent = np.full(n_features, root, dtype=np.int64)
     for _ in range(n_features - 1):
-        k = int(np.argmax(np.where(in_tree, -np.inf, best)))
+        frontier = np.where(in_tree, -np.inf, best)
+        k = int(np.argmax(frontier >= frontier.max() - tol))
         parents[k] = best_parent[k]
         in_tree[k] = True
-        update = ~in_tree & (weights[k] > best)
+        update = ~in_tree & (weights[k] > best + tol)
         best[update] = weights[k][update]
         best_parent[update] = k
     return parents
@@ -964,7 +989,9 @@ class WeightedTAN(_WeightedAugmentedNB, TAN):
     ----------
     root : int, default=0
         Index of the attribute used as root of the tree, in
-        ``[0, n_features - 1]``.
+        ``[0, n_features - 1]``. The root does not change the edges of the
+        tree, only their direction, but with smoothing (``alpha > 0``) the
+        estimates, and so the predictions, depend on the direction.
 
     n_bins : int, default=5
         Number of bins used to discretize continuous attributes for the

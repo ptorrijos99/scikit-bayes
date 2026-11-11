@@ -101,3 +101,35 @@ def test_weights_of_an_ignored_attribute_are_empty():
     assert_allclose([weights[1][0, 0], weights[2][0, 0]], model.learned_weights_[1:3])
     # The exact copy is discounted
     assert weights[2][0, 0] < 0.8 < weights[1][0, 0]
+
+
+def _relabelled_data(seed):
+    """x1 is x0 with its values renamed, so x2 has exactly the same
+    conditional mutual information with both; the compiled sums give values
+    one ulp apart on about half of the seeds."""
+    rng = np.random.RandomState(seed)
+    y = rng.randint(0, 2, 60)
+    x0 = rng.randint(0, 3, 60)
+    x2 = (x0 + y + rng.randint(0, 2, 60)) % 3
+    return np.column_stack([x0, (x0 + 1) % 3, x2]), y
+
+
+def test_ties_between_edges_do_not_follow_the_rounding():
+    # Each attribute keeps the parent that reached its best weight first: x2
+    # hangs from x0, whatever the last bit of the two weights
+    differ = 0
+    for seed in range(40):
+        X, y = _relabelled_data(seed)
+        tan = TAN().fit(X, y)
+        cmi = tan.conditional_mutual_info_
+        differ += cmi[2, 0] != cmi[2, 1]
+        assert_allclose(cmi[2, 0], cmi[2, 1], rtol=1e-12)
+        assert_array_equal(tan.parents_, [-1, 0, 0])
+        # KDB: x0 and x1 tie with the class too and are placed in that order;
+        # x2 takes the one placed first
+        kdb = KDB(k=1).fit(X, y)
+        position = np.argsort(kdb.feature_order_)
+        assert position[0] < position[1]
+        if position[2] > position[1]:
+            assert_array_equal(kdb.parents_[2], [0])
+    assert differ > 0  # the case the tolerance is for did occur
