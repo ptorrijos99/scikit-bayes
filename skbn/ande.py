@@ -906,8 +906,8 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         inputs = self._evaluation_inputs(X)
         with _threads(self.n_jobs):
             out, active, nb_jll = component_scores(
-                *inputs,
-                *self._tables,
+                inputs,
+                self._tables,
                 max(self.min_parent_count, 1),
                 self.unseen_state == "backoff",
                 per_factor,
@@ -920,8 +920,8 @@ class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         (n_samples, n_classes)."""
         with _threads(self.n_jobs):
             return pooled_scores(
-                *self._evaluation_inputs(X),
-                *self._tables,
+                self._evaluation_inputs(X),
+                self._tables,
                 max(self.min_parent_count, 1),
                 self.unseen_state == "backoff",
                 geometric,

@@ -7,9 +7,10 @@ field in :class:`SPnDETables`. The conditionals of TAN and KDB are stored the
 same way (:class:`ConditionalTables`), and the samples to evaluate come in an
 :class:`EvaluationInputs`.
 
-The kernels take these named tuples splatted (``*tables``), so the order of
-their fields is the order of the parameters of the kernels, which a test
-checks.
+The kernels of the SPnDEs take the named tuples themselves and read their
+fields by name. :func:`conditional_scores` takes them splatted
+(``*tables``), so the order of their fields is the order of its
+parameters, which a test checks.
 """
 
 # Authors: scikit-bayes developers
@@ -749,10 +750,10 @@ def _two_class_children(
 
 
 class EvaluationInputs(NamedTuple):
-    """Per-sample inputs of the evaluation kernels, the first parameters of
-    :func:`component_scores`, :func:`pooled_scores` and
-    :func:`conditional_scores`. A discrete code of -1 marks a value never
-    seen in training, which contributes nothing."""
+    """Per-sample inputs of the evaluation kernels: ``inputs`` of
+    :func:`component_scores` and :func:`pooled_scores`, and the first
+    parameters of :func:`conditional_scores`. A discrete code of -1 marks a
+    value never seen in training, which contributes nothing."""
 
     # Value of every discrete attribute as a child, shape (n, n_features)
     codes: np.ndarray
@@ -767,8 +768,8 @@ class EvaluationInputs(NamedTuple):
 
 
 class SPnDETables(NamedTuple):
-    """The fitted tables of an ensemble of SPnDEs, in the order of the
-    parameters of :func:`component_scores` and :func:`pooled_scores`.
+    """The fitted tables of an ensemble of SPnDEs, ``tables`` of
+    :func:`component_scores` and :func:`pooled_scores`.
 
     The components that differ only in which constant attributes
     (``const``) are among their parents have the same parameters, stored
@@ -858,53 +859,10 @@ class SPnDETables(NamedTuple):
 
 
 @_Kernel
-def component_scores(
-    codes,
-    xg,
-    uninf,
-    pcodes,
-    punseen,
-    parents,
-    strides,
-    n_combos,
-    group,
-    rep,
-    const,
-    state_off,
-    state_keys,
-    root,
-    count,
-    drow,
-    loff,
-    dense,
-    rows,
-    tcodes,
-    lut,
-    mean,
-    var,
-    logn,
-    pk_off,
-    pk_keys,
-    pk_count,
-    log_prior_unseen,
-    b_root,
-    b_disc,
-    b_mean,
-    b_var,
-    b_logn,
-    kind,
-    voff,
-    gidx,
-    attrs,
-    dcol,
-    doff,
-    grp,
-    nonzero,
-    min_count,
-    backoff,
-    per_factor,
-):
-    """Log-joint ``log P_m(y, x)`` of every sample, class and component.
+def component_scores(inputs, tables, min_count, backoff, per_factor):
+    """Log-joint ``log P_m(y, x)`` of every sample, class and component, from
+    the :class:`EvaluationInputs` of the samples and the
+    :class:`SPnDETables` of the ensemble.
 
     Returns ``out`` of shape (n, n_classes, n_models), or with
     ``per_factor`` of shape (n, n_classes, n_models, 1 + n_children) holding
@@ -912,6 +870,47 @@ def component_scores(
     Naive Bayes joint of the samples with no active component (zero for the
     others).
     """
+    # The fields are read once, by name: the loops below index plain arrays
+    codes = inputs.codes
+    xg = inputs.xg
+    uninf = inputs.uninf
+    pcodes = inputs.pcodes
+    punseen = inputs.punseen
+    parents = tables.parents
+    strides = tables.strides
+    n_combos = tables.n_combos
+    group = tables.group
+    state_off = tables.state_off
+    state_keys = tables.state_keys
+    root = tables.root
+    count = tables.count
+    drow = tables.drow
+    loff = tables.loff
+    dense = tables.dense
+    rows = tables.rows
+    tcodes = tables.tcodes
+    lut = tables.lut
+    mean = tables.mean
+    var = tables.var
+    logn = tables.logn
+    pk_off = tables.pk_off
+    pk_keys = tables.pk_keys
+    pk_count = tables.pk_count
+    log_prior_unseen = tables.log_prior_unseen
+    b_root = tables.b_root
+    b_disc = tables.b_disc
+    b_mean = tables.b_mean
+    b_var = tables.b_var
+    b_logn = tables.b_logn
+    kind = tables.kind
+    voff = tables.voff
+    gidx = tables.gidx
+    attrs = tables.attrs
+    dcol = tables.dcol
+    doff = tables.doff
+    grp = tables.grp
+    nonzero = tables.nonzero
+
     n, n_features = codes.shape
     n_models, n_dep = parents.shape
     n_classes = b_root.shape[0]
@@ -1149,53 +1148,10 @@ def component_scores(
 
 
 @_Kernel
-def pooled_scores(
-    codes,
-    xg,
-    uninf,
-    pcodes,
-    punseen,
-    parents,
-    strides,
-    n_combos,
-    group,
-    rep,
-    const,
-    state_off,
-    state_keys,
-    root,
-    count,
-    drow,
-    loff,
-    dense,
-    rows,
-    tcodes,
-    lut,
-    mean,
-    var,
-    logn,
-    pk_off,
-    pk_keys,
-    pk_count,
-    log_prior_unseen,
-    b_root,
-    b_disc,
-    b_mean,
-    b_var,
-    b_logn,
-    kind,
-    voff,
-    gidx,
-    attrs,
-    dcol,
-    doff,
-    grp,
-    nonzero,
-    min_count,
-    backoff,
-    geometric,
-):
-    """Pooled score of every sample and class, shape (n, n_classes).
+def pooled_scores(inputs, tables, min_count, backoff, geometric):
+    """Pooled score of every sample and class, shape (n, n_classes), from the
+    :class:`EvaluationInputs` of the samples and the :class:`SPnDETables` of
+    the ensemble.
 
     The arithmetic pool is ``log mean_m P_m(y, x)`` and the geometric one
     ``mean_m log P_m(y, x)``, over the active components; samples with no
@@ -1209,6 +1165,49 @@ def pooled_scores(
     order; a component is left out of the pool of a sample whose value of
     one of its constant parents was never seen.
     """
+    # The fields are read once, by name: the loops below index plain arrays
+    codes = inputs.codes
+    xg = inputs.xg
+    uninf = inputs.uninf
+    pcodes = inputs.pcodes
+    punseen = inputs.punseen
+    parents = tables.parents
+    strides = tables.strides
+    n_combos = tables.n_combos
+    group = tables.group
+    rep = tables.rep
+    const = tables.const
+    state_off = tables.state_off
+    state_keys = tables.state_keys
+    root = tables.root
+    count = tables.count
+    drow = tables.drow
+    loff = tables.loff
+    dense = tables.dense
+    rows = tables.rows
+    tcodes = tables.tcodes
+    lut = tables.lut
+    mean = tables.mean
+    var = tables.var
+    logn = tables.logn
+    pk_off = tables.pk_off
+    pk_keys = tables.pk_keys
+    pk_count = tables.pk_count
+    log_prior_unseen = tables.log_prior_unseen
+    b_root = tables.b_root
+    b_disc = tables.b_disc
+    b_mean = tables.b_mean
+    b_var = tables.b_var
+    b_logn = tables.b_logn
+    kind = tables.kind
+    voff = tables.voff
+    gidx = tables.gidx
+    attrs = tables.attrs
+    dcol = tables.dcol
+    doff = tables.doff
+    grp = tables.grp
+    nonzero = tables.nonzero
+
     n, n_features = codes.shape
     n_models, n_dep = parents.shape
     n_groups = rep.shape[0]
