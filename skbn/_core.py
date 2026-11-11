@@ -350,6 +350,25 @@ def _fit_weights(
     return res.x, res.nit, res.status != 1
 
 
+def _pad_last(theta, n_extra):
+    """``theta`` followed by ``n_extra`` copies of its last entry, the weight
+    of the keys unseen in training. The weighted kernels read the weight of
+    class ``c`` of a term ``c`` places after that of class 0, which for that
+    last weight must be itself."""
+    if not n_extra:
+        return theta
+    return np.concatenate([theta, np.full(n_extra, theta[-1])])
+
+
+def _fold_padding(grad, size):
+    """Gradient with respect to the ``size`` weights from that with respect
+    to their padding by :func:`_pad_last`."""
+    if len(grad) > size:
+        grad[size - 1] += grad[size:].sum()
+        grad = grad[:size]
+    return grad
+
+
 def _warn_not_converged(n_failed, n_problems, max_iter):
     """One :class:`~sklearn.exceptions.ConvergenceWarning` for the weight
     problems of a fit that stopped at ``max_iter``."""

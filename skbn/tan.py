@@ -34,7 +34,14 @@ from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted, validate_data
 
-from ._core import _AttributeEncoder, _fit_weights, _row_chunks, _warn_not_converged
+from ._core import (
+    _AttributeEncoder,
+    _fit_weights,
+    _fold_padding,
+    _pad_last,
+    _row_chunks,
+    _warn_not_converged,
+)
 from ._kernels import (
     DISCRETE,
     GAUSSIAN,
@@ -500,42 +507,47 @@ class _WeightedAugmentedNB:
         and the index of the weight of each, from the
         :meth:`_evaluation_inputs` of the samples."""
         keys = self._term_keys(inputs)
+        n_classes = len(self.classes_)
         with _threads(self.n_jobs):
-            terms = conditional_scores(*inputs, *self._tables, len(self.classes_), True)
+            terms = conditional_scores(*inputs, *self._tables, n_classes, True)
         terms[:, :, 0] = self.backoff_.class_log_prior_
 
+        # The weight of class 0 of every term; those of the other classes
+        # follow it (see _Design in ande.py)
         n_seen = self.n_weights_ - 1
-        base = np.empty(keys.shape, dtype=np.int64)
+        index = np.empty(
+            keys.shape, dtype=np.int32 if n_seen < 2**31 - n_classes else np.int64
+        )
         for t in range(keys.shape[1]):
             seen = self._weight_keys[self._key_off[t] : self._key_off[t + 1]]
             pos = np.minimum(np.searchsorted(seen, keys[:, t]), len(seen) - 1)
             offset = self._key_off[t] * self._class_weights
-            base[:, t] = np.where(
-                seen[pos] == keys[:, t], offset + pos * self._class_weights, -1
+            index[:, t] = np.where(
+                seen[pos] == keys[:, t], offset + pos * self._class_weights, n_seen
             )
-        index = np.empty(terms.shape, dtype=np.int32 if n_seen < 2**31 else np.int64)
-        for c in range(terms.shape[1]):
-            shift = c if self._class_weights > 1 else 0
-            index[:, c] = np.where(base < 0, n_seen, base + shift)
         return terms, index
 
-    @staticmethod
-    def _kernel_args(terms, index):
-        """The operator of :func:`_weighted_geometric_scores` with one
-        component: a row of ``n_terms`` entries per sample and class, so that
-        the row pointers are not read."""
-        return np.empty(0, dtype=index.dtype), index.ravel(), terms.ravel()
+    def _kernel_args(self, terms, index):
+        """The design of :func:`_weighted_geometric_scores` with one
+        component: the index, the class step, the values and the number of
+        terms."""
+        return (
+            index.ravel(),
+            int(self._class_weights > 1),
+            terms.ravel(),
+            terms.shape[2],
+        )
 
     def _scores(self, weights, terms, index):
         """``sum_t w_t log theta_t`` for every sample and class."""
-        active = np.ones((terms.shape[0], 1), dtype=bool)
+        n_samples, n_classes, _ = terms.shape
+        args = self._kernel_args(terms, index)
         return _weighted_geometric_scores(
-            *self._kernel_args(terms, index),
-            terms.shape[2],
-            weights,
+            *args,
+            _pad_last(weights, args[1] * (n_classes - 1)),
             np.zeros((0, 0, 0)),
-            active,
-            terms.shape[1],
+            np.ones((n_samples, 1), dtype=bool),
+            n_classes,
         )
 
     def _nll_and_grad(self, weights, terms, index, Y):
@@ -544,15 +556,15 @@ class _WeightedAugmentedNB:
         scores = self._scores(weights, terms, index)
         log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
         dscores = np.exp(log_prob) - Y
-        active = np.ones((terms.shape[0], 1), dtype=bool)
+        n_samples, n_classes, _ = terms.shape
+        args = self._kernel_args(terms, index)
         grad = _weighted_geometric_gradient(
-            *self._kernel_args(terms, index),
-            terms.shape[2],
+            *args,
             dscores,
-            active,
-            weights.size,
+            np.ones((n_samples, 1), dtype=bool),
+            weights.size + args[1] * (n_classes - 1),
         )
-        return -np.sum(log_prob * Y), grad
+        return -np.sum(log_prob * Y), _fold_padding(grad, weights.size)
 
     def _joint_log_likelihood(self, X):
         """Computes the weighted ``log P^w(y, x)`` for every sample and class,
