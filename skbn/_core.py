@@ -10,6 +10,7 @@ import sklearn
 from scipy.optimize import minimize
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import KBinsDiscretizer
+from sklearn.utils.fixes import parse_version
 
 from ._kernels import _column_ranges, _integer_codes
 from .discretization import _mdlp_cuts
@@ -206,9 +207,8 @@ class _AttributeEncoder:
         declared_discrete = {int(i) for i in self.discrete_features or []}
         kwargs = {"subsample": None}
         # quantile_method was added in scikit-learn 1.7
-        if self.strategy == "quantile" and tuple(
-            map(int, sklearn.__version__.split(".")[:2])
-        ) >= (1, 7):
+        sklearn_version = parse_version(parse_version(sklearn.__version__).base_version)
+        if self.strategy == "quantile" and sklearn_version >= parse_version("1.7"):
             kwargs["quantile_method"] = "linear"
 
         # The encoders whose number of codes is only known once fitted come
