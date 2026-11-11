@@ -7,7 +7,7 @@
 [![DOI](https://zenodo.org/badge/1081042310.svg)](https://doi.org/10.5281/zenodo.23950884)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green.svg)](LICENSE)
 
-scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model follows the scikit-learn estimator API, so it works in pipelines, cross-validation and grid search, and takes tables that mix continuous, categorical and binary attributes. Counting and prediction run in compiled Numba kernels.
+scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model follows the scikit-learn estimator API, so it works in pipelines, cross-validation and grid search, and takes tables that mix continuous, categorical and binary attributes, including pandas DataFrames with columns of strings or of `category` dtype. Counting and prediction run in compiled Numba kernels.
 
 ## Models
 
@@ -18,7 +18,8 @@ scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model foll
 - `GaussianAnJE` and `GaussianALR`: AnJE and ALR built on the factors of the SPnDEs, so that continuous attributes keep Gaussian conditionals, as in HAODE.
 - `TAN`: Tree Augmented Naive Bayes, with a Chow-Liu tree of attribute dependencies.
 - `KDB`: K-Dependence Bayesian classifier, in which every attribute has at most k attribute parents chosen by conditional mutual information.
-- `MDLPDiscretizer` and `DecisionTreeDiscretizer`: supervised discretization of continuous attributes, to place before a model in a pipeline.
+- `WeightedTAN` and `WeightedKDB`: TAN and KDB with discriminative weights on their parameters (the weighted CCBN of Zaidi et al., 2017), which correct the dependencies the structure leaves out.
+- `MDLPDiscretizer` and `DecisionTreeDiscretizer`: supervised discretization of continuous attributes, to place before a model in a pipeline. Every model also takes the MDL discretization of Fayyad and Irani directly, as `strategy="mdlp"`, and `continuous_children="discretized"` runs AnDE, TAN and KDB on the discretized attributes, as in the original works, instead of with Gaussian children.
 
 ## Quick start
 
@@ -54,6 +55,14 @@ The development version installs from GitHub:
 ```bash
 pip install git+https://github.com/ptorrijos99/scikit-bayes.git
 ```
+
+The models run in Numba kernels that are compiled the first time each model is used and then cached on disk, so the first fit after installing takes from a couple of seconds (`MixedNB`) to some ten (`AnDE`), and later sessions start in a fraction of a second. To pay that once and check the installation:
+
+```bash
+python -m skbn
+```
+
+It prints the versions, fits and evaluates every model on the iris data and verifies the results.
 
 ## Documentation
 

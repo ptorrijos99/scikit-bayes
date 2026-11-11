@@ -256,10 +256,13 @@ def test_unseen_parent_category_is_uninformed(unseen_data):
     np.testing.assert_array_equal(model.parents_, [1, -1])
     X_test = np.array([[1, 7]])  # parent value 7 never seen
     jll = model._joint_log_likelihood(X_test)
-    root_ll = model.backoff_._feature_log_likelihood(X_test)[:, :, 1]
-    expected = model.backoff_.class_log_prior_ + root_ll - np.log(3)
+    # The child adds the same constant to every class: only the root counts
+    root_nb = MixedNB().fit(X[:, [1]], y)
+    expected = root_nb._joint_log_likelihood(X_test[:, [1]]) - np.log(3)
     np.testing.assert_allclose(jll, expected, atol=1e-12)
-    assert np.all(np.isfinite(model.predict_proba(X_test)))
+    np.testing.assert_allclose(
+        model.predict_proba(X_test), root_nb.predict_proba(X_test[:, [1]])
+    )
 
 
 def test_unseen_state_gaussian_child_is_pooled():
@@ -271,8 +274,7 @@ def test_unseen_state_gaussian_child_is_pooled():
     model = TAN().fit(X, y)
     X_test = np.array([[2, 0.3]])  # (y=1, x0=2) was never observed
     jll = model._joint_log_likelihood(X_test)
-    nb_ll = model.backoff_._feature_log_likelihood(X_test)
-    base = model.backoff_.class_log_prior_ + nb_ll[:, :, 0]
+    base = MixedNB().fit(x0[:, None], y)._joint_log_likelihood(X_test[:, [0]])
     pooled = norm.logpdf(0.3, x1.mean(), np.sqrt(x1.var() + 1e-9 * x1.var()))
     np.testing.assert_allclose(jll[0, 1], base[0, 1] + pooled, atol=1e-10)
     # Class 0 did observe x0=2, so its own Gaussian is used
@@ -386,7 +388,7 @@ def test_high_cardinality_matches_reference():
     )
     # Both layouts are in use: some discrete children keep only their
     # non-empty cells, others the dense table
-    cell_off, disc_off = model._tables[9], model._tables[7]
+    cell_off, disc_off = model._tables.cell_off, model._tables.disc_off
     sparse = np.diff(cell_off) > 0
     assert sparse.any() and not sparse.all()
     assert np.all(np.diff(disc_off)[sparse] <= len(y))

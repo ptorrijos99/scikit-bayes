@@ -1,0 +1,20 @@
+car_evaluation.csv
+==================
+
+The Car Evaluation data of the UCI Machine Learning Repository
+(https://archive.ics.uci.edu/dataset/19/car+evaluation), distributed under the
+Creative Commons Attribution 4.0 International licence (CC BY 4.0).
+
+It holds the 1728 combinations of six attributes of a car and the evaluation
+that a hierarchical decision model built with experts gives to each one:
+
+    Bohanec, M. and Rajkovic, V. (1988). Knowledge acquisition and explanation
+    for multi-attribute decision making. 8th International Workshop on Expert
+    Systems and their Applications, Avignon, France, 59-78.
+
+The file was obtained from the copy of the Penn Machine Learning Benchmarks
+(https://github.com/EpistasisLab/pmlb, dataset "car_evaluation"), whose integer
+codes were replaced by the labels documented there: the attribute names and
+the values are spelled out ("very high" for "vhigh", "5 or more" for "5more",
+"unacceptable" for "unacc", and so on). The rows and their order are those of
+the original file.

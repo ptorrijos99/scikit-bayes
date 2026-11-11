@@ -7,24 +7,14 @@ Getting Started
 Installation
 ============
 
-From PyPI
----------
-
-scikit-bayes needs Python 3.10 or later, NumPy, SciPy, Numba and
-scikit-learn 1.6 or later. Install it from PyPI with pip:
+Install scikit-bayes from PyPI with pip:
 
 .. prompt:: bash $
 
     pip install scikit-bayes
 
-From GitHub
------------
-
-The development version:
-
-.. prompt:: bash $
-
-    pip install git+https://github.com/ptorrijos99/scikit-bayes.git
+:ref:`install` gives the other ways (the development version, from source)
+and explains why the first fit of each model takes longer.
 
 
 First models
@@ -54,6 +44,19 @@ values:
     clf = MixedNB()
     clf.fit(X, y)
     print(clf.predict([[-0.5, 1, 1]]))  # [1]
+
+A pandas DataFrame may also hold labels, as strings or ``category`` columns,
+which are categorical:
+
+.. code-block:: python
+
+    import pandas as pd
+
+    df = pd.DataFrame({
+        "x": [0.5, -1.2, 0.6, -0.1],
+        "colour": ["red", "blue", "blue", "red"],
+    })
+    print(MixedNB().fit(df, y).predict(df))  # [0 1 1 0]
 
 
 AnDE on XOR
@@ -115,6 +118,10 @@ and the documentation.
 Further reading
 ===============
 
+* :ref:`Tutorial <sphx_glr_auto_examples_tutorial_00_plot_tutorial.py>`:
+  one problem on real data, a table of labels (car evaluations), from the
+  pandas DataFrame to the comparison with scikit-learn baselines, the
+  tuning, the learned structure and weights, and the test set.
 * :ref:`User guide <user_guide>`: how each model is defined and estimated,
   and how to choose its parameters.
 * :ref:`API reference <api>`: parameters, attributes and methods of every

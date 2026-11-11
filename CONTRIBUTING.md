@@ -2,6 +2,9 @@
 
 Welcome to `scikit-bayes`! We appreciate your interest in contributing to this project. We aim to build a robust, scalable library for Bayesian classifiers within the Python ecosystem.
 
+Everyone taking part in the project is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+Security vulnerabilities should be reported privately, as described in the [Security Policy](SECURITY.md), not in public issues.
+
 ## How to Contribute
 
 1. **Bug Reports & Feature Requests:**
@@ -51,7 +54,7 @@ If you are adding a new estimator:
 - It must have comprehensive docstrings in numpy style, an entry in `doc/api.rst` and a line in `CHANGELOG.md`.
 - It must not mutate `self` state inside `predict` or `predict_proba` methods.
 - Its tests must check values, not only that the code runs: against a reference implementation, a hand-computed case or an equivalent scikit-learn model.
-- Mixed data should go through `MixedNB` (see `TAN` and `KDB`), so that the attribute types, the encoding of categories and the handling of unseen values stay the same across the library.
+- Mixed data should reuse the shared machinery, so that the attribute types, the encoding of categories and the handling of unseen values stay the same across the library: a class-level `MixedNB` (the `backoff_` of the AnDE family, TAN and KDB) resolves the type of every attribute, `_AttributeEncoder` (`skbn/_core.py`) encodes the parents, and `_ChildEncodingMixin` (also in `skbn/_core.py`) lays out the children for the compiled tables of the `skbn/_kernels/` package.
 
 Every source file starts with the licence header:
 

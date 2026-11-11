@@ -3,16 +3,22 @@
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
+import heapq
 from numbers import Integral, Real
 
 import numpy as np
-from sklearn.base import BaseEstimator, TransformerMixin, _fit_context
+from sklearn.base import (
+    BaseEstimator,
+    OneToOneFeatureMixin,
+    TransformerMixin,
+    _fit_context,
+)
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.validation import validate_data
 
 
-class DecisionTreeDiscretizer(TransformerMixin, BaseEstimator):
+class DecisionTreeDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
     """
     Supervised discretizer that uses decision trees to find bin boundaries.
 
@@ -303,7 +309,65 @@ def _entropy(counts):
     return -(p * logp).sum(axis=1)
 
 
-class MDLPDiscretizer(TransformerMixin, BaseEstimator):
+def _mdlp_cuts(x, y, n_classes, max_bins=None):
+    """Cut-points of Fayyad and Irani (1993) for the values ``x`` with class
+    indices ``y``, sorted.
+
+    Every interval is split at the cut-point of least class entropy while the
+    gain of the split passes the MDL test. The splits are made in decreasing
+    order of the entropy they remove, so that ``max_bins`` keeps the most
+    informative ones; without it the order does not change the result.
+    """
+    order = np.argsort(x, kind="mergesort")
+    xs = x[order]
+    # counts[i]: number of samples of each class among the first i values
+    counts = np.zeros((len(xs) + 1, n_classes))
+    counts[np.arange(1, len(xs) + 1), y[order]] = 1.0
+    np.cumsum(counts, axis=0, out=counts)
+
+    def best_split(lo, hi):
+        """``(-entropy removed, lo, hi, position)`` of the best cut of
+        ``xs[lo:hi]``, or None when no cut passes the MDL test."""
+        n = hi - lo
+        if n < 2:
+            return None
+        seg_x = xs[lo:hi]
+        candidates = np.flatnonzero(seg_x[1:] > seg_x[:-1]) + 1  # left sizes
+        if candidates.size == 0:
+            return None
+        total = counts[hi] - counts[lo]
+        left = counts[lo + candidates] - counts[lo]
+        right = total - left
+        n_left = candidates.astype(float)
+        n_right = n - n_left
+        ent_split = (n_left * _entropy(left) + n_right * _entropy(right)) / n
+        best = int(np.argmin(ent_split))
+
+        ent_s = _entropy(total)[0]
+        ent_l = _entropy(left[best])[0]
+        ent_r = _entropy(right[best])[0]
+        gain = ent_s - ent_split[best]
+        k = np.count_nonzero(total)
+        k1 = np.count_nonzero(left[best])
+        k2 = np.count_nonzero(right[best])
+        delta = np.log2(3.0**k - 2.0) - (k * ent_s - k1 * ent_l - k2 * ent_r)
+        if gain <= (np.log2(n - 1) + delta) / n:
+            return None
+        return -n * gain, lo, hi, lo + int(candidates[best])
+
+    cuts = []
+    first = best_split(0, len(xs))
+    heap = [] if first is None else [first]
+    while heap and (max_bins is None or len(cuts) + 1 < max_bins):
+        _, lo, hi, pos = heapq.heappop(heap)
+        cuts.append((xs[pos - 1] + xs[pos]) / 2.0)
+        for split in (best_split(lo, pos), best_split(pos, hi)):
+            if split is not None:
+                heapq.heappush(heap, split)
+    return np.sort(np.asarray(cuts, dtype=float))
+
+
+class MDLPDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
     r"""
     Supervised entropy discretization with the MDL stopping rule.
 
@@ -328,8 +392,9 @@ class MDLPDiscretizer(TransformerMixin, BaseEstimator):
     Parameters
     ----------
     max_bins : int or None, default=None
-        Optional cap on the number of intervals per feature, at least 2.
-        ``None`` applies the pure MDL criterion.
+        Optional cap on the number of intervals per feature, at least 2: the
+        cuts that remove the most class entropy are kept. ``None`` applies the
+        pure MDL criterion.
 
     Attributes
     ----------
@@ -386,8 +451,6 @@ class MDLPDiscretizer(TransformerMixin, BaseEstimator):
         self : MDLPDiscretizer
             Fitted estimator.
         """
-        if self.max_bins is not None and self.max_bins < 1:
-            raise ValueError(f"max_bins must be >= 1 or None, got {self.max_bins!r}.")
         X, y = validate_data(self, X, y, ensure_all_finite="allow-nan")
         y_codes = np.unique(y, return_inverse=True)[1]
         n_classes = y_codes.max() + 1
@@ -403,49 +466,7 @@ class MDLPDiscretizer(TransformerMixin, BaseEstimator):
         return self
 
     def _fit_feature(self, x, y, n_classes):
-        order = np.argsort(x, kind="mergesort")
-        xs, ys = x[order], y[order]
-        onehot = np.zeros((len(ys), n_classes))
-        onehot[np.arange(len(ys)), ys] = 1.0
-
-        cuts = []
-        stack = [(0, len(xs))]
-        while stack:
-            if self.max_bins is not None and len(cuts) + 1 >= self.max_bins:
-                break
-            lo, hi = stack.pop()
-            n = hi - lo
-            if n < 2:
-                continue
-            seg_x = xs[lo:hi]
-            candidates = np.flatnonzero(seg_x[1:] > seg_x[:-1]) + 1  # left sizes
-            if candidates.size == 0:
-                continue
-            cum = np.cumsum(onehot[lo:hi], axis=0)
-            total = cum[-1]
-            left = cum[candidates - 1]
-            right = total - left
-            n_left = candidates.astype(float)
-            n_right = n - n_left
-            ent_split = (n_left * _entropy(left) + n_right * _entropy(right)) / n
-            best = int(np.argmin(ent_split))
-
-            ent_s = _entropy(total)[0]
-            ent_l = _entropy(left[best])[0]
-            ent_r = _entropy(right[best])[0]
-            gain = ent_s - ent_split[best]
-            k = np.count_nonzero(total)
-            k1 = np.count_nonzero(left[best])
-            k2 = np.count_nonzero(right[best])
-            delta = np.log2(3.0**k - 2.0) - (k * ent_s - k1 * ent_l - k2 * ent_r)
-            if gain <= (np.log2(n - 1) + delta) / n:
-                continue
-
-            cut_pos = lo + candidates[best]
-            cuts.append((xs[cut_pos - 1] + xs[cut_pos]) / 2.0)
-            stack.append((lo, cut_pos))
-            stack.append((cut_pos, hi))
-        return np.sort(np.asarray(cuts, dtype=float))
+        return _mdlp_cuts(x, y, n_classes, self.max_bins)
 
     def transform(self, X):
         """

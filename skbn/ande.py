@@ -10,6 +10,8 @@ natively through the "Super-Class" strategy:
 2.  **WeightedAnDE:** discriminative weights learned on top of AnDE, either
     one per component of the ensemble or one per factor of each component.
 
+Both build on the generative fit of the ensemble in :mod:`skbn._spnde`.
+
 The Averaged n-Join Estimators and ALR of Zaidi et al. [4]_ are built on
 n-joins rather than SPnDEs and live in :mod:`skbn.anje`, together with their
 extension to Gaussian children on the factors of the SPnDEs.
@@ -35,942 +37,43 @@ References
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import numbers
 import warnings
-from collections.abc import Sequence
-from itertools import combinations
 from numbers import Integral, Real
+from operator import attrgetter
 from typing import NamedTuple, Optional
 
 import numpy as np
-from scipy.sparse import csr_matrix
 from scipy.special import logsumexp
-from sklearn.base import BaseEstimator, ClassifierMixin, _fit_context
+from sklearn.base import _fit_context
 from sklearn.utils._param_validation import Interval, StrOptions
-from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import (
     check_is_fitted,
     column_or_1d,
-    validate_data,
 )
 
 from ._core import (
-    _AttributeEncoder,
+    _LEVEL_DIMS,
     _fit_weights,
+    _fold_padding,
+    _pad_last,
     _row_chunks,
+    _validate_input,
     _warn_not_converged,
 )
 from ._kernels import (
-    _MAX_LIGHT,
-    DISCRETE,
-    GAUSSIAN,
-    LOG_ZERO,
-    _threads,
     _weighted_arithmetic_gradient,
     _weighted_arithmetic_scores,
     _weighted_geometric_gradient,
     _weighted_geometric_scores,
-    component_scores,
-    count_pairs,
-    count_tables,
-    count_triples,
-    dense_estimates,
-    index_states,
-    pooled_scores,
 )
-from .mixed_nb import MixedNB
 
-_LOG_TINY = np.log(np.finfo(float).tiny)
-
-# Fraction of the largest variance of the Gaussian children added to their
-# variances, the default of GaussianNB and MixedNB
-_VAR_SMOOTHING = 1e-9
-
-
-def _lookup(sorted_keys, queries):
-    """Positions of ``queries`` in ``sorted_keys`` and a mask of hits."""
-    pos = np.searchsorted(sorted_keys, queries)
-    pos = np.minimum(pos, len(sorted_keys) - 1)
-    return pos, sorted_keys[pos] == queries
-
-
-def _parent_strides(parents, cards):
-    """Stride of every parent in the linear index of a parent instantiation
-    (the first parent is the most significant), shape (n_models, n)."""
-    strides = np.ones(parents.shape, dtype=np.int64)
-    for q in range(parents.shape[1] - 2, -1, -1):
-        strides[:, q] = strides[:, q + 1] * cards[parents[:, q + 1]]
-    return strides
-
-
-def _parent_frequencies(keys, count, n_combos, state_off):
-    """Distinct parent instantiations of every component and their training
-    frequencies, sorted per component, with the offsets of each component."""
-    n_models = len(n_combos)
-    comp = np.repeat(np.arange(n_models), np.diff(state_off))
-    pkeys = keys % n_combos[comp]
-    order = np.lexsort((pkeys, comp))
-    comp, pkeys = comp[order], pkeys[order]
-    first = np.ones(len(order), dtype=bool)
-    first[1:] = (comp[1:] != comp[:-1]) | (pkeys[1:] != pkeys[:-1])
-    starts = np.flatnonzero(first)
-    freq = np.add.reduceat(count[order], starts) if len(starts) else np.zeros(0)
-    offsets = np.searchsorted(comp[starts], np.arange(n_models + 1))
-    return offsets.astype(np.int64), pkeys[starts], freq
-
-
-def _constant_parent_groups(
-    parents, parent_cards, informative, b_disc, kind, voff, cards
-):
-    """Groups of the components that differ only in which constant attributes
-    are among their parents: those with a single value as parents, none as
-    children (``informative`` is False) and a back-off estimate of exactly 0.
-    Such an attribute adds exactly 0 to every score, and is 0 in the parent
-    key of every training row.
-
-    Returns the group of every component, the first component of every group
-    (groups in the order of their first component) and the mask of constant
-    attributes.
-    """
-    n_models = len(parents)
-    const = (parent_cards == 1) & ~informative
-    for j in np.flatnonzero(const & (kind == DISCRETE)):
-        const[j] = not b_disc[:, voff[j] : voff[j] + cards[j]].any()
-    if parents.shape[1] == 0 or not const[parents].any():
-        return np.arange(n_models), np.arange(n_models), const
-    canon = np.where(const[parents], -1, parents)
-    canon.sort(axis=1)
-    _, first, group = np.unique(canon, axis=0, return_index=True, return_inverse=True)
-    order = np.argsort(first)
-    rank = np.empty_like(order)
-    rank[order] = np.arange(len(order))
-    return rank[group.reshape(-1)], first[order], const
-
-
-def _shared_layout(
-    g_parents,
-    g_combos,
-    const,
-    parent_codes,
-    codes,
-    parent_cards,
-    cards,
-    multi,
-    doff,
-    n_classes,
-    n_samples,
-):
-    """Inputs of :func:`count_pairs` (components with one parent) or
-    :func:`count_triples` (two), or None when the children cannot be counted
-    by pairs or triples of attributes: a discrete child whose parent codes
-    differ from its child codes, or an index of the dense rows by state
-    larger than 2**25 entries.
-
-    Returns the mask of the components whose parents are not constant (their
-    discrete children are counted by pairs or triples), the parent codes of
-    the non-constant attributes transposed and their cardinalities, the pairs
-    of them that start a triple, the component of every attribute (one
-    parent, shape (n_attrs, 1)) or pair of them (two) and the column of
-    every one of them as a child (-1 when it is not a discrete child).
-    """
-    for j in multi:
-        if parent_cards[j] != cards[j] or (
-            codes is not parent_codes
-            and not np.array_equal(parent_codes[:, j], codes[:, j])
-        ):
-            return None
-    by_shared = ~const[g_parents].any(axis=1)
-    if not by_shared.any() or (n_classes * g_combos[by_shared]).sum() > 1 << 25:
-        return None
-    attrs = np.flatnonzero(~const)
-    n_attrs = len(attrs)
-    position = np.full(len(const), -1)
-    position[attrs] = np.arange(n_attrs)
-    own = np.flatnonzero(by_shared)
-    if g_parents.shape[1] == 1:
-        pair_group = np.full((n_attrs, 1), -1, dtype=np.int64)
-        pair_group[position[g_parents[own, 0]], 0] = own
-    else:
-        pair_group = np.full((n_attrs, n_attrs), -1, dtype=np.int64)
-        pair_group[position[g_parents[own, 0]], position[g_parents[own, 1]]] = own
-    first, second = np.triu_indices(n_attrs, 1)
-    keep = second < n_attrs - 1
-    child_col = np.full(n_attrs, -1, dtype=np.int64)
-    is_multi = np.zeros(len(const), dtype=bool)
-    is_multi[multi] = True
-    child_col[is_multi[attrs]] = doff[attrs[is_multi[attrs]]]
-    return (
-        by_shared,
-        np.ascontiguousarray(parent_codes[:, attrs].T),
-        parent_cards[attrs].astype(np.int64),
-        first[keep].astype(np.int64),
-        second[keep].astype(np.int64),
-        pair_group,
-        child_col,
-    )
-
-
-class _Ensemble(Sequence):
-    """The ``ensemble_`` of a fitted AnDE: a read-only sequence with the dict
-    of every component, built when it is accessed. A list of dicts would hold
-    the child indices of every component, ``C(d, n) * (d - n)`` Python
-    integers."""
-
-    def __init__(
-        self, parents, n_combos, parent_cards, strides, n_states, log_prior_unseen, d
-    ):
-        self._parents = parents
-        self._n_combos = n_combos
-        self._parent_cards = parent_cards
-        self._strides = strides
-        self._n_states = n_states
-        self._log_prior_unseen = log_prior_unseen
-        self._d = d
-
-    def __len__(self):
-        return len(self._parents)
-
-    def __getitem__(self, m):
-        if isinstance(m, slice):
-            return [self[i] for i in range(*m.indices(len(self)))]
-        m = range(len(self))[m]  # Bounds check and negative indices
-        parents = self._parents[m]
-        has_parents = len(parents) > 0
-        return {
-            "parent_indices": tuple(int(p) for p in parents),
-            "child_indices": np.setdiff1d(np.arange(self._d), parents).tolist(),
-            "n_parent_combos": int(self._n_combos[m]) if has_parents else 1,
-            "parent_cards": self._parent_cards[m] if has_parents else np.array([1]),
-            "parent_strides": self._strides[m] if has_parents else np.array([0]),
-            "n_states": int(self._n_states[m]),
-            "log_prior_unseen": float(self._log_prior_unseen[m]),
-        }
-
-    def children(self):
-        """Child attributes of every component, shape (n_models, n_children)."""
-        is_child = np.ones((len(self), self._d), dtype=bool)
-        is_child[np.arange(len(self))[:, None], self._parents] = False
-        return np.nonzero(is_child)[1].reshape(len(self), -1)
-
-
-class _ChildEncodingMixin:
-    """Encoding of the attributes as children, shared by the models that keep
-    their conditionals in the tables of :mod:`skbn._kernels` (the AnDE family,
-    TAN and KDB). Needs the fitted ``backoff_``, ``_encoder``, ``_pooled_mean``
-    and ``_pooled_var``."""
-
-    def _layout(self):
-        """Type, offset in the rows of the discrete tables and Gaussian column
-        of every attribute, and the number of values of every discrete one."""
-        types = self.backoff_.feature_types_
-        d = self.n_features_in_
-        kind = np.zeros(d, dtype=np.int64)
-        cards = np.zeros(d, dtype=np.int64)
-        cards[types["categorical"]] = getattr(self.backoff_, "_cat_cardinalities", [])
-        cards[types["bernoulli"]] = 2
-        discrete = np.flatnonzero(cards)
-        kind[discrete] = DISCRETE
-        kind[types["gaussian"]] = GAUSSIAN
-        voff = np.zeros(d, dtype=np.int64)
-        voff[discrete] = np.cumsum(cards[discrete]) - cards[discrete]
-        gidx = np.zeros(d, dtype=np.int64)
-        gidx[types["gaussian"]] = np.arange(len(types["gaussian"]))
-        return kind, voff, gidx, cards
-
-    def _value_codes(self, X, cat_codes=None, dtype=np.int64):
-        """Value of every discrete attribute as a child (the category of a
-        categorical attribute, the bit of a Bernoulli one), -1 for categories
-        never seen in training and 0 for the other attributes. ``cat_codes``
-        optionally holds the codes of the categorical attributes of a
-        training ``X``, as the back-off model returns them."""
-        types = self.backoff_.feature_types_
-        codes = np.zeros(X.shape, dtype=dtype)
-        if cat_codes is not None:
-            codes[:, types["categorical"]] = cat_codes
-        elif types["categorical"]:
-            cat, unseen = self.backoff_._categorical_codes(X)
-            codes[:, types["categorical"]] = np.where(unseen, -1, cat)
-        if types["bernoulli"]:
-            codes[:, types["bernoulli"]] = (
-                X[:, types["bernoulli"]] > self.backoff_.bernoulli_thresholds_
-            )
-        return codes
-
-    def _backoff_tables(self, kind, voff, cards, n_values):
-        """The class-level Naive Bayes in the layout of the component tables:
-        its log prior, discrete log-conditionals and Gaussian parameters."""
-        types = self.backoff_.feature_types_
-        est = self.backoff_.estimators_
-        n_classes = len(self.classes_)
-        disc = np.zeros((n_classes, n_values))
-        for i, j in enumerate(types["categorical"]):
-            disc[:, voff[j] : voff[j] + cards[j]] = est[
-                "categorical"
-            ].feature_log_prob_[i]
-        for i, j in enumerate(types["bernoulli"]):
-            log_p = est["bernoulli"].feature_log_prob_[:, i]
-            disc[:, voff[j]] = np.log1p(-np.exp(log_p))
-            disc[:, voff[j] + 1] = log_p
-        disc = np.nan_to_num(disc, nan=LOG_ZERO, neginf=LOG_ZERO)
-        if types["gaussian"]:
-            mean, var = est["gaussian"].theta_, est["gaussian"].var_
-        else:
-            mean = var = np.zeros((n_classes, 0))
-        return self.backoff_.class_log_prior_, disc, mean, var
-
-    def _evaluation_inputs(self, X):
-        """Per-sample inputs of the evaluation kernels for a validated ``X``:
-        the child value codes, the Gaussian attributes, the uninformed
-        log-likelihood of every attribute (the Laplace estimate of an empty
-        cell: uniform for a discrete child, the pooled Gaussian of the
-        attribute for a continuous one, 0 for an unseen category) and the
-        parent codes with their unseen mask."""
-        types = self.backoff_.feature_types_
-        codes = self._value_codes(X)
-        xg = np.ascontiguousarray(X[:, types["gaussian"]], dtype=np.float64)
-        uninf = np.zeros(X.shape)
-        if types["gaussian"]:
-            diff = xg - self._pooled_mean
-            uninf[:, types["gaussian"]] = -0.5 * (
-                diff**2 / self._pooled_var + np.log(2.0 * np.pi * self._pooled_var)
-            )
-        kind, _, _, cards = self._layout()
-        discrete = np.flatnonzero(kind == DISCRETE)
-        uninf[:, discrete] = np.where(
-            codes[:, discrete] < 0, 0.0, -np.log(cards[discrete].astype(float))
-        )
-        parent_codes, unseen = self._encoder.transform(X)
-        return codes, xg, uninf, parent_codes, unseen
-
-
-class _BaseAnDE(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
-    """
-    Base class for the AnDE family of algorithms.
-
-    This class implements the **Generative Phase** using the **"Super-Class" (or Augmented Class)
-    fitting strategy**, shared by :class:`AnDE` and :class:`WeightedAnDE`.
-
-    **Mathematical Formulation:**
-
-    An SPnDE (Super-Parent n-Dependence Estimator) models the joint probability
-    $P(y, \\mathbf{x})$ by conditioning all attributes on the class $y$ and a subset
-    of parent attributes $\\mathbf{x}_p$ (where $|\\mathbf{x}_p| = n$).
-
-    To support mixed data types without re-implementing complex conditional distributions,
-    we use the equivalence:
-
-    .. math::
-        P(y, \\mathbf{x}_p, \\mathbf{x}_{child}) = P(Y^*) \\prod P(x_i \\mid Y^*)
-
-    Where $Y^* = (y, \\mathbf{x}_p)$ is the "Augmented Super-Class".
-
-    **Zero counts.** (i) As in the smoothed estimates of AnDE/AnJE, the
-    augmented prior $P(Y^*)$ is Laplace-smoothed over every augmented state;
-    (ii) when a test instance falls in an augmented state $(y, \\mathbf{x}_p)$
-    that never occurred in training, the child conditionals are taken from
-    ``unseen_state``: ``"backoff"`` uses the class-level estimates
-    $P(x_i \\mid y)$, ``"laplace"`` the uninformed estimate that Laplace
-    smoothing gives an empty cell (uniform for discrete children, the pooled
-    Gaussian of the attribute for continuous ones); and (iii) as in AODE, a
-    SPnDE whose parent instantiation $\\mathbf{x}_p$ occurred fewer than
-    ``min_parent_count`` times is excluded from the ensemble for that instance.
-    If no SPnDE qualifies, the prediction falls back to Naive Bayes.
-
-    Parameters
-    ----------
-    n_dependence : int, default=1
-        Order ``n`` of the dependence, the number of super-parent attributes of
-        each SPnDE. It must satisfy ``0 <= n_dependence <= n_features``.
-
-        - ``n=0``: Naive Bayes.
-        - ``n=1``: AODE (Averaged One-Dependence Estimators).
-        - ``n=2``: A2DE.
-
-    n_bins : int, default=5
-        Number of bins for discretizing continuous attributes when they act as
-        super-parents (at least 2). Children remain continuous and are modeled
-        by Gaussian distributions.
-
-    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
-        Strategy used for the discretization of super-parents.
-
-    alpha : float, default=1.0
-        Non-negative Laplace smoothing of the estimates of the SPnDEs and of
-        the augmented-class prior.
-
-    n_jobs : int, default=None
-        Number of threads used to count and evaluate the SPnDEs.
-        ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
-        ``-1`` means using all processors.
-
-    categorical_features : array-like of int or bool, default=None
-        Indices (or a boolean mask) of the attributes to treat as categorical,
-        passed to :class:`MixedNB`, which describes how the undeclared
-        attributes are typed.
-
-    bernoulli_features : array-like of int or bool, default=None
-        Indices (or a boolean mask) of the attributes to treat as Bernoulli.
-        See :class:`MixedNB`.
-
-    gaussian_features : array-like of int or bool, default=None
-        Indices (or a boolean mask) of the attributes to treat as Gaussian.
-        See :class:`MixedNB`.
-
-    var_prior_weight : float, default=1.0
-        Pseudo-observations shrinking each Gaussian child variance towards the
-        pooled variance of the feature (see :class:`MixedNB`). It applies to
-        the SPnDEs with super-parents and to the class-level back-off model;
-        ``0`` gives the variances of :class:`~sklearn.naive_bayes.GaussianNB`.
-
-    min_parent_count : int, default=1
-        Minimum training frequency of a parent instantiation for its SPnDE to
-        take part in the prediction of an instance. Values below 1 behave as 1.
-
-    unseen_state : {"laplace", "backoff"}, default="laplace"
-        Child conditionals used for an augmented state never seen in training.
-        ``"laplace"`` is the standard smoothed estimate of an empty cell;
-        ``"backoff"`` reuses the class-level conditionals. An ablation over the
-        benchmark found no practical difference between them.
-
-    Attributes
-    ----------
-    classes_ : ndarray of shape (n_classes,)
-        Class labels.
-
-    class_count_ : ndarray of shape (n_classes,)
-        Number of training samples of each class.
-
-    n_features_in_ : int
-        Number of features seen during :term:`fit`.
-
-    feature_names_in_ : ndarray of shape (`n_features_in_`,)
-        Names of features seen during :term:`fit`. Defined only when `X`
-        has feature names that are all strings.
-
-    ensemble_ : sequence of dict
-        The fitted SPnDEs, one per set of ``n_dependence`` super-parents
-        (a single one for ``n_dependence=0``). Each dict holds the
-        ``"parent_indices"`` and ``"child_indices"`` of the component and the
-        numbers of its parent instantiations (``"n_parent_combos"``) and of
-        the augmented states :math:`Y^*` seen in training (``"n_states"``);
-        the estimates of all the components are stored together in flat
-        tables.
-
-    backoff_ : MixedNB
-        Naive Bayes on the original class, used for the class-level
-        conditionals, to resolve the type of every attribute and as the
-        fallback when no SPnDE qualifies.
-    """
-
-    _parameter_constraints: dict = {
-        "n_dependence": [Interval(Integral, 0, None, closed="left")],
-        "n_bins": [Interval(Integral, 2, None, closed="left")],
-        "strategy": [StrOptions({"uniform", "quantile", "kmeans"})],
-        "alpha": [Interval(Real, 0, None, closed="left")],
-        "n_jobs": [Integral, None],
-        "categorical_features": ["array-like", None],
-        "bernoulli_features": ["array-like", None],
-        "gaussian_features": ["array-like", None],
-        "var_prior_weight": [Interval(Real, 0, None, closed="left")],
-        "min_parent_count": [Interval(Integral, 0, None, closed="left")],
-        "unseen_state": [StrOptions({"laplace", "backoff"})],
-    }
-
-    def __init__(
-        self,
-        n_dependence=1,
-        n_bins=5,
-        strategy="quantile",
-        alpha=1.0,
-        n_jobs=None,
-        categorical_features=None,
-        bernoulli_features=None,
-        gaussian_features=None,
-        var_prior_weight=1.0,
-        min_parent_count=1,
-        unseen_state="laplace",
-    ):
-        self.n_dependence = n_dependence
-        self.n_bins = n_bins
-        self.strategy = strategy
-        self.alpha = alpha
-        self.n_jobs = n_jobs
-        self.categorical_features = categorical_features
-        self.bernoulli_features = bernoulli_features
-        self.gaussian_features = gaussian_features
-        self.var_prior_weight = var_prior_weight
-        self.min_parent_count = min_parent_count
-        self.unseen_state = unseen_state
-
-    @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y):
-        """
-        Fit the SPnDEs of the ensemble by counting frequencies.
-
-        Learns the joint probability :math:`P(y, \\mathbf{x})` of every SPnDE
-        and the class-level back-off model.
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            Training vectors, where ``n_samples`` is the number of samples and
-            ``n_features`` is the number of features.
-
-        y : array-like of shape (n_samples,)
-            Target values.
-
-        Returns
-        -------
-        self : object
-            Returns the instance itself.
-        """
-        X, y = validate_data(self, X, y)
-        self.classes_ = unique_labels(y)
-        if (
-            not isinstance(self.n_dependence, numbers.Integral)
-            or not 0 <= self.n_dependence <= self.n_features_in_
-        ):
-            raise ValueError(
-                "n_dependence must be an integer between 0 and the number of"
-                f" features ({self.n_features_in_}), got {self.n_dependence!r}"
-            )
-        if self.unseen_state not in ("backoff", "laplace"):
-            raise ValueError(
-                "unseen_state must be 'backoff' or 'laplace', got"
-                f" {self.unseen_state!r}"
-            )
-
-        # --- 1. Class-level back-off model (Naive Bayes on the original class),
-        #        which also resolves the type of every attribute ---
-        #        (X and y are validated; the codes of the categorical attributes
-        #        serve the parents and the children as well)
-        y_int = np.searchsorted(self.classes_, y)
-        self.backoff_, cat_codes = MixedNB(
-            alpha=self.alpha,
-            categorical_features=self.categorical_features,
-            bernoulli_features=self.bernoulli_features,
-            gaussian_features=self.gaussian_features,
-            var_prior_weight=self.var_prior_weight,
-        )._fit_encoded(X, y_int, self.classes_, return_codes=True)
-        types = self.backoff_.feature_types_
-
-        # --- 2. Discretize parents, with the types the children use ---
-        self._encoder = _AttributeEncoder(
-            self.n_bins,
-            self.strategy,
-            gaussian_features=types["gaussian"],
-            discrete_features=types["categorical"] + types["bernoulli"],
-        )
-        # The codes of the training samples, in 16 bits for nearly every
-        # dataset (a single type, so that the kernels compile once)
-        widest = max([self.n_bins, 2] + [len(c) for c in self.backoff_.categories_])
-        code_type = np.uint16 if widest <= 1 << 16 else np.int32
-        parent_codes = self._encoder.fit_transform(
-            X,
-            known=(types["categorical"], self.backoff_.categories_, cat_codes),
-            dtype=code_type,
-        )
-        gauss = types["gaussian"]
-        Xg = np.asarray(X[:, gauss], dtype=float) if gauss else np.zeros((len(X), 0))
-        self._pooled_mean = Xg.mean(axis=0) if gauss else np.zeros(0)
-        self._pooled_var = Xg.var(axis=0) + (
-            self.backoff_.estimators_["gaussian"].epsilon_ if gauss else 0.0
-        )
-
-        # --- 3. Count the SPnDEs ---
-        self.class_count_ = np.bincount(y_int, minlength=len(self.classes_)).astype(
-            float
-        )
-        if len(types["categorical"]) == X.shape[1]:
-            # Every attribute is categorical: its codes as a child are its
-            # codes as a parent
-            codes = parent_codes
-        else:
-            codes = self._value_codes(X, cat_codes, code_type)
-        del cat_codes
-        self._fit_components(X, y_int, parent_codes, codes)
-        return self
-
-    def _fit_components(self, X, y_int, parent_codes, codes):
-        """Count every SPnDE and store its log-probabilities in flat tables
-        (see :mod:`skbn._kernels`), one entry per augmented state seen in
-        training, from the parent codes and the child value codes of the
-        training samples."""
-        types = self.backoff_.feature_types_
-        n_samples, d = X.shape
-        n_classes, n_dep = len(self.classes_), self.n_dependence
-        alpha = self.alpha
-        kind, voff, gidx, cards = self._layout()
-
-        if n_dep:
-            parents = np.array(list(combinations(range(d), n_dep)), dtype=np.int64)
-        else:
-            parents = np.zeros((1, 0), dtype=np.int64)
-        parent_cards = self._encoder.cards_[parents]
-        if n_classes * np.prod(parent_cards.astype(float), axis=1).max() >= 2**62:
-            raise ValueError(
-                "The augmented states of the SPnDEs exceed a 64-bit index; reduce"
-                " n_bins or n_dependence."
-            )
-        n_combos = np.prod(parent_cards, axis=1).astype(np.int64)
-        strides = _parent_strides(parents, self._encoder.cards_)
-
-        # The children that carry information: a discrete attribute with a
-        # single value has log P(x_j | s) = 0 in every state
-        informative = (kind == GAUSSIAN) | ((kind == DISCRETE) & (cards > 1))
-        attrs = np.flatnonzero(informative).astype(np.int64)
-        multi = np.flatnonzero((kind == DISCRETE) & (cards > 1))
-        dcol = np.full(d, -1, dtype=np.int64)
-        dcol[multi] = np.arange(len(multi))
-        doff = np.zeros(d, dtype=np.int64)
-        doff[multi] = np.cumsum(cards[multi]) - cards[multi]
-        n_columns = int(cards[multi].sum())
-        group_cards, grp = np.unique(cards, return_inverse=True)
-        backoff = self._backoff_tables(kind, voff, cards, int(cards.sum()))
-
-        # Components that differ only in which attributes with a single value
-        # (as parents and as children) are among their parents have the same
-        # tables and scores: each group of them is counted once, for its
-        # first component
-        group, rep, const = _constant_parent_groups(
-            parents, self._encoder.cards_, informative, backoff[1], kind, voff, cards
-        )
-        n_groups = len(rep)
-        g_parents, g_strides, g_combos = parents[rep], strides[rep], n_combos[rep]
-
-        # With one or two parents, the discrete children of the components
-        # whose parents are not constant are counted by pairs or triples of
-        # attributes
-        shared = None
-        if n_dep in (1, 2):
-            shared = _shared_layout(
-                g_parents,
-                g_combos,
-                const,
-                parent_codes,
-                codes,
-                self._encoder.cards_,
-                cards,
-                multi,
-                doff,
-                n_classes,
-                n_samples,
-            )
-        by_shared = np.zeros(n_groups, dtype=bool)
-        # A pair or triple is counted in its own table when it has at most
-        # half as many cells as samples, a pass over them that counts two or
-        # three children
-        max_cells = max(n_samples // 2, 1)
-        if shared is not None:
-            by_shared = shared[0]
-
-        xg = np.ascontiguousarray(X[:, types["gaussian"]], dtype=np.float64)
-        y_int = y_int.astype(np.int64)
-        # The parent codes by attribute, read a column at a time
-        parent_codes_t = np.ascontiguousarray(parent_codes.T)
-        with _threads(self.n_jobs):
-            sizes = index_states(
-                y_int,
-                parent_codes_t,
-                g_parents,
-                g_strides,
-                g_combos,
-                n_classes,
-                _MAX_LIGHT,
-            )
-            state_off, dense_off, light_off = (
-                np.concatenate([[0], np.cumsum(sizes[:, k])]).astype(np.int64)
-                for k in range(3)
-            )
-            keys, count, drow, loff, dense, rows, mean, var = count_tables(
-                y_int,
-                parent_codes_t,
-                codes,
-                xg,
-                g_parents,
-                g_strides,
-                g_combos,
-                n_classes,
-                _MAX_LIGHT,
-                state_off,
-                dense_off,
-                light_off,
-                attrs,
-                kind,
-                doff,
-                gidx,
-                n_columns,
-                by_shared,
-                self._encoder.cards_,
-                max_cells,
-            )
-            if shared is not None:
-                _, codes_t, ucards, first, second, pair_group, child_col = shared
-                grid = n_classes * g_combos * by_shared
-                moff = np.concatenate([[0], np.cumsum(grid)]).astype(np.int64)
-                smap = np.full(moff[-1], -1, dtype=np.int32)
-                state_group = np.repeat(np.arange(n_groups), sizes[:, 0])
-                own = by_shared[state_group]
-                smap[moff[state_group[own]] + keys[own]] = drow[own]
-                if n_dep == 1:
-                    count_pairs(
-                        codes_t,
-                        y_int,
-                        n_classes,
-                        ucards,
-                        np.ascontiguousarray(pair_group[:, 0]),
-                        child_col,
-                        smap,
-                        moff,
-                        max_cells,
-                        dense,
-                    )
-                else:
-                    count_triples(
-                        codes_t,
-                        y_int,
-                        n_classes,
-                        ucards,
-                        first,
-                        second,
-                        pair_group,
-                        child_col,
-                        smap,
-                        moff,
-                        max_cells,
-                        dense,
-                    )
-                del smap
-        n_states = sizes[:, 0]
-        comp = np.repeat(np.arange(n_groups), n_states)
-
-        # Root P(y, x_p), Laplace-smoothed over the full grid of augmented
-        # states; without parents the component is Naive Bayes (MLE prior)
-        if n_dep:
-            denom = n_samples + alpha * n_classes * g_combos
-            root = np.log((count + alpha) / denom[comp])
-            with np.errstate(divide="ignore"):
-                log_prior_unseen = np.log(alpha / denom)
-        else:
-            root = np.log(count / count.sum())
-            log_prior_unseen = np.full(n_groups, -np.inf)
-
-        # Discrete children: log((N(s, v) + alpha) / (N(s) + alpha * card)), in
-        # the rows of the dense states and, for the light ones, in a table
-        # indexed by N(s), the cardinality and N(s, v)
-        # (both from the logarithms of every possible count and state total)
-        dense_count = count[drow >= 0]
-        with np.errstate(divide="ignore"):
-            log_hits = np.log(np.arange(n_samples + 1, dtype=float) + alpha)
-            log_total = np.log(dense_count[:, None] + alpha * group_cards[None, :])
-            light = np.arange(_MAX_LIGHT + 1, dtype=float)
-            lut = np.log(light[None, None, :] + alpha) - np.log(
-                light[:, None, None] + alpha * group_cards[None, :, None]
-            )
-        with _threads(self.n_jobs):
-            dense_estimates(
-                dense, log_hits, log_total, np.repeat(grp[multi], cards[multi])
-            )
-        np.nan_to_num(lut, copy=False, nan=LOG_ZERO, neginf=LOG_ZERO)
-        # Codes of the training rows of the light states, read when one is hit
-        used, rows = np.unique(rows, return_inverse=True)
-        rows = rows.astype(np.int32)
-        tcodes = codes[np.ix_(used, multi)]
-
-        # Gaussian children: the variances of GaussianNB (plus the largest
-        # child variance times var_smoothing), shrunk towards the pooled
-        # variance when the component has parents
-        if xg.shape[1]:
-            pooled = np.var(xg, axis=0)
-            is_parent = np.zeros((n_groups, d), dtype=bool)
-            is_parent[np.arange(n_groups)[:, None], g_parents] = True
-            child_var = np.where(is_parent[:, types["gaussian"]], -np.inf, pooled)
-            epsilon = _VAR_SMOOTHING * np.maximum(child_var.max(axis=1), 0.0)[comp]
-            var += epsilon[:, None]
-            nu = self.var_prior_weight
-            if n_dep and nu > 0:
-                n_c = count[:, None]
-                var = (n_c * var + nu * (pooled + epsilon[:, None])) / (n_c + nu)
-
-        # The attributes whose estimates for an unseen state can differ from
-        # 0: the others (ignored, or discrete with a single value and a
-        # back-off estimate of 0) are left out of its sum
-        silent = (kind != DISCRETE) & (kind != GAUSSIAN)
-        for j in np.flatnonzero((kind == DISCRETE) & (cards <= 1)):
-            silent[j] = not backoff[1][:, voff[j] : voff[j] + cards[j]].any()
-        nonzero = np.flatnonzero(~silent).astype(np.int64)
-
-        pk_off, pk_keys, pk_count = _parent_frequencies(
-            keys, count, g_combos, state_off
-        )
-        self._tables = (
-            parents,
-            strides,
-            n_combos,
-            group,
-            rep,
-            const,
-            state_off,
-            keys,
-            root,
-            count,
-            drow,
-            loff,
-            dense,
-            rows,
-            tcodes,
-            lut,
-            mean,
-            var,
-            pk_off,
-            pk_keys,
-            pk_count,
-            log_prior_unseen,
-            *backoff,
-            kind,
-            voff,
-            gidx,
-            attrs,
-            dcol,
-            doff,
-            grp.astype(np.int64),
-            nonzero,
-        )
-        self.ensemble_ = _Ensemble(
-            parents,
-            n_combos,
-            parent_cards,
-            strides,
-            n_states[group],
-            log_prior_unseen[group],
-            d,
-        )
-
-    def _parent_keys(self, X_parents_disc):
-        """Linear index of the parent instantiation of every component,
-        shape (n_samples, n_models); 0 for components without parents."""
-        keys = np.zeros((X_parents_disc.shape[0], len(self.ensemble_)), dtype=np.int64)
-        for m_idx, info in enumerate(self.ensemble_):
-            if info["parent_indices"]:
-                keys[:, m_idx] = (
-                    X_parents_disc[:, info["parent_indices"]] @ info["parent_strides"]
-                )
-        return keys
-
-    def _get_jll_per_model(self, X, per_factor=False):
-        """
-        Computes the log-probability log P_m(y, x) for each model 'm' in the ensemble.
-
-        Parameters
-        ----------
-        per_factor : bool, default=False
-            If True, return the factors of each joint instead of their sum:
-            the root ``log P(y, x_p)`` followed by ``log P(x_i | y, x_p)`` for
-            every child ``i`` in ``child_indices`` order.
-
-        Returns
-        -------
-        jll_tensor : ndarray of shape (n_samples, n_classes, n_models)
-            Contains log P(y, x) according to each SPODE. With ``per_factor``
-            it has an extra last axis of length ``1 + n_children``.
-
-        X_parents_disc : ndarray of shape (n_samples, n_features)
-            The discretized version of X used for parent lookup (useful for Hybrid weights).
-
-        active : ndarray of bool, shape (n_samples, n_models)
-            Whether SPODE ``m`` takes part in the prediction of each sample
-            (its parent instantiation occurred at least ``min_parent_count``
-            times in training).
-
-        nb_jll : ndarray of shape (n_samples, n_classes)
-            Naive Bayes joint log-likelihood, used for samples with no active
-            SPODE. Only rows where ``active.any(axis=1)`` is False are filled.
-        """
-        check_is_fitted(self, attributes=["classes_", "ensemble_"])
-        return self._jll_per_model(validate_data(self, X, reset=False), per_factor)
-
-    def _jll_per_model(self, X, per_factor=False):
-        """:meth:`_get_jll_per_model` on an already validated ``X``."""
-        inputs = self._evaluation_inputs(X)
-        with _threads(self.n_jobs):
-            out, active, nb_jll = component_scores(
-                *inputs,
-                *self._tables,
-                max(self.min_parent_count, 1),
-                self.unseen_state == "backoff",
-                per_factor,
-            )
-        return (out if per_factor else out[..., 0]), inputs[3], active, nb_jll
-
-    def _pooled_scores(self, X, geometric):
-        """Arithmetic or geometric pool of the components' joints for a
-        validated ``X``, with the Naive Bayes fallback, shape
-        (n_samples, n_classes)."""
-        with _threads(self.n_jobs):
-            return pooled_scores(
-                *self._evaluation_inputs(X),
-                *self._tables,
-                max(self.min_parent_count, 1),
-                self.unseen_state == "backoff",
-                geometric,
-            )
-
-    @staticmethod
-    def _normalize(scores):
-        log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
-        log_prob = np.nan_to_num(log_prob, nan=-np.log(scores.shape[1]))
-        # Below the smallest positive float the probability would underflow to
-        # 0, and predict_log_proba would no longer be log(predict_proba)
-        return np.maximum(log_prob, _LOG_TINY)
-
-    def predict_proba(self, X):
-        """
-        Return probability estimates for the test vector X.
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            The input samples.
-
-        Returns
-        -------
-        C : ndarray of shape (n_samples, n_classes)
-            Probability of the samples for each class, in the order of
-            ``classes_``.
-        """
-        return np.exp(self.predict_log_proba(X))
-
-    def predict(self, X):
-        """
-        Perform classification on an array of test vectors X.
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            The input samples.
-
-        Returns
-        -------
-        C : ndarray of shape (n_samples,)
-            Predicted target values for X.
-        """
-        check_is_fitted(self, attributes=["classes_", "ensemble_"])
-        return self.classes_[np.argmax(self.predict_log_proba(X), axis=1)]
-
+# _Ensemble, the class of ``ensemble_``, is also imported here so that the
+# models pickled while it was defined in this module still load
+from ._spnde import _BaseAnDE, _Ensemble  # noqa: F401
 
 # =============================================================================
 # 1. Generative model
 # =============================================================================
-
-
-def _geometric_scores(jll, active, nb_jll):
-    """Mean of the active components' log-joints (log geometric mean)."""
-    n_active = active.sum(axis=1)
-    scores = np.where(active[:, None, :], jll, 0.0).sum(axis=2)
-    scores /= np.maximum(n_active, 1)[:, None]
-    fallback = n_active == 0
-    scores[fallback] = nb_jll[fallback]
-    return scores
 
 
 class AnDE(_BaseAnDE):
@@ -1015,8 +118,12 @@ class AnDE(_BaseAnDE):
         super-parents (at least 2). Children remain continuous and are modeled
         by Gaussian distributions.
 
-    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+    strategy : {'uniform', 'quantile', 'kmeans', 'mdlp'}, default='quantile'
         Strategy used for the discretization of super-parents.
+        ``'mdlp'`` places the cuts with the supervised entropy
+        discretization of Fayyad and Irani (see :class:`MDLPDiscretizer`),
+        which chooses the number of bins of each attribute, so ``n_bins`` is
+        not used.
 
     alpha : float, default=1.0
         Non-negative Laplace smoothing of the estimates of the SPnDEs and of
@@ -1048,7 +155,7 @@ class AnDE(_BaseAnDE):
 
     min_parent_count : int, default=1
         Minimum training frequency of a parent instantiation for its SPnDE to
-        take part in the prediction of an instance. Values below 1 behave as 1.
+        take part in the prediction of an instance. ``0`` behaves as 1.
 
     unseen_state : {"laplace", "backoff"}, default="laplace"
         Child conditionals used for an augmented state never seen in training.
@@ -1060,6 +167,16 @@ class AnDE(_BaseAnDE):
 
     mean : {"arithmetic", "geometric"}, default="arithmetic"
         Pooling of the components' joint probabilities.
+
+    continuous_children : {"gaussian", "discretized"}, default="gaussian"
+        How a continuous attribute is modelled as a child. With
+        ``"gaussian"`` it keeps its values and has a Gaussian conditional,
+        and only its role as a parent uses the bins of ``n_bins`` and
+        ``strategy``. With ``"discretized"`` every continuous attribute is
+        replaced by its bin, as a categorical attribute, in both roles: the
+        model on discretized data of the original works, without a
+        discretizer in a pipeline. Values beyond the training range fall in
+        the first or the last bin.
 
     Attributes
     ----------
@@ -1085,6 +202,17 @@ class AnDE(_BaseAnDE):
         the estimates of all the components are stored together in flat
         tables.
 
+    cut_points_ : list of ndarray or None
+        Cut-points of the continuous attributes that the model bins, and
+        None for the other attributes: bin ``b`` of attribute ``i`` holds the
+        values from ``cut_points_[i][b - 1]`` (included) to
+        ``cut_points_[i][b]``.
+
+    feature_types_ : dict
+        Indices of the attributes of each type the model uses, under the keys
+        ``"gaussian"``, ``"categorical"`` and ``"bernoulli"`` (those of
+        ``backoff_``). An attribute that is constant in training is in none.
+
     backoff_ : MixedNB
         Naive Bayes on the original class, used for the class-level
         conditionals, to resolve the type of every attribute and as the
@@ -1107,11 +235,28 @@ class AnDE(_BaseAnDE):
     .. [3] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., &
            Cerquides, J. (2016). ALR^n: Accelerated higher-order logistic
            regression. Machine Learning, 104(2-3), 151-194.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skbn import AnDE, MixedNB
+    >>> rng = np.random.RandomState(0)
+    >>> x0 = rng.randint(0, 2, size=200)
+    >>> x1 = rng.randint(0, 2, size=200)
+    >>> x2 = rng.randint(0, 3, size=200)  # noise
+    >>> y = x0 ^ x1  # exclusive or: no attribute is informative on its own
+    >>> X = np.column_stack([x0, x1, x2])
+    >>> MixedNB().fit(X, y).score(X, y) < 0.6
+    True
+    >>> clf = AnDE(n_dependence=1).fit(X, y)
+    >>> clf.score(X, y)
+    1.0
     """
 
     _parameter_constraints: dict = {
         **_BaseAnDE._parameter_constraints,
         "mean": [StrOptions({"arithmetic", "geometric"})],
+        "continuous_children": [StrOptions({"gaussian", "discretized"})],
     }
 
     def __init__(
@@ -1128,6 +273,7 @@ class AnDE(_BaseAnDE):
         min_parent_count=1,
         unseen_state="laplace",
         mean="arithmetic",
+        continuous_children="gaussian",
     ):
         super().__init__(
             n_dependence,
@@ -1143,6 +289,7 @@ class AnDE(_BaseAnDE):
             unseen_state,
         )
         self.mean = mean
+        self.continuous_children = continuous_children
 
     @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
@@ -1163,10 +310,6 @@ class AnDE(_BaseAnDE):
         self : object
             Returns the instance itself.
         """
-        if self.mean not in ("arithmetic", "geometric"):
-            raise ValueError(
-                f"mean must be 'arithmetic' or 'geometric', got {self.mean!r}"
-            )
         return super().fit(X, y)
 
     def predict_log_proba(self, X):
@@ -1186,7 +329,7 @@ class AnDE(_BaseAnDE):
             bounded below by the logarithm of the smallest positive float.
         """
         check_is_fitted(self, attributes=["classes_", "ensemble_"])
-        X = validate_data(self, X, reset=False)
+        X = _validate_input(self, X, reset=False)
         return self._normalize(self._pooled_scores(X, self.mean == "geometric"))
 
 
@@ -1194,54 +337,51 @@ class AnDE(_BaseAnDE):
 # 2. Discriminative weighting
 # =============================================================================
 
-# Variables that index a weight at each level. A weight always belongs to one
-# term (a component, or a factor of a component); "value" is the value of the
-# term's own variable, "class" the class and "parents" the parent
-# instantiation of a child factor.
-_LEVEL_DIMS = {
-    "component": {
-        1: (),
-        2: ("value",),
-        3: ("class",),
-        4: ("value", "class"),
-    },
-    "factor": {
-        1: (),
-        2: ("value",),
-        3: ("value", "class"),
-        4: ("value", "class", "parents"),
-    },
-}
-
 
 class _Design(NamedTuple):
     """Linear map from the weights to the component scores.
 
     The score of component ``m`` for sample ``i`` and class ``c`` is
-    ``u[i, c, m] = intercept[i, c, m] + (operator @ theta)[(i * C + c) * M + m]``.
-    Each operator row holds the log-terms of a component at the indices of
-    their weights (exponent weights), or a one (mixture weights, with the
-    log-joint as intercept). ``active[i, m]`` marks the components that take
-    part in the prediction of sample ``i``. ``n_terms`` is the number of
-    entries of every operator row, or 0 when the rows differ.
+    ``u[i, c, m] = intercept[i, c, m] + sum_t values[i, c, m, t] *
+    theta[index[i, m, t] + c * class_step]``. Each term is a log-term of the
+    component times its weight (exponent weights), or, without ``values``,
+    the weight alone (mixture weights, with the log-joint as intercept).
+
+    The weights of the classes of a term are consecutive (``class_step`` 1)
+    or one and the same (0), so ``index`` holds the weight of class 0 only:
+    an index per class would repeat it ``n_classes`` times.
     """
 
-    operator: csr_matrix
-    intercept: Optional[np.ndarray]
-    active: np.ndarray
-    n_terms: int = 0
+    index: np.ndarray  # (n_samples, n_models, n_terms)
+    class_step: int
+    values: Optional[np.ndarray]  # (n_samples, n_classes, n_models, n_terms)
+    intercept: Optional[np.ndarray]  # (n_samples, n_classes, n_models)
+    active: np.ndarray  # (n_samples, n_models): takes part in the prediction
 
-    def component(self, m_idx, mask, lo, hi):
+    def component(self, m_idx, mask, lo):
         """Component ``m_idx`` alone, on the samples in ``mask`` and with its
-        weights ``theta[lo:hi]``."""
-        n_samples, n_models = self.active.shape
-        n_classes = self.operator.shape[0] // max(n_samples * n_models, 1)
-        samples = np.flatnonzero(mask)
-        rows = (samples[:, None] * n_classes + np.arange(n_classes)) * n_models + m_idx
+        weights, which start at ``lo``."""
+
+        def own(a):  # Its slice of an array with the models on the third axis
+            return None if a is None else a[:, :, m_idx][mask][:, :, None]
+
         return _Design(
-            self.operator[rows.ravel()][:, lo:hi],
-            None if self.intercept is None else self.intercept[mask][:, :, [m_idx]],
-            np.ones((len(samples), 1), dtype=bool),
+            self.index[:, m_idx][mask][:, None] - lo,
+            self.class_step,
+            own(self.values),
+            own(self.intercept),
+            np.ones((int(mask.sum()), 1), dtype=bool),
+        )
+
+    def kernel_args(self):
+        """Arguments of the compiled scores and gradients: the index, the
+        class step, the values and the number of terms."""
+        values = np.zeros(0) if self.values is None else self.values
+        return (
+            np.ascontiguousarray(self.index).reshape(-1),
+            self.class_step,
+            np.ascontiguousarray(values).reshape(-1),
+            self.index.shape[2],
         )
 
 
@@ -1317,8 +457,12 @@ class WeightedAnDE(AnDE):
         super-parents (at least 2). Children remain continuous and are modeled
         by Gaussian distributions.
 
-    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+    strategy : {'uniform', 'quantile', 'kmeans', 'mdlp'}, default='quantile'
         Strategy used for the discretization of super-parents.
+        ``'mdlp'`` places the cuts with the supervised entropy
+        discretization of Fayyad and Irani (see :class:`MDLPDiscretizer`),
+        which chooses the number of bins of each attribute, so ``n_bins`` is
+        not used.
 
     alpha : float, default=1.0
         Non-negative additive (Laplace/Lidstone) smoothing parameter for the
@@ -1351,7 +495,7 @@ class WeightedAnDE(AnDE):
 
     min_parent_count : int, default=1
         Minimum training frequency of a parent instantiation for its SPnDE to
-        take part in the prediction of an instance. Values below 1 behave as 1.
+        take part in the prediction of an instance. ``0`` behaves as 1.
 
     unseen_state : {"laplace", "backoff"}, default="laplace"
         Child conditionals used for an augmented state never seen in training.
@@ -1381,16 +525,18 @@ class WeightedAnDE(AnDE):
         Non-negative L2 regularization towards the generative solution
         (``w = 1``), added to the summed conditional log-likelihood.
 
-    max_iter : int, default=100
+    max_iter : int, default=1000
         Maximum number of L-BFGS-B iterations (at least 1); with
         ``modular=True`` it applies to the fit of each component. A
         :class:`~sklearn.exceptions.ConvergenceWarning` is raised at the end of
         :meth:`fit` when L-BFGS-B stops at ``max_iter`` before converging;
         increase ``max_iter`` or ``tol`` in that case.
 
-    tol : float or None, default=None
+    tol : float or None, default=1e-6
         Stopping tolerance of L-BFGS-B on the relative reduction of the
-        objective and on the projected gradient; None uses SciPy's defaults.
+        objective and on the projected gradient. None uses SciPy's defaults,
+        which are stricter on the objective (about 2e-9): they take about
+        twice as many iterations for the same predictions.
 
     modular : bool, default=False
         If True, the weights of each component are fitted independently on
@@ -1398,6 +544,16 @@ class WeightedAnDE(AnDE):
         arithmetic component weights only the class-specific levels (3 and 4)
         are identifiable; levels 1 and 2 reduce to the generative AnDE, the
         weights stay at 1 and a :class:`UserWarning` is raised.
+
+    continuous_children : {"gaussian", "discretized"}, default="gaussian"
+        How a continuous attribute is modelled as a child. With
+        ``"gaussian"`` it keeps its values and has a Gaussian conditional,
+        and only its role as a parent uses the bins of ``n_bins`` and
+        ``strategy``. With ``"discretized"`` every continuous attribute is
+        replaced by its bin, as a categorical attribute, in both roles: the
+        model on discretized data of the original works, without a
+        discretizer in a pipeline. Values beyond the training range fall in
+        the first or the last bin.
 
     Attributes
     ----------
@@ -1422,6 +578,17 @@ class WeightedAnDE(AnDE):
         (``"n_parent_combos"``) and of the augmented states :math:`Y^*` seen in
         training (``"n_states"``); the estimates of all the components are
         stored together in flat tables.
+
+    cut_points_ : list of ndarray or None
+        Cut-points of the continuous attributes that the model bins, and
+        None for the other attributes: bin ``b`` of attribute ``i`` holds the
+        values from ``cut_points_[i][b - 1]`` (included) to
+        ``cut_points_[i][b]``.
+
+    feature_types_ : dict
+        Indices of the attributes of each type the model uses, under the keys
+        ``"gaussian"``, ``"categorical"`` and ``"bernoulli"`` (those of
+        ``backoff_``). An attribute that is constant in training is in none.
 
     backoff_ : MixedNB
         Naive Bayes on the original class, used for the class-level
@@ -1459,6 +626,22 @@ class WeightedAnDE(AnDE):
            7732-7745.
     .. [3] Torrijos, P., Gámez, J. A., & Puerta, J. M. Federated Averaged
            n-Dependence Estimators. Manuscript, 2026.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skbn import WeightedAnDE
+    >>> rng = np.random.RandomState(0)
+    >>> x0 = rng.randint(0, 2, size=200)
+    >>> x1 = rng.randint(0, 2, size=200)
+    >>> x2 = rng.randint(0, 3, size=200)  # noise
+    >>> y = x0 ^ x1  # exclusive or: no attribute is informative on its own
+    >>> X = np.column_stack([x0, x1, x2])
+    >>> clf = WeightedAnDE().fit(X, y)
+    >>> clf.learned_weights_.shape  # a weight per SPnDE and a shared one
+    (4,)
+    >>> clf.score(X, y)
+    1.0
     """
 
     _parameter_constraints: dict = {
@@ -1470,6 +653,7 @@ class WeightedAnDE(AnDE):
         "max_iter": [Interval(Integral, 1, None, closed="left")],
         "tol": [Interval(Real, 0, None, closed="left"), None],
         "modular": ["boolean"],
+        "continuous_children": [StrOptions({"gaussian", "discretized"})],
     }
 
     def __init__(
@@ -1490,9 +674,10 @@ class WeightedAnDE(AnDE):
         weight_scope="component",
         weight_level=1,
         l2_reg=1.0,
-        max_iter=100,
-        tol=None,
+        max_iter=1000,
+        tol=1e-6,
         modular=False,
+        continuous_children="gaussian",
     ):
         super().__init__(
             n_dependence,
@@ -1515,6 +700,7 @@ class WeightedAnDE(AnDE):
         self.max_iter = max_iter
         self.tol = tol
         self.modular = modular
+        self.continuous_children = continuous_children
 
     # Projected-gradient tolerance (None: that of ``tol``) and number of
     # corrections of L-BFGS-B
@@ -1522,17 +708,26 @@ class WeightedAnDE(AnDE):
     _maxcor = 10
 
     # --- Parameterization ---------------------------------------------------
+    # The parameters of the weighting, read through these private names so
+    # that a subclass that fixes them (GaussianALR) overrides them with
+    # private class attributes rather than public ones that are no parameters
+    _mean = property(attrgetter("mean"))
+    _average = property(attrgetter("average"))
+    _weight_scope = property(attrgetter("weight_scope"))
+    _weight_level = property(attrgetter("weight_level"))
+    _modular = property(attrgetter("modular"))
+
     @property
     def _offset(self):
         """Whether weights are mixture coefficients (added in log-space)
         rather than exponents of the log-terms."""
-        return self.weight_scope == "component" and self.mean == "arithmetic"
+        return self._weight_scope == "component" and self._mean == "arithmetic"
 
     @property
     def _pools_posteriors(self):
         """Whether the arithmetic mean pools the components' posteriors (the
         geometric mean of posteriors equals that of joints)."""
-        return self.average == "posterior" and self.mean == "arithmetic"
+        return self._average == "posterior" and self._mean == "arithmetic"
 
     def _to_weights(self, theta):
         return np.exp(theta) if self._offset else theta
@@ -1561,7 +756,7 @@ class WeightedAnDE(AnDE):
         """Number of value and parent codes of every term, each of shape
         (n_models, n_terms)."""
         n_combos = np.array([info["n_parent_combos"] for info in self.ensemble_])
-        if self.weight_scope == "component":
+        if self._weight_scope == "component":
             # One term per component, valued by its parent instantiation
             return n_combos[:, None], np.ones((len(n_combos), 1), dtype=np.int64)
         types = self.backoff_.feature_types_
@@ -1580,7 +775,7 @@ class WeightedAnDE(AnDE):
         """Value and parent codes of every term, each of shape
         (n_samples, n_models, n_terms)."""
         parent_keys = self._parent_keys(X_parents_disc)[:, :, None]
-        if self.weight_scope == "component":
+        if self._weight_scope == "component":
             return parent_keys, np.zeros_like(parent_keys)
         child_codes = self._child_value_codes(X)[:, self._children()]
         value_codes = np.concatenate([parent_keys, child_codes], axis=2)
@@ -1592,19 +787,24 @@ class WeightedAnDE(AnDE):
         """Lay out the weights on a validated training ``X``.
 
         Every term owns a block of keys, contiguous per component, indexed by
-        the dimensions of the level. Only the keys that occur in training get
-        a weight, so their number is bounded by the data rather than by the
-        cardinalities; one extra weight, never trained, stands for every key
-        unseen in training and keeps its generative value.
+        the dimensions of the level, the class innermost. Only the keys that
+        occur in training get a weight, so their number is bounded by the
+        data rather than by the cardinalities; one extra weight, never
+        trained, stands for every key unseen in training and keeps its
+        generative value.
+
+        A key that occurs is given a weight for every class, so the keys are
+        collected for class 0 alone (``_base_keys``) and the weight of class
+        ``c`` follows that of class 0 by ``c`` places.
         """
-        dims = _LEVEL_DIMS[self.weight_scope][self.weight_level]
+        dims = _LEVEL_DIMS[self._weight_scope][self._weight_level]
         n_classes = len(self.classes_)
         value_cards, parent_cards = self._term_cardinalities()
+        self._class_step = int("class" in dims)
+        per_key = n_classes if self._class_step else 1
 
         # Strides of the dimensions, innermost first: class, value, parents
-        size = np.ones_like(value_cards)
-        self._class_stride = size * ("class" in dims)
-        size = size * (n_classes if "class" in dims else 1)
+        size = np.full_like(value_cards, per_key)
         self._value_stride = size * ("value" in dims)
         size = size * (value_cards if "value" in dims else 1)
         self._parent_stride = size * ("parents" in dims)
@@ -1612,17 +812,16 @@ class WeightedAnDE(AnDE):
         self._term_offsets = np.cumsum(size.ravel()).reshape(size.shape) - size
 
         X_parents_disc = self._encoder.transform(X)[0]
-        seen = []
-        for rows in _row_chunks(len(X), size.size):
-            base = self._weight_base(X[rows], X_parents_disc[rows])
-            seen.append(
-                np.unique([base + c * self._class_stride for c in range(n_classes)])
-            )
-        self._weight_keys = np.unique(np.concatenate(seen))
-        self.n_weights_ = len(self._weight_keys) + 1
+        seen = [
+            np.unique(self._weight_base(X[rows], X_parents_disc[rows]))
+            for rows in _row_chunks(len(X), size.size)
+        ]
+        self._base_keys = np.unique(np.concatenate(seen))
+        self._n_seen = len(self._base_keys) * per_key
+        self.n_weights_ = self._n_seen + 1
         self._component_bounds = np.append(
-            np.searchsorted(self._weight_keys, self._term_offsets[:, 0]),
-            len(self._weight_keys),
+            np.searchsorted(self._base_keys, self._term_offsets[:, 0]) * per_key,
+            self._n_seen,
         )
 
     def _weight_base(self, X, X_parents_disc):
@@ -1635,76 +834,74 @@ class WeightedAnDE(AnDE):
         )
 
     def _weight_index(self, keys):
-        """Weight of each key; keys unseen in training share the last one."""
-        n_seen = len(self._weight_keys)
-        pos = np.minimum(np.searchsorted(self._weight_keys, keys), n_seen - 1)
-        return np.where(self._weight_keys[pos] == keys, pos, n_seen)
+        """Class-0 weight of each class-0 key; the keys unseen in training
+        share the last weight, whatever the class."""
+        last = len(self._base_keys) - 1
+        pos = np.minimum(np.searchsorted(self._base_keys, keys), last)
+        per_key = len(self.classes_) if self._class_step else 1
+        return np.where(self._base_keys[pos] == keys, pos * per_key, self._n_seen)
 
     def _design(self, X):
         """Weighted-score design for a validated ``X``, and the NB fallback.
 
-        The per-term log-likelihoods become the operator's values in place,
-        and the weight indices are built in row chunks, so the operator costs
-        one float64 and one int32 per (sample, class, component, term).
+        The per-term log-likelihoods become the values of the design in
+        place, and the weight indices are built in row chunks, so the design
+        costs one float64 per (sample, class, component, term) and one int32
+        per (sample, component, term).
         """
-        per_factor = self.weight_scope == "factor"
+        per_factor = self._weight_scope == "factor"
         ll, X_parents_disc, active, nb_jll = self._jll_per_model(X, per_factor)
-        n_samples, n_classes, n_models = ll.shape[:3]
+        n_samples, _, n_models = ll.shape[:3]
         n_terms = ll.shape[3] if per_factor else 1
-        nnz = ll.size
-        idx_dtype = np.int32 if max(nnz, self.n_weights_) < 2**31 else np.int64
+        idx_dtype = (
+            np.int32 if self.n_weights_ + len(self.classes_) < 2**31 else np.int64
+        )
 
-        indices = np.empty((n_samples, n_classes, n_models, n_terms), dtype=idx_dtype)
-        for rows in _row_chunks(n_samples, n_classes * n_models * n_terms):
-            base = self._weight_base(X[rows], X_parents_disc[rows])
-            for c in range(n_classes):
-                indices[rows, c] = self._weight_index(base + c * self._class_stride)
+        index = np.empty((n_samples, n_models, n_terms), dtype=idx_dtype)
+        for rows in _row_chunks(n_samples, n_models * n_terms):
+            index[rows] = self._weight_index(
+                self._weight_base(X[rows], X_parents_disc[rows])
+            )
 
         # Exponent weights multiply the log-terms; mixture weights add to the
         # log-joint, which becomes the intercept
-        data = np.ones(nnz) if self._offset else ll.reshape(-1)
-        operator = csr_matrix(
-            (
-                data,
-                indices.reshape(-1),
-                np.arange(0, nnz + 1, n_terms, dtype=idx_dtype),
-            ),
-            shape=(n_samples * n_classes * n_models, self.n_weights_),
-        )
-        intercept = ll if self._offset else None
-        return _Design(operator, intercept, active, n_terms), nb_jll
+        if self._offset:
+            design = _Design(index, self._class_step, None, ll, active)
+        else:
+            values = ll.reshape(n_samples, -1, n_models, n_terms)
+            design = _Design(index, self._class_step, values, None, active)
+        return design, nb_jll
 
     # --- Objective ----------------------------------------------------------
-    def _kernel_args(self, theta, design):
-        """Arguments of the compiled scores and gradient for ``design``."""
-        op = design.operator
-        intercept = design.intercept
-        if intercept is None:
-            intercept = np.zeros((0, 0, 0))
-        return (op.indptr, op.indices, op.data, design.n_terms, theta, intercept)
-
     def _scores(self, theta, design):
         """Pooled scores of the samples of ``design``, shape (n, C), and, for
         the arithmetic pool, the component scores the gradient reuses.
 
         The geometric pool is ``sum_m share[i, m] * u[i, c, m]`` over the
         active components, the arithmetic one ``log sum_m exp(u[i, c, m])``
-        (of the components' posteriors with ``average="posterior"``), where
-        ``u = intercept + operator @ theta``. Samples without an active
-        component score 0 for every class; they do not depend on the weights
-        and are predicted by the NB fallback. Compiled kernels compute them
-        sample by sample, without arrays of every sample, class and component
-        but ``u`` for the arithmetic pool, with the operations of the sparse
-        product, NumPy's sums and SciPy's ``logsumexp`` (from SciPy 1.15) in
-        the same order.
+        (of the components' posteriors with ``average="posterior"``), with
+        ``u`` as in :class:`_Design`. Samples without an active component
+        score 0 for every class; they do not depend on the weights and are
+        predicted by the NB fallback. Compiled kernels compute them sample by
+        sample, without arrays of every sample, class and component but ``u``
+        for the arithmetic pool, with the operations of a sparse product,
+        NumPy's sums and SciPy's ``logsumexp`` (from SciPy 1.15) in the same
+        order.
         """
         n_classes = len(self.classes_)
-        args = self._kernel_args(theta, design)
-        if self.mean == "geometric":
-            return _weighted_geometric_scores(*args, design.active, n_classes), None
-        return _weighted_arithmetic_scores(
-            *args, design.active, n_classes, self._pools_posteriors
+        intercept = design.intercept
+        if intercept is None:
+            intercept = np.zeros((0, 0, 0))
+        args = (
+            *design.kernel_args(),
+            _pad_last(theta, design.class_step * (n_classes - 1)),
+            intercept,
+            design.active,
+            n_classes,
         )
+        if self._mean == "geometric":
+            return _weighted_geometric_scores(*args), None
+        return _weighted_arithmetic_scores(*args, self._pools_posteriors)
 
     def _nll_and_grad(self, theta, design, Y):
         """Conditional negative log-likelihood and its gradient. Rows of ``Y``
@@ -1713,12 +910,11 @@ class WeightedAnDE(AnDE):
         log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
         nll = -np.sum(log_prob * Y)
         dscores = np.exp(log_prob) * Y.sum(axis=1, keepdims=True) - Y
-        op = design.operator
-        args = (op.indptr, op.indices, op.data, design.n_terms)
-        if self.mean == "geometric":
-            grad = _weighted_geometric_gradient(
-                *args, dscores, design.active, theta.size
-            )
+        n_classes = len(self.classes_)
+        n_padded = theta.size + design.class_step * (n_classes - 1)
+        args = design.kernel_args()
+        if self._mean == "geometric":
+            grad = _weighted_geometric_gradient(*args, dscores, design.active, n_padded)
         else:
             grad = _weighted_arithmetic_gradient(
                 *args,
@@ -1727,14 +923,14 @@ class WeightedAnDE(AnDE):
                 scores,
                 dscores,
                 self._pools_posteriors,
-                theta.size,
+                n_padded,
             )
-        return nll, grad
+        return nll, _fold_padding(grad, theta.size)
 
     def _optimize(self, theta, design, Y):
         bounds = (
             [(0.0, None)] * theta.size
-            if self.weight_scope == "component" and self.mean == "geometric"
+            if self._weight_scope == "component" and self._mean == "geometric"
             else None
         )
         theta, n_iter, converged = _fit_weights(
@@ -1776,23 +972,11 @@ class WeightedAnDE(AnDE):
         self : object
             Returns the instance itself.
         """
-        if self.weight_scope not in _LEVEL_DIMS:
-            raise ValueError(
-                "weight_scope must be 'component' or 'factor', got"
-                f" {self.weight_scope!r}"
-            )
-        if self.weight_level not in _LEVEL_DIMS[self.weight_scope]:
-            raise ValueError(f"weight_level must be in 1..4, got {self.weight_level}")
-        if self.average not in ("joint", "posterior"):
-            raise ValueError(
-                f"average must be 'joint' or 'posterior', got {self.average!r}"
-            )
-
         # 1. Generative phase (pre-conditioning)
         super().fit(X, y)
 
         # 2. Weight layout and design on the training set
-        X = validate_data(self, X, reset=False)
+        X = _validate_input(self, X, reset=False)
         self._setup_weights(X)
         design, _ = self._design(X)
 
@@ -1807,15 +991,15 @@ class WeightedAnDE(AnDE):
         self._n_problems = self._n_failed = 0
 
         # 3. Discriminative phase
-        if not self.modular:
+        if not self._modular:
             theta = self._optimize(theta, design, Y)
         elif (
-            self._offset and "class" not in _LEVEL_DIMS["component"][self.weight_level]
+            self._offset and "class" not in _LEVEL_DIMS["component"][self._weight_level]
         ):
             warnings.warn(
                 (
                     "Modular WeightedAnDE with arithmetic component weights at"
-                    f" weight_level {self.weight_level} is equivalent to the"
+                    f" weight_level {self._weight_level} is equivalent to the"
                     " generative AnDE: a class-independent weight cancels in the"
                     " per-component softmax, so it is not identifiable from that"
                     " component's conditional likelihood. Weights are fixed to 1."
@@ -1828,7 +1012,7 @@ class WeightedAnDE(AnDE):
                 rows = design.active[:, m_idx]
                 if rows.any():
                     theta[lo:hi] = self._optimize(
-                        theta[lo:hi], design.component(m_idx, rows, lo, hi), Y[rows]
+                        theta[lo:hi], design.component(m_idx, rows, lo), Y[rows]
                     )
 
         _warn_not_converged(self._n_failed, self._n_problems, self.max_iter)
@@ -1854,7 +1038,7 @@ class WeightedAnDE(AnDE):
             the smallest positive float.
         """
         check_is_fitted(self, attributes=["classes_", "ensemble_", "coef_theta_"])
-        X = validate_data(self, X, reset=False)
+        X = _validate_input(self, X, reset=False)
         n_classes, n_models = len(self.classes_), len(self.ensemble_)
         n_terms = 1 + self.n_features_in_ - self.n_dependence
         out = np.empty((X.shape[0], n_classes))

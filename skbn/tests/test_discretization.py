@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from sklearn.datasets import load_iris
 
-from skbn.discretization import DecisionTreeDiscretizer
+from skbn.discretization import DecisionTreeDiscretizer, MDLPDiscretizer
 
 
 @pytest.fixture
@@ -120,3 +120,37 @@ def test_mdlp_handles_nan_and_max_bins():
     assert len(disc.cut_points_[0]) <= 2
     out = disc.transform(X)
     assert np.isfinite(out).all()
+
+
+def test_mdlp_invalid_max_bins():
+    from skbn import MDLPDiscretizer
+
+    with pytest.raises(ValueError, match="max_bins"):
+        MDLPDiscretizer(max_bins=1).fit([[1.0], [2.0]], [0, 1])
+
+
+# --- Feature names and pandas output ------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "Discretizer", [DecisionTreeDiscretizer, MDLPDiscretizer], ids=lambda c: c.__name__
+)
+def test_discretizer_feature_names_and_pandas_output(Discretizer, iris_data):
+    pd = pytest.importorskip("pandas")
+    X, y = iris_data
+    names = ["sepal_length", "sepal_width", "petal_length", "petal_width"]
+    df = pd.DataFrame(X, columns=names)
+
+    disc = Discretizer().set_output(transform="pandas")
+    out = disc.fit_transform(df, y)
+    assert isinstance(out, pd.DataFrame)
+    assert list(out.columns) == names
+    assert out.index.equals(df.index)
+    np.testing.assert_array_equal(out.to_numpy(), Discretizer().fit_transform(X, y))
+    np.testing.assert_array_equal(disc.get_feature_names_out(), names)
+
+    # Without feature names in the input the names are generated
+    disc = Discretizer().set_output(transform="pandas").fit(X, y)
+    expected = ["x0", "x1", "x2", "x3"]
+    np.testing.assert_array_equal(disc.get_feature_names_out(), expected)
+    assert list(disc.transform(X).columns) == expected

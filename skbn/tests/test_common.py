@@ -8,8 +8,8 @@ General tests for all estimators in skbn.
 import pytest
 from sklearn.utils.estimator_checks import check_estimator
 
-from skbn import AnDE, WeightedAnDE
-from skbn.utils.discovery import all_estimators
+from skbn import TAN, AnDE, WeightedAnDE, WeightedKDB
+from skbn.tests._discovery import all_estimators
 
 
 def _few_iterations(estimator):
@@ -38,6 +38,10 @@ def test_all_estimators(name, Estimator):
         # identifiable at the class-specific granularities
         WeightedAnDE(modular=True, weight_level=3),
         WeightedAnDE(modular=True, weight_scope="factor", weight_level=1),
+        # Continuous attributes discretized as children too
+        AnDE(continuous_children="discretized"),
+        TAN(strategy="mdlp", continuous_children="discretized"),
+        WeightedKDB(k=2, continuous_children="discretized"),
     ],
     ids=repr,
 )

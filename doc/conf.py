@@ -121,7 +121,7 @@ intersphinx_mapping = {
 # -- Options for sphinx-gallery -----------------------------------------------
 
 # Generate the plot for the gallery
-plot_gallery = True
+plot_gallery = "True"
 
 sphinx_gallery_conf = {
     "doc_module": "skbn",
@@ -133,6 +133,7 @@ sphinx_gallery_conf = {
     "filename_pattern": "plot_",
     # One section per folder, in this order; examples sorted by file name
     "subsection_order": [
+        "../examples/tutorial",
         "../examples/mixednb",
         "../examples/ande",
         "../examples/anje",

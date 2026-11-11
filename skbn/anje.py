@@ -29,7 +29,6 @@ References
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import numbers
 from itertools import combinations
 from math import comb
 from numbers import Integral, Real
@@ -40,13 +39,17 @@ from scipy.special import logsumexp
 from sklearn.base import BaseEstimator, ClassifierMixin, _fit_context
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.multiclass import unique_labels
-from sklearn.utils.validation import check_is_fitted, validate_data
+from sklearn.utils.validation import check_is_fitted
 
 from ._core import (
     _AttributeEncoder,
+    _check_label_types,
     _feature_indices,
     _fit_weights,
+    _label_feature_indices,
+    _LabelInputMixin,
     _row_chunks,
+    _validate_input,
     _warn_not_converged,
 )
 from ._kernels import (
@@ -59,7 +62,8 @@ from ._kernels import (
     join_rows,
     join_scores,
 )
-from .ande import WeightedAnDE, _BaseAnDE, _geometric_scores
+from ._spnde import _BaseAnDE
+from .ande import WeightedAnDE
 
 # Key spaces of the n-joins up to this size map keys to table rows with a
 # dense array (4 bytes per key); larger ones use a binary search
@@ -81,7 +85,7 @@ _ZAIDI_GTOL = 1e-33
 _ZAIDI_MAXCOR = 5
 
 
-class AnJE(ClassifierMixin, BaseEstimator):
+class AnJE(_LabelInputMixin, ClassifierMixin, BaseEstimator):
     """
     Averaged n-Join Estimators (AnJE) [Generative].
 
@@ -101,8 +105,9 @@ class AnJE(ClassifierMixin, BaseEstimator):
 
     Continuous attributes are discretized into ``n_bins`` bins (the original
     work uses MDL discretization, available as :class:`MDLPDiscretizer` in a
-    pipeline). A discrete value never seen in training falls in an empty cell
-    of every n-join that contains it.
+    pipeline, or ``strategy='mdlp'``). A discrete value never seen in training
+    carries no information about the class: the n-joins that contain it are
+    left out for that sample, as a missing value would be.
 
     Parameters
     ----------
@@ -113,8 +118,12 @@ class AnJE(ClassifierMixin, BaseEstimator):
     n_bins : int, default=5
         Number of bins for continuous attributes (at least 2).
 
-    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+    strategy : {'uniform', 'quantile', 'kmeans', 'mdlp'}, default='quantile'
         Binning strategy for continuous attributes.
+        ``'mdlp'`` places the cuts with the supervised entropy
+        discretization of Fayyad and Irani (see :class:`MDLPDiscretizer`),
+        which chooses the number of bins of each attribute, so ``n_bins`` is
+        not used.
 
     alpha : float, default=1.0
         Non-negative weight ``m`` of the m-estimates; with ``0`` the cells
@@ -133,7 +142,8 @@ class AnJE(ClassifierMixin, BaseEstimator):
         (binned) regardless of their dtype.
         The attributes in none of the three parameters are typed from their
         training values with the rules of :class:`MixedNB`, and only those
-        typed as Gaussian are binned.
+        typed as Gaussian are binned. Columns of labels (strings, pandas
+        categories) are discrete and cannot be declared continuous.
 
     n_jobs : int, default=None
         Number of threads used to count and evaluate the n-joins.
@@ -167,12 +177,26 @@ class AnJE(ClassifierMixin, BaseEstimator):
     .. [1] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., &
            Cerquides, J. (2016). ALR^n: Accelerated higher-order logistic
            regression. Machine Learning, 104(2-3), 151-194.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skbn import AnJE
+    >>> rng = np.random.RandomState(0)
+    >>> x0 = rng.randint(0, 2, size=200)
+    >>> x1 = rng.randint(0, 2, size=200)
+    >>> x2 = rng.randint(0, 3, size=200)  # noise
+    >>> y = x0 ^ x1  # exclusive or: no attribute is informative on its own
+    >>> X = np.column_stack([x0, x1, x2])
+    >>> clf = AnJE(n_join=2).fit(X, y)
+    >>> clf.score(X, y)
+    1.0
     """
 
     _parameter_constraints: dict = {
         "n_join": [Interval(Integral, 1, None, closed="left")],
         "n_bins": [Interval(Integral, 2, None, closed="left")],
-        "strategy": [StrOptions({"uniform", "quantile", "kmeans"})],
+        "strategy": [StrOptions({"uniform", "quantile", "kmeans", "mdlp"})],
         "alpha": [Interval(Real, 0, None, closed="left")],
         "categorical_features": ["array-like", None],
         "bernoulli_features": ["array-like", None],
@@ -225,28 +249,30 @@ class AnJE(ClassifierMixin, BaseEstimator):
     def _fit_generative(self, X, y):
         """Fit the tables and return the transposed training codes and the
         class indices."""
-        X, y = validate_data(self, X, y)
-        if not isinstance(self.n_join, numbers.Integral) or self.n_join < 1:
-            raise ValueError(f"n_join must be a positive integer, got {self.n_join!r}")
+        X, y = _validate_input(self, X, y)
         self.classes_ = unique_labels(y)
         y_idx = np.searchsorted(self.classes_, y)
         n_samples, n_features = X.shape
         n_classes = len(self.classes_)
 
+        gaussian = _feature_indices(
+            self.gaussian_features, n_features, "gaussian_features"
+        )
+        labelled = _label_feature_indices(self)
+        _check_label_types(labelled, gaussian)
         self._encoder = _AttributeEncoder(
             self.n_bins,
             self.strategy,
-            gaussian_features=_feature_indices(
-                self.gaussian_features, n_features, "gaussian_features"
-            ),
+            gaussian_features=gaussian,
             discrete_features=_feature_indices(
                 self.categorical_features, n_features, "categorical_features"
             )
             + _feature_indices(
                 self.bernoulli_features, n_features, "bernoulli_features"
-            ),
+            )
+            + labelled,
         )
-        codes = self._encoder.fit_transform(X, dtype=np.int32)
+        codes = self._encoder.fit_transform(X, y_idx, dtype=np.int32)
 
         # --- Cell keys: 0 is the class prior, then one block per join ---
         n = min(self.n_join, n_features)
@@ -331,12 +357,35 @@ class AnJE(ClassifierMixin, BaseEstimator):
             self._cell_keys,
         )
 
-    def _transform_codes(self, X):
-        """Transposed codes of a validated ``X``, shape (n_features,
-        n_samples); an unseen value takes the extra code of its attribute."""
-        codes, unseen = self._encoder.transform(X)
+    def _transform_codes(self, codes, unseen):
+        """Transposed codes, shape (n_features, n_samples), from the output
+        of the encoder; an unseen value takes the extra code of its
+        attribute, so that its cells are those of no training sample."""
         codes = np.where(unseen, self._encoder.cards_, codes)
         return np.ascontiguousarray(codes.T, dtype=np.int32)
+
+    def _drop_unseen_joins(self, scores, codes_t, unseen, table):
+        """Rescore, in place, the samples that hold a value never seen in
+        training without the n-joins that contain it.
+
+        Such a join would add the estimate of an empty cell,
+        ``(m / |X_alpha|) / (#y + m)``, which says nothing about the value and
+        favours the classes with few samples. Only those samples are
+        rescored, so data without unseen values cost nothing.
+        """
+        rows = np.flatnonzero(unseen.any(axis=1))
+        if not len(rows):
+            return
+        n_joins, n_classes = len(self.joins_), table.shape[1]
+        # A last row of zeros stands for the joins that are left out
+        padded = np.vstack([table, np.zeros((1, n_classes))])
+        for chunk in _row_chunks(len(rows), n_joins * (n_classes + 1)):
+            r = rows[chunk]
+            cells = join_rows(
+                np.ascontiguousarray(codes_t[:, r]), *self._cell_args(), True
+            )
+            cells[unseen[r][:, self.joins_].any(axis=2)] = len(table)
+            scores[r] = table[0] + padded[cells].sum(axis=1)
 
     def _table(self):
         """Log-table weighted as in the AnJE: the joins by Eq. 10, the prior by 1."""
@@ -360,11 +409,13 @@ class AnJE(ClassifierMixin, BaseEstimator):
             ``classes_``.
         """
         check_is_fitted(self, attributes=["classes_", "joins_"])
-        X = validate_data(self, X, reset=False)
+        X = _validate_input(self, X, reset=False)
+        codes, unseen = self._encoder.transform(X)
+        codes_t = self._transform_codes(codes, unseen)
+        table = self._table()
         with _threads(self.n_jobs):
-            scores = join_scores(
-                self._transform_codes(X), *self._cell_args(), self._table()
-            )
+            scores = join_scores(codes_t, *self._cell_args(), table)
+            self._drop_unseen_joins(scores, codes_t, unseen, table)
         log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
         return np.nan_to_num(log_prob, nan=-np.log(scores.shape[1]))
 
@@ -451,8 +502,12 @@ class ALR(AnJE):
     n_bins : int, default=5
         Number of bins for continuous attributes (at least 2).
 
-    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+    strategy : {'uniform', 'quantile', 'kmeans', 'mdlp'}, default='quantile'
         Binning strategy for continuous attributes.
+        ``'mdlp'`` places the cuts with the supervised entropy
+        discretization of Fayyad and Irani (see :class:`MDLPDiscretizer`),
+        which chooses the number of bins of each attribute, so ``n_bins`` is
+        not used.
 
     alpha : float, default=1.0
         Weight ``m`` of the m-estimates; must be positive.
@@ -470,7 +525,8 @@ class ALR(AnJE):
         (binned) regardless of their dtype.
         The attributes in none of the three parameters are typed from their
         training values with the rules of :class:`MixedNB`, and only those
-        typed as Gaussian are binned.
+        typed as Gaussian are binned. Columns of labels (strings, pandas
+        categories) are discrete and cannot be declared continuous.
 
     weight_level : int, default=3
         Granularity of the weights, 1, 2 or 3 (see the table above).
@@ -525,7 +581,8 @@ class ALR(AnJE):
 
     See Also
     --------
-    AnJE : The generative model at ``w = 1``.
+    AnJE : The generative model on the same n-joins. ``w = 1`` is the
+        unaveraged product of the n-joins, not the AnJE.
     GaussianALR : ALR^n on the factors of the SPnDEs, with Gaussian children.
     WeightedAnDE : Discriminative weights on the AnDE ensemble.
 
@@ -537,10 +594,26 @@ class ALR(AnJE):
     .. [2] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., Buntine, W.,
            Hynes, M., & De Sterck, H. (2017). Efficient parameter learning of
            Bayesian network classifiers. Machine Learning, 106(9-10), 1289-1329.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skbn import ALR
+    >>> rng = np.random.RandomState(0)
+    >>> x0 = rng.randint(0, 2, size=200)
+    >>> x1 = rng.randint(0, 2, size=200)
+    >>> x2 = rng.randint(0, 3, size=200)  # noise
+    >>> y = x0 ^ x1  # exclusive or: no attribute is informative on its own
+    >>> X = np.column_stack([x0, x1, x2])
+    >>> clf = ALR(n_join=2).fit(X, y)
+    >>> clf.score(X, y)
+    1.0
     """
 
     _parameter_constraints: dict = {
         **AnJE._parameter_constraints,
+        # An empty cell would have log-probability -inf
+        "alpha": [Interval(Real, 0, None, closed="neither")],
         "weight_level": [Interval(Integral, 1, 3, closed="both")],
         "l2_reg": [Interval(Real, 0, None, closed="left")],
         "max_iter": [Interval(Integral, 1, None, closed="left")],
@@ -596,12 +669,6 @@ class ALR(AnJE):
         self : object
             Returns the instance itself.
         """
-        if self.weight_level not in (1, 2, 3):
-            raise ValueError(f"weight_level must be 1, 2 or 3, got {self.weight_level}")
-        if not self.alpha > 0:
-            raise ValueError(
-                "ALR needs alpha > 0: an empty cell would have log-probability -inf"
-            )
         codes_t, y_idx = self._fit_generative(X, y)
         n_classes = len(self.classes_)
 
@@ -728,6 +795,16 @@ def _root_log_marginals(model):
     )
 
 
+def _geometric_scores(jll, active, nb_jll):
+    """Mean of the active components' log-joints (log geometric mean)."""
+    n_active = active.sum(axis=1)
+    scores = np.where(active[:, None, :], jll, 0.0).sum(axis=2)
+    scores /= np.maximum(n_active, 1)[:, None]
+    fallback = n_active == 0
+    scores[fallback] = nb_jll[fallback]
+    return scores
+
+
 class GaussianAnJE(_BaseAnDE):
     """
     Averaged (n+1)-Join Estimator on the factors of the SPnDEs [Generative].
@@ -767,8 +844,12 @@ class GaussianAnJE(_BaseAnDE):
     n_bins : int, default=5
         Number of bins of the continuous super-parents (at least 2).
 
-    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+    strategy : {'uniform', 'quantile', 'kmeans', 'mdlp'}, default='quantile'
         Binning strategy of the continuous super-parents.
+        ``'mdlp'`` places the cuts with the supervised entropy
+        discretization of Fayyad and Irani (see :class:`MDLPDiscretizer`),
+        which chooses the number of bins of each attribute, so ``n_bins`` is
+        not used.
 
     alpha : float, default=1.0
         Non-negative Laplace smoothing of the discrete factors and of the
@@ -798,7 +879,7 @@ class GaussianAnJE(_BaseAnDE):
 
     min_parent_count : int, default=1
         Minimum training frequency of a parent instantiation for its SPnDE to
-        take part in the prediction of an instance. Values below 1 behave as 1.
+        take part in the prediction of an instance. ``0`` behaves as 1.
 
     unseen_state : {"laplace", "backoff"}, default="laplace"
         Child conditionals of an augmented state never seen in training (see
@@ -828,6 +909,17 @@ class GaussianAnJE(_BaseAnDE):
         the estimates of all the components are stored together in flat
         tables.
 
+    cut_points_ : list of ndarray or None
+        Cut-points of the continuous attributes that the model bins, and
+        None for the other attributes: bin ``b`` of attribute ``i`` holds the
+        values from ``cut_points_[i][b - 1]`` (included) to
+        ``cut_points_[i][b]``.
+
+    feature_types_ : dict
+        Indices of the attributes of each type the model uses, under the keys
+        ``"gaussian"``, ``"categorical"`` and ``"bernoulli"`` (those of
+        ``backoff_``). An attribute that is constant in training is in none.
+
     backoff_ : MixedNB
         Naive Bayes on the original class, used for the class prior, the
         class-level conditionals and as the fallback when no SPnDE qualifies.
@@ -842,6 +934,21 @@ class GaussianAnJE(_BaseAnDE):
     .. [1] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., &
            Cerquides, J. (2016). ALR^n: Accelerated higher-order logistic
            regression. Machine Learning, 104(2-3), 151-194.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skbn import GaussianAnJE, MixedNB
+    >>> rng = np.random.RandomState(0)
+    >>> y = rng.randint(0, 2, size=200)
+    >>> x0 = rng.normal(size=200)
+    >>> x1 = x0 * (2 * y - 1) + rng.normal(scale=0.3, size=200)  # slope of class
+    >>> X = np.column_stack([x0, x1])
+    >>> MixedNB().fit(X, y).score(X, y) < 0.6
+    True
+    >>> clf = GaussianAnJE(n_dependence=1).fit(X, y)
+    >>> clf.score(X, y) > 0.85
+    True
     """
 
     def predict_log_proba(self, X):
@@ -861,7 +968,7 @@ class GaussianAnJE(_BaseAnDE):
             bounded below by the logarithm of the smallest positive float.
         """
         check_is_fitted(self, attributes=["classes_", "ensemble_"])
-        X = validate_data(self, X, reset=False)
+        X = _validate_input(self, X, reset=False)
         root, child = _join_exponents(self.n_features_in_, self.n_dependence)
         log_marginals = _root_log_marginals(self)
         n_classes, n_models = len(self.classes_), len(self.ensemble_)
@@ -912,8 +1019,12 @@ class GaussianALR(WeightedAnDE):
     n_bins : int, default=5
         Number of bins of the continuous super-parents (at least 2).
 
-    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+    strategy : {'uniform', 'quantile', 'kmeans', 'mdlp'}, default='quantile'
         Binning strategy of the continuous super-parents.
+        ``'mdlp'`` places the cuts with the supervised entropy
+        discretization of Fayyad and Irani (see :class:`MDLPDiscretizer`),
+        which chooses the number of bins of each attribute, so ``n_bins`` is
+        not used.
 
     alpha : float, default=1.0
         Laplace smoothing of the discrete factors and of the augmented-state
@@ -944,7 +1055,7 @@ class GaussianALR(WeightedAnDE):
 
     min_parent_count : int, default=1
         Minimum training frequency of a parent instantiation for its SPnDE to
-        take part in the prediction of an instance. Values below 1 behave as 1.
+        take part in the prediction of an instance. ``0`` behaves as 1.
 
     unseen_state : {"laplace", "backoff"}, default="laplace"
         Child conditionals of an augmented state never seen in training (see
@@ -990,6 +1101,17 @@ class GaussianALR(WeightedAnDE):
         training (``"n_states"``); the estimates of all the components are
         stored together in flat tables.
 
+    cut_points_ : list of ndarray or None
+        Cut-points of the continuous attributes that the model bins, and
+        None for the other attributes: bin ``b`` of attribute ``i`` holds the
+        values from ``cut_points_[i][b - 1]`` (included) to
+        ``cut_points_[i][b]``.
+
+    feature_types_ : dict
+        Indices of the attributes of each type the model uses, under the keys
+        ``"gaussian"``, ``"categorical"`` and ``"bernoulli"`` (those of
+        ``backoff_``). An attribute that is constant in training is in none.
+
     backoff_ : MixedNB
         Naive Bayes on the original class, used for the class prior, the
         class-level conditionals and as the fallback when no SPnDE qualifies.
@@ -1017,19 +1139,35 @@ class GaussianALR(WeightedAnDE):
     .. [1] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., &
            Cerquides, J. (2016). ALR^n: Accelerated higher-order logistic
            regression. Machine Learning, 104(2-3), 151-194.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skbn import GaussianALR
+    >>> rng = np.random.RandomState(0)
+    >>> y = rng.randint(0, 2, size=200)
+    >>> x0 = rng.normal(size=200)
+    >>> x1 = x0 * (2 * y - 1) + rng.normal(scale=0.3, size=200)  # slope of class
+    >>> X = np.column_stack([x0, x1])
+    >>> clf = GaussianALR(l2_reg=1.0).fit(X, y)
+    >>> clf.score(X, y) > 0.85
+    True
     """
 
-    # The configuration of WeightedAnDE that this model fixes
-    mean = "geometric"
-    average = "joint"
-    weight_scope = "factor"
-    weight_level = 4
-    modular = False
+    # The configuration of WeightedAnDE that this model fixes, which
+    # WeightedAnDE reads through these private names
+    _mean = "geometric"
+    _average = "joint"
+    _weight_scope = "factor"
+    _weight_level = 4
+    _modular = False
     _gtol = _ZAIDI_GTOL
     _maxcor = _ZAIDI_MAXCOR
 
     _parameter_constraints: dict = {
         **_BaseAnDE._parameter_constraints,
+        # An unseen augmented state would have log-probability -inf
+        "alpha": [Interval(Real, 0, None, closed="neither")],
         "l2_reg": [Interval(Real, 0, None, closed="left")],
         "max_iter": [Interval(Integral, 1, None, closed="left")],
         "tol": [Interval(Real, 0, None, closed="left"), None],
@@ -1089,11 +1227,6 @@ class GaussianALR(WeightedAnDE):
         self : object
             Returns the instance itself.
         """
-        if not self.alpha > 0:
-            raise ValueError(
-                "GaussianALR needs alpha > 0: an unseen augmented state would"
-                " have log-probability -inf"
-            )
         return super().fit(X, y)
 
     def _design(self, X):
@@ -1104,7 +1237,7 @@ class GaussianALR(WeightedAnDE):
         root, child = _join_exponents(self.n_features_in_, self.n_dependence)
         n_samples, n_models = design.active.shape
         n_classes = len(self.classes_)
-        terms = design.operator.data.reshape(n_samples, n_classes, n_models, -1)
+        terms = design.values
         terms[..., 0] -= _root_log_marginals(self)
         terms[..., 0] *= root
         terms[..., 1:] *= child

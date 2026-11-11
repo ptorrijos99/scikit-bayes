@@ -9,6 +9,7 @@ from numpy.testing import assert_allclose
 from sklearn.naive_bayes import BernoulliNB, CategoricalNB
 
 from skbn import ALR, KDB, TAN, AnDE, AnJE, MixedNB, WeightedAnDE
+from skbn._core import _auto_type, _auto_types
 
 ENSEMBLES = [
     MixedNB(),
@@ -168,3 +169,38 @@ def test_join_models_accept_masks_and_arrays(estimator):
     assert_allclose(
         by_list.fit(X, y).predict_proba(X), by_mask.fit(X, y).predict_proba(X)
     )
+
+
+@pytest.mark.parametrize("dtype", [np.float64, np.float32, np.int64, np.uint8])
+@pytest.mark.parametrize("n_samples", [1, 2, 3, 400])
+def test_types_from_one_pass_are_those_of_the_column_rule(dtype, n_samples):
+    # The compiled profile of the columns must type them as the rule that
+    # reads one column, which stays as the reference and the fallback
+    rng = np.random.RandomState(0)
+    n = n_samples
+    columns = [rng.randint(0, k, n) for k in (1, 2, 3, 20, 21, 22, 40, 250)]
+    columns += [
+        rng.randint(0, 5, n) + 100,  # few values far from 0
+        rng.randint(0, 30, n) * 4,  # many values, sparse
+        rng.randint(0, 19, n) * 7,  # few values over a wide range
+        rng.randint(0, 2, n) * 3 + 1,
+    ]
+    if dtype is not np.uint8:
+        columns += [rng.randint(0, 5, n) - 2, rng.randint(0, 2, n) * 3 - 1]
+    if dtype in (np.float64, np.float32):
+        columns += [
+            rng.normal(size=n),
+            rng.randint(0, 2, n) * 0.5,
+            rng.randint(0, 4, n) + 0.5,
+            rng.randint(0, 30, n) + 2.0**53,  # beyond the exact integers
+        ]
+    if dtype is np.int64:
+        # randint draws C longs, which are 32 bits wide on Windows
+        columns += [rng.randint(0, 30, n).astype(np.int64) + 2**60]
+    X = np.column_stack(columns).astype(dtype)
+    expected = [_auto_type(X[:, j]) for j in range(X.shape[1])]
+    for order in ("C", "F"):
+        typed = _auto_types(np.asarray(X, order=order), np.arange(X.shape[1]))
+        assert typed == expected
+    if n_samples == 400 and dtype is np.float64:
+        assert set(expected) == {None, "bernoulli", "categorical", "gaussian"}

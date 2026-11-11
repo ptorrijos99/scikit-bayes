@@ -160,7 +160,7 @@ def test_structure_matches_reference(categorical_data, k):
     for t, i in enumerate(model.feature_order_):
         assert len(model.parents_[i]) == min(k, t)
         assert set(model.parents_[i]) <= set(model.feature_order_[:t])
-    n_parents, children = model._tables[2], model._tables[3]
+    n_parents, children = model._tables.n_parents, model._tables.children
     assert dict(zip(children.tolist(), n_parents.tolist())) == {
         i: len(p) for i, p in enumerate(model.parents_)
     }
@@ -263,7 +263,7 @@ def test_k0_is_naive_bayes(categorical_data, alpha):
     model = KDB(k=0, alpha=alpha).fit(X, y)
     nb = MixedNB(alpha=alpha, var_prior_weight=1.0).fit(X, y)
     assert _as_lists(model.parents_) == [[]] * X.shape[1]
-    assert not model._tables[2].any()
+    assert not model._tables.n_parents.any()
     np.testing.assert_allclose(model.predict_proba(X), nb.predict_proba(X), atol=1e-12)
     expected = _reference_proba(X[:, :5], y, X[:, :5], [[]] * 5, alpha)
     model = KDB(k=0, alpha=alpha).fit(X[:, :5], y)
@@ -308,10 +308,11 @@ def test_unseen_parent_category_is_uninformed(categorical_data):
     X_test = X[:3].copy()
     X_test[:, first] = 7  # never seen; every other attribute has it as parent
     jll = model._joint_log_likelihood(X_test)
-    nb_ll = model.backoff_._feature_log_likelihood(X_test)[:, :, first]
+    first_nb = MixedNB().fit(X[:, [first]], y)
     cards = model.backoff_._cat_cardinalities
     children = [i for i in range(X.shape[1]) if i != first]
-    expected = model.backoff_.class_log_prior_ + nb_ll - np.log(cards[children]).sum()
+    expected = first_nb._joint_log_likelihood(X_test[:, [first]])
+    expected -= np.log(cards[children]).sum()
     np.testing.assert_allclose(jll, expected, atol=1e-12)
     assert np.all(np.isfinite(model.predict_proba(X_test)))
 
@@ -397,7 +398,7 @@ def test_prediction_memory_does_not_grow_with_the_parent_states():
     X = rng.randint(0, 6, size=(3000, 8))
     y = rng.randint(0, 2, size=3000)
     model = KDB(k=5, categorical_features=list(range(8))).fit(X, y)
-    assert np.diff(model._tables[5]).max() > 1000
+    assert np.diff(model._tables.state_off).max() > 1000
     tracemalloc.start()
     model.predict_proba(X)
     peak = tracemalloc.get_traced_memory()[1]
@@ -419,7 +420,7 @@ def test_high_cardinality_matches_reference():
     X = np.column_stack([np.unique(col, return_inverse=True)[1] for col in X.T])
     model = KDB(k=2, categorical_features=range(4)).fit(X, y)
     assert max(len(p) for p in model.parents_) == 2
-    assert (np.diff(model._tables[9]) > 0).any()
+    assert (np.diff(model._tables.cell_off) > 0).any()
     X_test = np.vstack([X, np.column_stack([rng.permutation(c) for c in X.T])])
     expected = _reference_proba(X, y, X_test, model.parents_)
     np.testing.assert_allclose(model.predict_proba(X_test), expected, atol=1e-10)

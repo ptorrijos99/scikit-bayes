@@ -7,7 +7,12 @@ import numba as nb
 import numpy as np
 import pytest
 
-from skbn._kernels import _Kernel, _pairwise_sum, _state_index, _threads
+from skbn._kernels import (
+    _Kernel,
+    _pairwise_sum,
+    _state_index,
+    _threads,
+)
 
 
 def _row_sums(x):

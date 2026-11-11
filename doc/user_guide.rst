@@ -90,6 +90,40 @@ Each type is estimated as follows:
   their range, so that two values such as {1, 2} stay apart.
 * **Gaussian** features with zero variance in training are ignored.
 
+Labels and pandas categories
+----------------------------
+
+Every estimator of the library also takes columns of labels: pandas
+``category`` columns, whatever their categories, and columns of strings (in a
+DataFrame, or in a NumPy object or string array). Such a column is
+categorical whatever its values, even a ``category`` column with more than 20
+integer categories; it may be declared Bernoulli but not Gaussian, and it is
+ignored when constant. Its labels are coded by their position among the
+sorted labels seen in training, so the model is exactly the one fitted on
+these codes declared categorical. The order of the categories of a
+``category`` dtype is not used, and its categories absent from the training
+rows get no estimate. A label never seen in training is an unseen category,
+and :attr:`~skbn.MixedNB.categories_` holds the labels of each column.
+
+.. code-block:: python
+
+    import pandas as pd
+    from skbn import MixedNB
+
+    X = pd.DataFrame({
+        "age": [23.0, 45.5, 31.2, 52.8, 38.1, 27.4],
+        "plan": pd.Categorical(["basic", "pro", "pro", "basic", "pro", "basic"]),
+        "city": ["Madrid", "Paris", "Paris", "Rome", "Madrid", "Rome"],
+    })
+    clf = MixedNB().fit(X, [0, 1, 1, 0, 1, 0])
+    print(clf.feature_types_)
+    # {'gaussian': [0], 'categorical': [1, 2], 'bernoulli': []}
+
+A column that holds labels in ``fit`` must hold labels in ``predict`` (strings
+and categories may be swapped), and the other columns must hold numbers. The
+estimators do not take missing values yet: impute them first, for example
+with :class:`~sklearn.impute.SimpleImputer`.
+
 Example
 -------
 
@@ -193,10 +227,13 @@ AnDE
 Main parameters:
 
 * ``n_dependence``: order of dependence. ``0`` is Naive Bayes
-  (:class:`skbn.MixedNB`), ``1`` is AODE and ``2`` is A2DE.
+  (:class:`skbn.MixedNB` with its defaults: ``var_prior_weight`` shrinks the
+  variances of the components that have super-parents, and the one of order 0
+  has none), ``1`` is AODE and ``2`` is A2DE.
 * ``n_bins``: number of bins of the continuous super-parents.
 * ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``,
-  ``'kmeans'``).
+  ``'kmeans'``, or ``'mdlp'``, which also chooses how many: see
+  :ref:`discretization`).
 
 Example:
 
@@ -318,8 +355,9 @@ A1JE is Naive Bayes, and AnJE uses the same statistics as A(n-1)DE, so
 ``AnJE(n_join=2)`` is comparable to ``AnDE(n_dependence=1)``. Both models are
 defined on discrete attributes: continuous attributes are discretized into
 ``n_bins`` bins. The paper uses MDL discretization instead, which is
-:class:`skbn.MDLPDiscretizer` in a pipeline (see :ref:`discretization`). Probabilities are m-estimates with
-``m = alpha``.
+``strategy="mdlp"`` (see :ref:`discretization`). Probabilities are m-estimates
+with ``m = alpha``. A value never seen in training says nothing about the
+class, so the n-joins that contain it are left out for that sample.
 
 ``weight_level=3`` (the default) is the model of the paper. Levels 1 (one
 weight per n-join) and 2 (per n-join and value) tie the weights following the
@@ -328,10 +366,16 @@ released with the paper: weights start at ``w = 1``, there is no penalty, and
 L-BFGS-B keeps 5 corrections and runs until the relative reduction of the
 objective falls below 1e7 machine epsilons (its ``factr = 1e7``) or for
 10\ :sup:`4` iterations, with the test on the projected gradient disabled.
-The starting point is not the AnJE but the unaveraged
-product of all n-joins, so on small samples the unpenalized model overfits.
-``l2_reg`` adds the penalty towards ``w = 1`` that the paper suggests for
-small datasets, and ``max_iter`` and ``tol`` stop the optimizer earlier.
+The starting point is not the AnJE but the unaveraged product of all
+n-joins, which counts every attribute once per join that holds it and is
+overconfident. On large samples the weights correct it; on small ones the
+training set is fitted before they do, and the probabilities stay close to 0
+and 1 (the labels are much less affected). ``l2_reg`` adds the penalty towards
+``w = 1`` that the paper suggests for small datasets: it limits the
+overfitting, but it pulls towards that same starting point, not towards the
+AnJE, so it does not make the probabilities of a small sample reliable; AnJE,
+WeightedAnDE or a weighted network do better there. ``max_iter`` and ``tol``
+stop the optimizer earlier.
 
 .. code-block:: python
 
@@ -425,7 +469,7 @@ Main parameters:
 * ``root``: index of the root attribute. Default: 0
 * ``alpha``: Laplace smoothing of the discrete attributes. Default: 1.0
 * ``n_bins``: number of bins of the continuous attributes
-* ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``, ``'kmeans'``)
+* ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``, ``'kmeans'``, ``'mdlp'``)
 
 Example:
 
@@ -438,6 +482,10 @@ Example:
 
     clf.parents_                   # parent of each attribute (-1 for the root)
     clf.conditional_mutual_info_   # edge weights used to learn the tree
+    clf.edges_                     # the arcs as (parent, child) pairs
+    print(clf.to_dot())            # the network, for Graphviz or networkx
+    clf.conditional_table(0)       # P(x_0 | class, parents), with their values
+    clf.cut_points_                # the bins of the continuous attributes
 
 
 .. _kdb:
@@ -454,7 +502,8 @@ as parents.
     P(y, \mathbf{x}) = P(y) \prod_{i} P(x_i | y, \mathbf{x}_{\Pi(i)}), \qquad |\Pi(i)| \leq k
 
 Where :math:`\Pi(i)` is the set of attribute parents of attribute :math:`i`.
-With ``k=0`` the model is Naive Bayes.
+With ``k=0`` the model is Naive Bayes: :class:`skbn.MixedNB` with the same
+``var_prior_weight``, which is 1 by default in KDB and 0 in MixedNB.
 
 Learning the structure
 ----------------------
@@ -488,7 +537,7 @@ Main parameters:
 * ``k``: maximum number of attribute parents. Default: 1
 * ``alpha``: Laplace smoothing of the discrete attributes. Default: 1.0
 * ``n_bins``: number of bins of the continuous attributes
-* ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``, ``'kmeans'``)
+* ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``, ``'kmeans'``, ``'mdlp'``)
 
 Example:
 
@@ -503,6 +552,80 @@ Example:
     clf.parents_                   # attribute parents of each attribute
     clf.mutual_info_               # I(A_i; C), used to order the attributes
     clf.conditional_mutual_info_   # I(A_i; A_j | C), used to choose parents
+    clf.edges_                     # the arcs as (parent, child) pairs
+    print(clf.to_dot())            # the network, for Graphviz or networkx
+    clf.conditional_table(0)       # P(x_0 | class, parents), with their values
+    clf.cut_points_                # the bins of the continuous attributes
+
+
+.. _weighted_networks:
+
+Weighted TAN and KDB
+====================
+
+:class:`skbn.WeightedTAN` and :class:`skbn.WeightedKDB` are the weighted
+conditionally Bayesian network (wCCBN) of Zaidi et al. [3]_ on the networks
+of TAN and KDB. The structure and the probabilities are learned as in
+:class:`skbn.TAN` and :class:`skbn.KDB` and stay fixed; every factor of the
+joint, the class prior and the conditional of every attribute, gets an
+exponent weight:
+
+.. math::
+
+    \log P^w(y | \mathbf{x}) = w_y \log P(y)
+    + \sum_{i} w_{i, x_i, y, \mathbf{x}_{\Pi(i)}}
+    \log P(x_i | y, \mathbf{x}_{\Pi(i)}) - \log Z(\mathbf{x})
+
+The weights maximise the conditional log-likelihood of the training set with
+L-BFGS-B, a convex problem. They start at, and are regularized towards
+(``l2_reg``), the generative model ``w = 1``, which gives the predictions of
+TAN or KDB. ``weight_level`` ties the weights with the nesting of the factor
+weights of :class:`skbn.WeightedAnDE` (see its table above): one weight per
+factor (1), per factor and value (2), per factor, value and class (3), or per
+factor, value, class and parent instantiation (4). Level 4, one weight per
+parameter of the network, is the wCCBN of the paper and the default. The value
+of a Gaussian child is not discretized, so its weights ignore the value. Only
+the combinations seen in training get a weight; any other one, such as a
+parent value never seen, keeps the generative weight 1.
+
+The weights help when the data break the independence assumptions of the
+network. A tree or ``k`` parents explain only part of the dependencies
+between correlated attributes: the conditional of the copy of an attribute
+given that attribute is close to 1 for a discrete copy, but a continuous copy
+is Gaussian given the *bin* of its parent and still repeats part of the
+evidence. The generative model then counts that evidence several times and is
+overconfident; the weights scale the repeated conditionals down. With few
+samples per weight, the finer levels overfit unless ``l2_reg`` is large
+enough; level 1 or 2 is the safer choice on small datasets.
+
+Every evaluation of the objective visits each factor of each training sample
+for every class, :math:`O(n \, (d + 1) \, |C|)` operations, and the fit keeps
+these log-likelihoods in memory, about :math:`12\, n\, (d + 1)\, |C|`
+bytes (54 MB for 60,000 samples, 24 attributes and 3 classes). Predictions
+cost about as much as those of TAN and KDB.
+
+A weighted network is a single component, so it is the geometric
+:class:`skbn.WeightedAnDE` with ``weight_scope="factor"`` reduced to one
+SPnDE: ``WeightedKDB(k=0)`` and ``WeightedAnDE(n_dependence=0,
+weight_scope="factor", mean="geometric")`` fit the same weights (with
+``var_prior_weight=0``; otherwise the Gaussian variances of the two Naive
+Bayes models differ). WeightedAnDE weights the factors of :math:`d` SPnDEs,
+about :math:`d` times more weights and work for the same number of
+attributes. :class:`skbn.ALR` is the same idea on the n-joins of AnJE instead
+of the conditionals of a network.
+
+.. code-block:: python
+
+    from skbn import WeightedKDB, WeightedTAN
+
+    clf = WeightedTAN()  # wCCBN on the TAN structure
+    clf = WeightedKDB(k=2, weight_level=1, l2_reg=10.0)  # one weight per factor
+    clf.fit(X, y)
+
+    clf.learned_weights_   # the weights, 1 for the generative model
+    clf.prior_weights_     # those of the class prior
+    clf.feature_weights_   # those of every attribute: below 1, it is discounted
+    clf.weight_table(0)    # those of x_0, with the values they belong to
 
 
 .. _discretization:
@@ -510,32 +633,203 @@ Example:
 Supervised discretization
 =========================
 
-The models discretize their continuous attributes with
+By default the models discretize their continuous attributes with
 :class:`~sklearn.preprocessing.KBinsDiscretizer` (``n_bins``, ``strategy``),
-which does not look at the class. Two supervised discretizers place the
-cut-points where the class changes instead, and go before the model in a
-pipeline:
+which does not look at the class. The entropy discretization of Fayyad and
+Irani (1993), the usual choice in the AnDE and ALR literature, places the
+cut-points where the class changes instead. It splits each attribute
+recursively at the cut-point of least class entropy and stops when the gain
+no longer pays for the cut under the MDL criterion, so the number of bins is
+not fixed and ``n_bins`` is not used. An attribute without any accepted cut
+becomes constant, and the models then ignore it wherever it was to be
+discretized.
 
-* :class:`skbn.MDLPDiscretizer` is the entropy discretization of Fayyad and
-  Irani (1993), the usual choice in the AnDE and ALR literature. It splits
-  each attribute recursively at the cut-point of least class entropy and
-  stops when the gain no longer pays for the cut under the MDL criterion, so
-  the number of bins is not fixed. An attribute without any accepted cut
-  becomes constant, and the models then ignore it.
-* :class:`skbn.DecisionTreeDiscretizer` uses the thresholds of a decision
-  tree fitted on each attribute, with at most ``n_bins`` leaves.
+Every model takes it as ``strategy="mdlp"``. It applies where the model
+discretizes: to every continuous attribute in :class:`skbn.AnJE` and
+:class:`skbn.ALR`, and to the super-parents and the structure in the other
+models, whose continuous children stay Gaussian.
 
-The discretized attributes hold small integer codes, which the models type
-as categorical (or Bernoulli, with two bins):
+.. code-block:: python
+
+    from skbn import ALR, TAN
+
+    # ALR^2 with the discretization of Zaidi et al. (2016)
+    clf = ALR(n_join=2, strategy="mdlp")
+
+    # TAN whose tree is learned on MDL intervals, as in Friedman et al. (1997)
+    clf = TAN(strategy="mdlp")
+    clf.fit(X, y)
+
+Discretized children
+--------------------
+
+By default a continuous attribute is discretized only where it is a parent,
+and keeps its values and a Gaussian conditional as a child, as in HAODE. The
+original AODE, TAN and KDB are defined on discrete attributes instead, and
+are run on continuous data after discretizing it. ``AnDE``, ``TAN``, ``KDB``
+and their weighted versions do that with ``continuous_children="discretized"``:
+every continuous attribute is replaced by its bin, of ``n_bins`` and
+``strategy``, as a child and as a parent, and the other attributes are left
+as they are.
+
+.. code-block:: python
+
+    from skbn import AnDE, WeightedTAN
+
+    # AODE on MDL intervals, as in Webb et al. (2005)
+    clf = AnDE(strategy="mdlp", continuous_children="discretized")
+
+    # The weighted TAN on the same intervals
+    clf = WeightedTAN(strategy="mdlp", continuous_children="discretized")
+    clf.fit(X, y)
+
+Which one fits better depends on the data, and cross-validation decides. A
+Gaussian conditional needs few samples and suits attributes that are close to
+Gaussian within each class; it is wrong for skewed or multimodal ones, and a
+model with many such children gives overconfident probabilities. Bins make no
+assumption on the shape and cost a parameter per bin. In 5-fold
+cross-validation repeated twice (accuracy / log loss):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 20 20 20
+
+   * - Model
+     - iris
+     - wine
+     - breast cancer
+   * - ``AnDE()``
+     - 0.957 / 0.107
+     - 0.975 / 0.140
+     - 0.941 / 0.376
+   * - ``AnDE(strategy="mdlp", continuous_children="discretized")``
+     - 0.927 / 0.171
+     - 0.980 / 0.077
+     - 0.956 / 0.190
+   * - ``TAN()``
+     - 0.960 / 0.096
+     - 0.955 / 0.394
+     - 0.957 / 0.232
+   * - ``TAN(strategy="mdlp", continuous_children="discretized")``
+     - 0.927 / 0.177
+     - 0.963 / 0.112
+     - 0.949 / 0.189
+
+On the 150 samples of iris the Gaussians win; on wine and on the 30 skewed
+measurements of the breast cancer data the intervals halve the log loss.
+
+The same discretization is available as a transformer,
+:class:`skbn.MDLPDiscretizer`, together with
+:class:`skbn.DecisionTreeDiscretizer`, which uses the thresholds of a
+decision tree fitted on each attribute, with at most ``n_bins`` leaves. In a
+pipeline they discretize every attribute they are given, so the model that
+follows has no continuous children; ``continuous_children="discretized"``
+gives the same model without the pipeline, and leaves the columns of labels
+alone.
+
+.. warning::
+
+    Declare the discretized attributes as ``categorical_features`` in the
+    model that follows a discretizer. The models type an undeclared attribute
+    from its values, and integer codes with more than 20 distinct values are
+    taken as a continuous attribute and discretized again. MDL discretization
+    produces that many intervals on large samples.
 
 .. code-block:: python
 
     from sklearn.pipeline import make_pipeline
-    from skbn import ALR, MDLPDiscretizer
+    from skbn import AnDE, MDLPDiscretizer
 
-    # ALR^2 with the discretization of Zaidi et al. (2016)
-    clf = make_pipeline(MDLPDiscretizer(), ALR(n_join=2))
+    # A1DE on discretized attributes only (here X has 10 columns)
+    clf = make_pipeline(
+        MDLPDiscretizer(),
+        AnDE(n_dependence=1, categorical_features=range(10)),
+    )
     clf.fit(X, y)
+
+
+.. _choosing_a_model:
+
+Choosing a model
+================
+
+The table sums up the sections above, with ``d`` attributes and ``n``
+training samples. The generative models are fitted by counting; the weighted
+ones then run L-BFGS-B on the conditional log-likelihood, starting at the
+generative model.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 16 32 24 28
+
+   * - Model
+     - What it assumes or captures
+     - Training cost
+     - When to use it
+   * - :class:`~skbn.MixedNB`
+     - Features independent given the class; continuous, categorical and
+       binary features in one table.
+     - Counting, one estimate per feature and class.
+     - A baseline that scales well; fails when features depend strongly on
+       each other, as in XOR.
+   * - :class:`~skbn.AnDE`, ``n_dependence=1`` (AODE)
+     - Every child conditioned on the class and one super-parent, averaged
+       over the ``d`` super-parents.
+     - Counting, ``d`` components.
+     - The usual default: it captures pairwise dependencies and its
+       estimates need little data.
+   * - :class:`~skbn.AnDE`, ``n_dependence=2`` (A2DE)
+     - Every child conditioned on the class and two super-parents.
+     - Counting, :math:`d(d-1)/2` components, each estimated on more cells.
+     - Large training sets; orders of 3 or more rarely pay for their cost.
+   * - :class:`~skbn.WeightedAnDE`
+     - The SPnDEs of AnDE with discriminative weights on each component or
+       on each factor.
+     - AnDE, then L-BFGS-B; a step costs one weight per component, or per
+       factor, for each sample.
+     - To learn how much each SPnDE is trusted (component weights), or to
+       correct a dependence between children that every SPnDE shares, such
+       as a duplicated attribute (factor weights). Factor weights overfit
+       small datasets with a weak ``l2_reg``.
+   * - :class:`~skbn.AnJE` / :class:`~skbn.ALR`
+     - Joint distributions of every subset of ``n_join`` attributes given
+       the class; ALR adds one weight per n-join, value and class (a convex
+       problem). Continuous attributes are discretized.
+     - Counting of the :math:`\binom{d}{n}` n-joins; ALR then runs L-BFGS-B
+       with one weight per n-join touched by each sample.
+     - Discrete data, or data discretized with :class:`~skbn.MDLPDiscretizer`
+       as in Zaidi et al. [4]_. ALR needs large samples: on small ones
+       its probabilities are overconfident, with or without ``l2_reg``.
+   * - :class:`~skbn.GaussianAnJE` / :class:`~skbn.GaussianALR`
+     - The same pool as AnJE, written on the factors of the SPnDEs of order
+       ``n_dependence``: only the super-parents are discretized and
+       continuous children stay Gaussian.
+     - Counting as AnDE of the same order; GaussianALR then runs L-BFGS-B
+       with one weight per factor, value, class and parent instantiation.
+     - Mixed data where continuous attributes should not lose their values
+       as children, as in HAODE.
+   * - :class:`~skbn.TAN`
+     - A single network in which every attribute has the class and at most
+       one other attribute as parents (a tree).
+     - Conditional mutual information of every pair of attributes, time
+       growing with :math:`n d^2`, then counting.
+     - A single network whose structure can be read (``parents_``), instead
+       of an average of many; KDB with ``k=1`` has the same complexity.
+   * - :class:`~skbn.KDB`
+     - A single network in which every attribute has the class and at most
+       ``k`` other attributes as parents.
+     - As TAN, plus the mutual information with the class; the tables grow
+       exponentially with ``k``.
+     - Interactions between more than two attributes; ``k=2`` or more pays
+       off with large training sets. Choose ``k`` by cross-validation.
+   * - :class:`~skbn.WeightedTAN` / :class:`~skbn.WeightedKDB`
+     - The network of TAN or KDB with an exponent weight on the class prior
+       and on every conditional (see :ref:`weighted_networks`).
+     - TAN or KDB, then L-BFGS-B; a step costs one weight per factor for each
+       sample and class.
+     - Correlated or duplicated attributes that the network counts several
+       times. On small samples the weights can overfit: compare with the
+       generative model by cross-validation.
 
 
 Choosing the parameters
@@ -567,20 +861,26 @@ discretized when continuous:
 * ``'quantile'`` (default): bins of equal frequency, robust to outliers.
 * ``'uniform'``: bins of equal width.
 * ``'kmeans'``: bins around the clusters of one-dimensional k-means.
+* ``'mdlp'``: cuts where the class changes, as many as the MDL criterion
+  accepts (see :ref:`discretization`).
 
 ``n_bins`` is usually between 3 and 10: more bins give finer cuts but fewer
-samples per estimate. A supervised discretizer in a pipeline (see
-:ref:`discretization`) chooses the number of bins of each attribute itself.
+samples per estimate. ``'mdlp'`` chooses the number of bins of each attribute
+itself: many on large samples of an informative attribute, a single one for
+an attribute that says nothing about the class on its own.
 
 Regularization of the weights
 -----------------------------
 
 ``l2_reg`` is the strength of the penalty :math:`\lambda \|\mathbf{w} - 1\|^2`
 added to the *summed* conditional log-likelihood, so its effect weakens as the
-training set grows. The default of :class:`skbn.WeightedAnDE` is 1.0.
+training set grows. The default of :class:`skbn.WeightedAnDE`,
+:class:`skbn.WeightedTAN` and :class:`skbn.WeightedKDB` is 1.0.
 Component weights are few and barely react to it; factor weights are many
 and overfit small datasets with a weak penalty, so for them values between
 0.1 and 10, chosen by cross-validation, are the safe range.
+
+.. _computational_considerations:
 
 Computational considerations
 ----------------------------
@@ -608,6 +908,25 @@ Computational considerations
 * The cost of an optimization step grows with the number of weights each
   sample touches: one per component with component weights, one per factor
   with factor weights and one per n-join in ALR.
+
+What the models do not handle
+-----------------------------
+
+* **Missing values.** The classifiers reject ``NaN`` and missing labels;
+  impute them first, for example with
+  :class:`~sklearn.impute.SimpleImputer` in a pipeline. A categorical value
+  that was never seen in training is accepted at prediction time and carries
+  no information: its own factor is left out. Where the attribute is a parent
+  (a super-parent of AnDE, a parent in TAN or KDB), the component is left out
+  or the child takes the estimate of a parent value never seen, so the
+  prediction is not the one a removed column would give. The two discretizers
+  accept ``NaN`` and impute it with the median of the attribute.
+* **Sample weights.** ``fit`` takes no ``sample_weight``: the parameters are
+  estimated from integer counts.
+* **Incremental learning.** There is no ``partial_fit``: the bins of the
+  continuous attributes, the categories and the structure are chosen on the
+  whole training set.
+* **Sparse input.** The models take dense arrays and DataFrames.
 
 
 References
