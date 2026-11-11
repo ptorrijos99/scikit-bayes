@@ -11,6 +11,7 @@ from scipy.optimize import minimize
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.utils.fixes import parse_version
+from threadpoolctl import threadpool_limits
 
 from ._kernels import _column_ranges, _integer_codes
 from .discretization import _mdlp_cuts
@@ -334,9 +335,18 @@ def _fit_weights(
         options.update(ftol=tol, gtol=tol)
     if gtol is not None:
         options["gtol"] = gtol
-    res = minimize(
-        objective, theta0, jac=True, method="L-BFGS-B", bounds=bounds, options=options
-    )
+    # L-BFGS-B works on vectors of the size of the weights, too small for
+    # threads: those of BLAS only slow it down (many times on a busy CPU) and
+    # make the sums depend on their number
+    with threadpool_limits(limits=1, user_api="blas"):
+        res = minimize(
+            objective,
+            theta0,
+            jac=True,
+            method="L-BFGS-B",
+            bounds=bounds,
+            options=options,
+        )
     return res.x, res.nit, res.status != 1
 
 

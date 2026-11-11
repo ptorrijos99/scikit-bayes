@@ -313,7 +313,8 @@ class KDB(_BaseAugmentedNB):
         self : object
             Returns the instance itself.
         """
-        return self._fit(X, y)
+        self._fit(X, y)
+        return self
 
     def _check_structure_params(self):
         if (
@@ -377,9 +378,9 @@ class WeightedKDB(_WeightedAugmentedNB, KDB):
     A factor is the class prior :math:`P(y)` or the conditional of an
     attribute; the class prior has a single value and no parents, so it gets
     one weight per class at levels 3 and 4. Level 4 (the default), one weight
-    per parameter of the network, is the wCCBN of [1]_, equivalent to
-    discriminative parameter learning of the same network but faster to
-    optimize. The value of a Gaussian child is not discretized, so its
+    per parameter of the network, is the wCCBN of [1]_: a reparameterization
+    of the discriminative learning of the parameters of that network, which
+    [1]_ found faster to optimize. The value of a Gaussian child is not discretized, so its
     weights ignore the "value" dimension. Only the combinations that occur in
     training get a weight; the others share one weight that keeps its
     generative value, so the number of weights is bounded by the data. This is
@@ -405,8 +406,12 @@ class WeightedKDB(_WeightedAugmentedNB, KDB):
         structure learning and when they act as parents. Continuous children
         remain continuous.
 
-    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+    strategy : {'uniform', 'quantile', 'kmeans', 'mdlp'}, default='quantile'
         Strategy used for the discretization of continuous attributes.
+        ``'mdlp'`` places the cuts with the supervised entropy
+        discretization of Fayyad and Irani (see :class:`MDLPDiscretizer`),
+        which chooses the number of bins of each attribute, so ``n_bins`` is
+        not used.
 
     alpha : float, default=1.0
         Non-negative additive (Laplace/Lidstone) smoothing parameter for the
