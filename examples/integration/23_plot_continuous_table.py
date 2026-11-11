@@ -105,11 +105,9 @@ print(nb.categories_)
 # :func:`~sklearn.model_selection.cross_validate` scores them like any
 # other estimator: here by 5-fold cross-validation on the training rows, on
 # accuracy and on log loss, which also judges the probabilities (lower is
-# better). Every model keeps its default parameters, except a higher
-# ``max_iter`` for :class:`~skbn.WeightedAnDE`, whose optimizer needs 104
-# iterations on one of the folds, and a second AODE that discretizes every
-# continuous attribute into MDL intervals instead of giving it a Gaussian
-# conditional (``continuous_children="discretized"``).
+# better). Every model keeps its default parameters; a second AODE
+# discretizes every continuous attribute into MDL intervals instead of
+# giving it a Gaussian conditional (``continuous_children="discretized"``).
 #
 # Three scikit-learn baselines need encodings that the library does
 # without: :class:`~sklearn.naive_bayes.GaussianNB` sees the numeric columns
@@ -142,7 +140,7 @@ models = {
     "AnDE, MDL intervals": AnDE(strategy="mdlp", continuous_children="discretized"),
     "TAN": TAN(),
     "KDB, k = 2": KDB(k=2),
-    "WeightedAnDE": WeightedAnDE(max_iter=200),
+    "WeightedAnDE": WeightedAnDE(),
     "WeightedTAN": WeightedTAN(),
     "ALR": ALR(),
     "GaussianNB": make_pipeline(only_numeric, GaussianNB()),
