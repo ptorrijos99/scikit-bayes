@@ -835,6 +835,22 @@ Computational considerations
   sample touches: one per component with component weights, one per factor
   with factor weights and one per n-join in ALR.
 
+What the models do not handle
+-----------------------------
+
+* **Missing values.** The classifiers reject ``NaN`` and missing labels;
+  impute them first, for example with
+  :class:`~sklearn.impute.SimpleImputer` in a pipeline. A categorical value
+  that was never seen in training is accepted at prediction time and carries
+  no information. The two discretizers accept ``NaN`` and impute it with the
+  median of the attribute.
+* **Sample weights.** ``fit`` takes no ``sample_weight``: the parameters are
+  estimated from integer counts.
+* **Incremental learning.** There is no ``partial_fit``: the bins of the
+  continuous attributes, the categories and the structure are chosen on the
+  whole training set.
+* **Sparse input.** The models take dense arrays and DataFrames.
+
 
 References
 ==========
