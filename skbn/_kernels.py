@@ -2333,6 +2333,8 @@ class ConditionalTables(NamedTuple):
     mean: np.ndarray
     # Its variance
     var: np.ndarray
+    # ``log(2 pi var)``, from :func:`gaussian_log_norms` (0 for discrete)
+    logn: np.ndarray
     # Type of every attribute: ``IGNORED``, ``DISCRETE`` or ``GAUSSIAN``
     kind: np.ndarray
     # Column of every Gaussian attribute in ``xg``
@@ -2362,6 +2364,7 @@ def conditional_scores(
     cell_unseen,
     mean,
     var,
+    logn,
     kind,
     gidx,
     cards,
@@ -2414,10 +2417,8 @@ def conditional_scores(
                             else:
                                 out[r, c, col] += disc[disc_off[m] + t - lo_cell]
                     elif kind[j] == GAUSSIAN:
-                        v = var[s]
-                        diff = xg[r, gidx[j]] - mean[s]
-                        out[r, c, col] += _clamp(
-                            -0.5 * (diff * diff / v + np.log(2.0 * np.pi * v))
+                        out[r, c, col] += _gaussian_ll(
+                            xg[r, gidx[j]], mean[s], var[s], logn[s]
                         )
     return out
 
