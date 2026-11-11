@@ -297,38 +297,18 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         classes = unique_labels(y)
         return self._fit_encoded(X, np.searchsorted(classes, y), classes)
 
-    def _fit_encoded(
-        self,
-        X,
-        y_idx,
-        classes,
-        X_int=None,
-        columns=None,
-        categories=None,
-        return_codes=False,
-    ):
+    def _fit_encoded(self, X, y_idx, classes, return_codes=False):
         """Fit on a validated ``X`` with labels given as indices into ``classes``.
 
-        TAN and KDB fit one MixedNB per attribute on data they have already
-        validated and encoded; this entry point skips the repeated validation
-        and label encoding. When ``columns`` is given, the model is fitted on
-        ``X[:, columns]`` (feature indices refer to positions in ``columns``)
-        without materialising that submatrix. ``categories`` optionally gives,
-        for every column of ``X``, the sorted categories of a categorical
-        attribute (None for the others), and ``X_int`` the codes of those
-        columns in them; those models compute both once for all attributes.
-        With ``return_codes`` it returns ``(self, codes)``, the codes of the
-        categorical features in training, shape (n_samples, n_categorical).
+        :meth:`fit` validates and encodes the labels before calling it; AnDE
+        and its variants, which have validated ``X`` and ``y`` themselves, call
+        it directly to fit their class-level back-off model without repeating
+        that work. With ``return_codes`` it returns ``(self, codes)``, the
+        codes of the categorical features in training, shape (n_samples,
+        n_categorical), which those models reuse for their own tables.
         """
-        if columns is None:
-            columns = np.arange(X.shape[1])
-        columns = np.asarray(columns)
-
-        def cols(local):
-            return columns[np.asarray(local, dtype=int)]
-
         self.classes_ = classes
-        self.n_features_in_ = len(columns)
+        self.n_features_in_ = X.shape[1]
 
         # --- Parameter and Feature Type Validation ---
         cat_feats = _feature_indices(
@@ -359,7 +339,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         # Auto-detect remaining features (constant ones are ignored)
         for i in range(self.n_features_in_):
             if i not in user_defined_indices:
-                kind = _auto_type(X[:, columns[i]])
+                kind = _auto_type(X[:, i])
                 if kind is not None:
                     self.feature_types_[kind].append(i)
 
@@ -367,7 +347,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         # in every class: it is ignored, as an undeclared constant feature is
         gauss = self.feature_types_["gaussian"]
         if gauss:
-            constant = np.ptp(X[:, cols(gauss)], axis=0) == 0
+            constant = np.ptp(X[:, gauss], axis=0) == 0
             self.feature_types_["gaussian"] = [
                 i for i, c in zip(gauss, constant) if not c
             ]
@@ -378,7 +358,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         self.bernoulli_thresholds_ = np.zeros(0)
 
         if self.feature_types_["gaussian"]:
-            X_gauss = X[:, cols(self.feature_types_["gaussian"])]
+            X_gauss = X[:, self.feature_types_["gaussian"]]
             gauss_nb = _fit_gaussian_nb(
                 X_gauss, y_idx, self.classes_, self.var_smoothing
             )
@@ -392,12 +372,8 @@ class MixedNB(ClassifierMixin, BaseEstimator):
             self.estimators_["gaussian"] = gauss_nb
 
         if self.feature_types_["categorical"]:
-            g = cols(self.feature_types_["categorical"])
-            if categories is None:
-                self.categories_, X_cat = _discrete_codes(X, g)
-            else:
-                self.categories_ = [categories[j] for j in g]
-                X_cat = X_int[:, g]
+            g = self.feature_types_["categorical"]
+            self.categories_, X_cat = _discrete_codes(X, g)
             self._cat_cardinalities = np.array(
                 [len(c) for c in self.categories_], dtype=int
             )
@@ -406,7 +382,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
             )
 
         if self.feature_types_["bernoulli"]:
-            g = cols(self.feature_types_["bernoulli"])
+            g = self.feature_types_["bernoulli"]
             self.bernoulli_thresholds_ = _bernoulli_thresholds(X[:, g])
             self.estimators_["bernoulli"] = _fit_bernoulli_nb(
                 X[:, g] > self.bernoulli_thresholds_, y_idx, self.classes_, self.alpha
@@ -431,68 +407,6 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         for k, (j, cats) in enumerate(zip(indices, self.categories_)):
             codes[:, k], unseen[:, k] = _encode_values(X[:, j], cats)
         return codes, unseen
-
-    def _shared_encoding(self, X):
-        """Categorical encoding of a validated training ``X`` for the models an
-        ensemble fits on its columns (see ``_fit_encoded``): the categories of
-        every column (None for the non-categorical ones) and an integer array
-        with the codes of the categorical columns."""
-        categories = [None] * X.shape[1]
-        X_int = np.zeros(X.shape, dtype=np.int64)
-        indices = self.feature_types_["categorical"]
-        if indices:
-            X_int[:, indices] = self._categorical_codes(X)[0]
-            for j, cats in zip(indices, self.categories_):
-                categories[j] = cats
-        return X_int, categories
-
-    def _feature_log_likelihood(self, X, class_idx=None):
-        """Per-feature class-conditional log-likelihoods.
-
-        ``class_idx`` of shape (n_samples, k) restricts the evaluation of each
-        sample to ``k`` classes (indices into ``classes_``); by default every
-        class is evaluated.
-
-        Returns
-        -------
-        ndarray of shape (n_samples, k, n_features)
-            Entry ``[i, c, j]`` is ``log P(x_ij | class_idx[i, c])``. Features
-            ignored at fit time (constant) and categorical values never seen in
-            training contribute zeros. The class prior is not included.
-        """
-        check_is_fitted(self, attributes=["classes_", "estimators_"])
-        X = validate_data(self, X, reset=False)
-        n_samples = X.shape[0]
-        if class_idx is None:
-            class_idx = np.broadcast_to(
-                np.arange(len(self.classes_)), (n_samples, len(self.classes_))
-            )
-        out = np.zeros((n_samples, class_idx.shape[1], self.n_features_in_))
-        rows = np.arange(n_samples)[:, np.newaxis]
-
-        if "gaussian" in self.estimators_:
-            indices = self.feature_types_["gaussian"]
-            est = self.estimators_["gaussian"]
-            var = est.var_[class_idx]
-            diff = X[:, np.newaxis, indices] - est.theta_[class_idx]
-            out[:, :, indices] = -0.5 * (diff**2 / var + np.log(2.0 * np.pi * var))
-
-        if "categorical" in self.estimators_:
-            indices = self.feature_types_["categorical"]
-            est = self.estimators_["categorical"]
-            codes, unseen = self._categorical_codes(X)
-            for i, j in enumerate(indices):
-                ll = est.feature_log_prob_[i][class_idx, codes[rows, i]]
-                out[:, :, j] = np.where(unseen[:, [i]], 0.0, ll)
-
-        if "bernoulli" in self.estimators_:
-            indices = self.feature_types_["bernoulli"]
-            est = self.estimators_["bernoulli"]
-            X_bern = (X[:, indices] > self.bernoulli_thresholds_)[:, np.newaxis, :]
-            log_p = est.feature_log_prob_[class_idx]
-            out[:, :, indices] = np.where(X_bern, log_p, np.log1p(-np.exp(log_p)))
-
-        return np.nan_to_num(out, nan=-1e10, neginf=-1e10)
 
     def _joint_log_likelihood(self, X):
         """Calculate the unnormalized posterior log probability of X."""
