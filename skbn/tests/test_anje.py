@@ -263,6 +263,23 @@ def test_binary_search_of_cells_matches_the_dense_map(monkeypatch):
         assert_allclose(sparse.predict_log_proba(X_new), model.predict_log_proba(X_new))
 
 
+def test_cells_found_without_the_key_counts(monkeypatch):
+    # Key spaces that fit a dense map but whose counts per key and class would
+    # be too large are marked in one pass and counted in another
+    rng = np.random.RandomState(0)
+    X = np.column_stack([rng.randint(0, c, 300) for c in (2, 3, 4, 6)])
+    y = (X[:, 0] + X[:, 1] * X[:, 2] + rng.randint(0, 2, 300)) % 3
+    X_new = np.vstack([X[:20], [[9, 0, 1, 2], [0, 7, 7, 1], [1, 2, 3, 8]]])
+    counted = [AnJE(n_join=2).fit(X, y), ALR(n_join=2, max_iter=20).fit(X, y)]
+    monkeypatch.setattr(anje_module, "_MAX_KEY_COUNTS", 0)
+    for model in counted:
+        marked = clone(model).fit(X, y)
+        assert marked._row_of_cell.size > 0  # still the dense map
+        assert_array_equal(marked._cell_keys, model._cell_keys)
+        assert_allclose(marked._log_table, model._log_table, rtol=1e-12)
+        assert_allclose(marked.predict_log_proba(X_new), model.predict_log_proba(X_new))
+
+
 @pytest.mark.parametrize("cached", [True, False])
 def test_two_class_alr_objective_matches_the_predictions(cached):
     # Two classes have their own loop in the objective, which scores four
