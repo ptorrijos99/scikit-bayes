@@ -16,10 +16,10 @@ from sklearn.utils.validation import check_array, check_X_y, validate_data
 from threadpoolctl import threadpool_limits
 
 from ._kernels import (
+    _column_profiles,
     _column_ranges,
     _integer_codes,
     _table_codes,
-    _whole_column_ranges,
 )
 from .discretization import _mdlp_cuts
 
@@ -134,7 +134,7 @@ def _discrete_codes(X, columns):
         lo, hi = _column_ranges(X, columns)
         fast = hi - lo <= 4 * n + 1024  # The span rule of _integer_range
     elif n and len(columns) and np.issubdtype(X.dtype, np.floating):
-        lo, hi, whole = _whole_column_ranges(X, columns)
+        lo, hi, whole, _ = _column_profiles(X, columns)
         with np.errstate(invalid="ignore"):
             fast = whole & (np.maximum(-lo, hi) < _EXACT_FLOAT)
             fast &= hi - lo <= 4 * n + 1024
@@ -437,6 +437,31 @@ class _LabelInputMixin:
         return tags
 
 
+def _auto_types(X, columns):
+    """:func:`_auto_type` of the columns ``columns`` of ``X``, a list, from
+    one compiled pass over the rows instead of several over every column."""
+    columns = np.asarray(columns, dtype=np.int64)
+    if not len(columns) or not X.shape[0] or X.dtype.kind not in "iuf":
+        return [_auto_type(X[:, j]) for j in columns]
+    lo, hi, whole, distinct = _column_profiles(X, columns)
+    types = []
+    for k, j in enumerate(columns):
+        if max(-lo[k], hi[k]) >= _EXACT_FLOAT:  # Rounded as floats
+            types.append(_auto_type(X[:, j]))
+        elif distinct[k] == 1:
+            types.append(None)
+        elif distinct[k] == 2:
+            types.append("bernoulli")
+        elif not whole[k] or lo[k] < 0:
+            types.append("gaussian")
+        elif hi[k] - lo[k] < _MAX_AUTO_CATEGORIES:
+            types.append("categorical")
+        else:
+            few = len(_unique_values(X[:, j])) <= _MAX_AUTO_CATEGORIES
+            types.append("categorical" if few else "gaussian")
+    return types
+
+
 def _row_chunks(n_rows, row_size):
     """Slices over ``n_rows`` rows such that each chunk holds about
     ``_CHUNK_ELEMENTS`` elements when a row has ``row_size`` of them."""
@@ -524,13 +549,19 @@ class _AttributeEncoder:
         self.encoders_ = [None] * X.shape[1]
         n_classes = int(y_idx.max()) + 1 if len(y_idx) else 0
         binned, reused, encoded = [], [], []
+        undeclared = [
+            i
+            for i in range(X.shape[1])
+            if i not in declared_gaussian and i not in declared_discrete
+        ]
+        auto = dict(zip(undeclared, _auto_types(X, undeclared)))
         for i in range(X.shape[1]):
             if i in declared_gaussian:
                 continuous = True
             elif i in declared_discrete:
                 continuous = False
             else:
-                continuous = _auto_type(X[:, i]) == "gaussian"
+                continuous = auto[i] == "gaussian"
             if continuous and self.strategy == "mdlp":
                 col = X[:, i].astype(float)
                 self.encoders_[i] = _Cuts(_mdlp_cuts(col, y_idx, n_classes))
