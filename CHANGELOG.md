@@ -40,6 +40,10 @@ All notable changes to scikit-bayes are listed here. The project follows [semant
 
 ### Performance
 
+- Attribute types and categorical codes, for every model, with the same types, codes and predictions as before:
+  - The type of an undeclared attribute is found without sorting its values unless the answer depends on how many there are, which a continuous attribute never needs.
+  - Categorical attributes stored as floats, the usual case, are encoded in one compiled pass over the rows, as integer arrays already were, and so are the values to predict.
+  - On 100 000 samples and 20 categorical attributes, `MixedNB` fits in 0.03 s instead of 0.17 s (scikit-learn's `CategoricalNB`: 0.11 s) and predicts 20 000 rows in 0.014 s instead of 0.033 s (`CategoricalNB`: 0.014 s); `TAN` fits in 0.16 s instead of 0.45 s and predicts in 0.05 s instead of 0.07 s.
 - Gaussian children: `log(2 pi var)` is computed once per table instead of at every evaluation, with the same operations in the same order, so `AnDE`, `WeightedAnDE`, `GaussianAnJE` and `GaussianALR` predict the same to the last bit. On 60 000 samples and 24 continuous attributes, A1DE predicts 20 000 rows in 0.35 s instead of 0.67 s and A2DE in 4.8 s instead of 6.8 s.
 - `WeightedAnDE`, `GaussianALR`, `WeightedTAN` and `WeightedKDB` keep one weight index per term instead of one per term and class: the weights of the classes of a term are consecutive, so the index of class 0 is enough. The keys of the weights are collected, and looked up, once per term as well. The fitted weights and the predictions are the same to the last bit. `GaussianALR` on the digits data (1 437 samples, 64 attributes, 10 classes) fits in 42 s instead of 62 s, of which the layout of its 4.9 million weights takes 3 s instead of 25 s, and peaks at 1.8 GB instead of 2.1 GB; on 60 000 samples, 24 attributes and 3 classes the factor weights of `WeightedAnDE` peak at 1.39 GB instead of 1.56 GB and predict in 1.0 s instead of 1.5 s.
 - `TAN` and `KDB` read the normaliser of their Gaussian children from a table as well; on continuous attributes they predict 5 to 10% faster, with the same results.

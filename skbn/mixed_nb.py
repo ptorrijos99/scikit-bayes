@@ -15,7 +15,7 @@ from sklearn.utils.validation import check_is_fitted, validate_data
 from ._core import (
     _auto_type,
     _discrete_codes,
-    _encode_values,
+    _encode_columns,
     _feature_indices,
 )
 from ._kernels import _categorical_counts
@@ -401,12 +401,7 @@ class MixedNB(ClassifierMixin, BaseEstimator):
         """Codes of the categorical features of a validated ``X`` and a mask of
         the values never seen in training, each of shape
         (n_samples, n_categorical_features)."""
-        indices = self.feature_types_["categorical"]
-        codes = np.zeros((X.shape[0], len(indices)), dtype=np.int64)
-        unseen = np.zeros(codes.shape, dtype=bool)
-        for k, (j, cats) in enumerate(zip(indices, self.categories_)):
-            codes[:, k], unseen[:, k] = _encode_values(X[:, j], cats)
-        return codes, unseen
+        return _encode_columns(X, self.feature_types_["categorical"], self.categories_)
 
     def _joint_log_likelihood(self, X):
         """Calculate the unnormalized posterior log probability of X."""
