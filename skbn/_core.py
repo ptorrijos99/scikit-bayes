@@ -12,6 +12,7 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import KBinsDiscretizer
 
 from ._kernels import _column_ranges, _integer_codes
+from .discretization import _mdlp_cuts
 
 # Number of elements a temporary array of a chunked computation may hold.
 _CHUNK_ELEMENTS = 1 << 22
@@ -157,12 +158,25 @@ def _feature_indices(indices, n_features, name):
     return indices.tolist()
 
 
+class _Cuts:
+    """Cut-points of a continuous attribute, whose codes are the intervals
+    they delimit."""
+
+    def __init__(self, cuts):
+        self.cuts = cuts
+
+    def transform(self, col):
+        return np.digitize(col.ravel(), self.cuts)
+
+
 class _AttributeEncoder:
     """Integer codes of the attributes, as used for parents and joins.
 
     Continuous attributes (declared Gaussian, or typed Gaussian by
     :func:`_auto_type` when undeclared, the rule of :class:`MixedNB`) are
-    binned with :class:`KBinsDiscretizer`; the rest are label-encoded.
+    binned: with :class:`KBinsDiscretizer`, or at the cut-points of Fayyad
+    and Irani when ``strategy`` is ``"mdlp"`` (``n_bins`` is then not used).
+    The rest are label-encoded.
 
     Attributes
     ----------
@@ -178,11 +192,13 @@ class _AttributeEncoder:
         self.gaussian_features = gaussian_features
         self.discrete_features = discrete_features
 
-    def fit_transform(self, X, known=None, dtype=np.int64):
-        """Fit the encoders and return the codes of ``X``, of type ``dtype``.
-        ``known`` optionally gives ``(columns, categories, codes)``, the output
-        of :func:`_discrete_codes` for some discrete columns, reused as is;
-        the other discrete columns are encoded together."""
+    def fit_transform(self, X, y_idx, known=None, dtype=np.int64):
+        """Fit the encoders and return the codes of ``X``, of type ``dtype``
+        (with None, 16 bits when every attribute fits in them, else 32).
+        ``y_idx`` holds the class indices, which only the ``"mdlp"`` strategy
+        looks at. ``known`` optionally gives ``(columns, categories, codes)``,
+        the output of :func:`_discrete_codes` for some discrete columns,
+        reused as is; the other discrete columns are encoded together."""
         known_columns = {}
         if known is not None:
             known_columns = {int(c): k for k, c in enumerate(known[0])}
@@ -195,38 +211,64 @@ class _AttributeEncoder:
         ) >= (1, 7):
             kwargs["quantile_method"] = "linear"
 
-        codes = np.zeros(X.shape, dtype=dtype)
+        # The encoders whose number of codes is only known once fitted come
+        # first, since that number decides the type of the codes
         self.encoders_ = [None] * X.shape[1]
-        reused, encoded = [], []
+        n_classes = int(y_idx.max()) + 1 if len(y_idx) else 0
+        binned, reused, encoded = [], [], []
         for i in range(X.shape[1]):
-            col = X[:, i]
             if i in declared_gaussian:
                 continuous = True
             elif i in declared_discrete:
                 continuous = False
             else:
-                continuous = _auto_type(col) == "gaussian"
-            if continuous:
-                enc = KBinsDiscretizer(
-                    n_bins=self.n_bins,
-                    encode="ordinal",
-                    strategy=self.strategy,
-                    **kwargs,
-                )
-                codes[:, i] = enc.fit_transform(col.reshape(-1, 1)).ravel()
-                self.encoders_[i] = enc
+                continuous = _auto_type(X[:, i]) == "gaussian"
+            if continuous and self.strategy == "mdlp":
+                col = X[:, i].astype(float)
+                self.encoders_[i] = _Cuts(_mdlp_cuts(col, y_idx, n_classes))
+            elif continuous:
+                binned.append(i)
             elif i in known_columns:
                 self.encoders_[i] = known[1][known_columns[i]]
                 reused.append(i)
             else:
                 # The sorted values of a discrete attribute
                 encoded.append(i)
+        if encoded:
+            categories, encoded_codes = _discrete_codes(X, encoded)
+            for i, values in zip(encoded, categories):
+                self.encoders_[i] = values
+        if dtype is None:
+            widest = max(
+                [self.n_bins, 2]
+                + [
+                    len(enc) if isinstance(enc, np.ndarray) else len(enc.cuts) + 1
+                    for enc in self.encoders_
+                    if enc is not None
+                ]
+            )
+            dtype = np.uint16 if widest <= 1 << 16 else np.int32
+
+        codes = np.zeros(X.shape, dtype=dtype)
+        for i, enc in enumerate(self.encoders_):
+            if isinstance(enc, _Cuts):
+                codes[:, i] = enc.transform(X[:, i])
+        for i in binned:
+            enc = KBinsDiscretizer(
+                n_bins=self.n_bins, encode="ordinal", strategy=self.strategy, **kwargs
+            )
+            with warnings.catch_warnings():
+                # Repeated values leave fewer bins than asked for, which
+                # cards_ accounts for
+                warnings.filterwarnings(
+                    "ignore", message="Bins whose width are too small"
+                )
+                codes[:, i] = enc.fit_transform(X[:, [i]]).ravel()
+            self.encoders_[i] = enc
         if reused:
             codes[:, reused] = known[2][:, [known_columns[i] for i in reused]]
         if encoded:
-            categories, codes[:, encoded] = _discrete_codes(X, encoded)
-            for i, values in zip(encoded, categories):
-                self.encoders_[i] = values
+            codes[:, encoded] = encoded_codes
         self.cards_ = codes.max(axis=0).astype(np.int64) + 1
         return codes
 

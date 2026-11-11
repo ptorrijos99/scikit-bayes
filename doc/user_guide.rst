@@ -196,7 +196,8 @@ Main parameters:
   (:class:`skbn.MixedNB`), ``1`` is AODE and ``2`` is A2DE.
 * ``n_bins``: number of bins of the continuous super-parents.
 * ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``,
-  ``'kmeans'``).
+  ``'kmeans'``, or ``'mdlp'``, which also chooses how many: see
+  :ref:`discretization`).
 
 Example:
 
@@ -318,8 +319,9 @@ A1JE is Naive Bayes, and AnJE uses the same statistics as A(n-1)DE, so
 ``AnJE(n_join=2)`` is comparable to ``AnDE(n_dependence=1)``. Both models are
 defined on discrete attributes: continuous attributes are discretized into
 ``n_bins`` bins. The paper uses MDL discretization instead, which is
-:class:`skbn.MDLPDiscretizer` in a pipeline (see :ref:`discretization`). Probabilities are m-estimates with
-``m = alpha``.
+``strategy="mdlp"`` (see :ref:`discretization`). Probabilities are m-estimates
+with ``m = alpha``. A value never seen in training says nothing about the
+class, so the n-joins that contain it are left out for that sample.
 
 ``weight_level=3`` (the default) is the model of the paper. Levels 1 (one
 weight per n-join) and 2 (per n-join and value) tie the weights following the
@@ -425,7 +427,7 @@ Main parameters:
 * ``root``: index of the root attribute. Default: 0
 * ``alpha``: Laplace smoothing of the discrete attributes. Default: 1.0
 * ``n_bins``: number of bins of the continuous attributes
-* ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``, ``'kmeans'``)
+* ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``, ``'kmeans'``, ``'mdlp'``)
 
 Example:
 
@@ -488,7 +490,7 @@ Main parameters:
 * ``k``: maximum number of attribute parents. Default: 1
 * ``alpha``: Laplace smoothing of the discrete attributes. Default: 1.0
 * ``n_bins``: number of bins of the continuous attributes
-* ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``, ``'kmeans'``)
+* ``strategy``: how those bins are placed (``'uniform'``, ``'quantile'``, ``'kmeans'``, ``'mdlp'``)
 
 Example:
 
@@ -510,31 +512,58 @@ Example:
 Supervised discretization
 =========================
 
-The models discretize their continuous attributes with
+By default the models discretize their continuous attributes with
 :class:`~sklearn.preprocessing.KBinsDiscretizer` (``n_bins``, ``strategy``),
-which does not look at the class. Two supervised discretizers place the
-cut-points where the class changes instead, and go before the model in a
-pipeline:
+which does not look at the class. The entropy discretization of Fayyad and
+Irani (1993), the usual choice in the AnDE and ALR literature, places the
+cut-points where the class changes instead. It splits each attribute
+recursively at the cut-point of least class entropy and stops when the gain
+no longer pays for the cut under the MDL criterion, so the number of bins is
+not fixed and ``n_bins`` is not used. An attribute without any accepted cut
+becomes constant, and the models then ignore it wherever it was to be
+discretized.
 
-* :class:`skbn.MDLPDiscretizer` is the entropy discretization of Fayyad and
-  Irani (1993), the usual choice in the AnDE and ALR literature. It splits
-  each attribute recursively at the cut-point of least class entropy and
-  stops when the gain no longer pays for the cut under the MDL criterion, so
-  the number of bins is not fixed. An attribute without any accepted cut
-  becomes constant, and the models then ignore it.
-* :class:`skbn.DecisionTreeDiscretizer` uses the thresholds of a decision
-  tree fitted on each attribute, with at most ``n_bins`` leaves.
+Every model takes it as ``strategy="mdlp"``. It applies where the model
+discretizes: to every continuous attribute in :class:`skbn.AnJE` and
+:class:`skbn.ALR`, and to the super-parents and the structure in the other
+models, whose continuous children stay Gaussian.
 
-The discretized attributes hold small integer codes, which the models type
-as categorical (or Bernoulli, with two bins):
+.. code-block:: python
+
+    from skbn import ALR, TAN
+
+    # ALR^2 with the discretization of Zaidi et al. (2016)
+    clf = ALR(n_join=2, strategy="mdlp")
+
+    # TAN whose tree is learned on MDL intervals, as in Friedman et al. (1997)
+    clf = TAN(strategy="mdlp")
+    clf.fit(X, y)
+
+The same discretization is available as a transformer,
+:class:`skbn.MDLPDiscretizer`, together with
+:class:`skbn.DecisionTreeDiscretizer`, which uses the thresholds of a
+decision tree fitted on each attribute, with at most ``n_bins`` leaves. In a
+pipeline they discretize every attribute they are given, so the model that
+follows has no continuous children.
+
+.. warning::
+
+    Declare the discretized attributes as ``categorical_features`` in the
+    model that follows a discretizer. The models type an undeclared attribute
+    from its values, and integer codes with more than 20 distinct values are
+    taken as a continuous attribute and discretized again. MDL discretization
+    produces that many intervals on large samples.
 
 .. code-block:: python
 
     from sklearn.pipeline import make_pipeline
-    from skbn import ALR, MDLPDiscretizer
+    from skbn import AnDE, MDLPDiscretizer
 
-    # ALR^2 with the discretization of Zaidi et al. (2016)
-    clf = make_pipeline(MDLPDiscretizer(), ALR(n_join=2))
+    # A1DE on discretized attributes only (here X has 10 columns)
+    clf = make_pipeline(
+        MDLPDiscretizer(),
+        AnDE(n_dependence=1, categorical_features=range(10)),
+    )
     clf.fit(X, y)
 
 
@@ -567,10 +596,13 @@ discretized when continuous:
 * ``'quantile'`` (default): bins of equal frequency, robust to outliers.
 * ``'uniform'``: bins of equal width.
 * ``'kmeans'``: bins around the clusters of one-dimensional k-means.
+* ``'mdlp'``: cuts where the class changes, as many as the MDL criterion
+  accepts (see :ref:`discretization`).
 
 ``n_bins`` is usually between 3 and 10: more bins give finer cuts but fewer
-samples per estimate. A supervised discretizer in a pipeline (see
-:ref:`discretization`) chooses the number of bins of each attribute itself.
+samples per estimate. ``'mdlp'`` chooses the number of bins of each attribute
+itself: many on large samples of an informative attribute, a single one for
+an attribute that says nothing about the class on its own.
 
 Regularization of the weights
 -----------------------------
