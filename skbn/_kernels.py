@@ -563,14 +563,27 @@ def _find(keys, lo, hi, key):
 
 
 @nb.njit(cache=True, inline="always")
-def _gaussian_ll(x, mean, var):
-    """Gaussian log-density, clamped as ``np.nan_to_num``."""
+def _gaussian_ll(x, mean, var, logn):
+    """Gaussian log-density, clamped as ``np.nan_to_num``; ``logn`` is
+    ``log(2 pi var)``, from :func:`gaussian_log_norms`."""
     diff = x - mean
-    return _clamp(-0.5 * (diff * diff / var + np.log(2.0 * np.pi * var)))
+    return _clamp(-0.5 * (diff * diff / var + logn))
 
 
 @nb.njit(cache=True)
-def _log_likelihood(s, j, r, codes, xg, disc, mean, var, kind, voff, gidx):
+def gaussian_log_norms(var):
+    """``log(2 pi var)`` of every Gaussian: the term of the log-density that
+    does not depend on the sample, computed once per table instead of once
+    per evaluation."""
+    out = np.empty(var.shape)
+    for s in range(var.shape[0]):
+        for g in range(var.shape[1]):
+            out[s, g] = np.log(2.0 * np.pi * var[s, g])
+    return out
+
+
+@nb.njit(cache=True)
+def _log_likelihood(s, j, r, codes, xg, disc, mean, var, logn, kind, voff, gidx):
     """``log P(x_rj | state s)``, clamped as ``np.nan_to_num`` (the discrete
     tables are clamped when they are built).
 
@@ -585,7 +598,7 @@ def _log_likelihood(s, j, r, codes, xg, disc, mean, var, kind, voff, gidx):
         return disc[s, voff[j] + code]
     if kind[j] == GAUSSIAN:
         g = gidx[j]
-        return _gaussian_ll(xg[r, g], mean[s, g], var[s, g])
+        return _gaussian_ll(xg[r, g], mean[s, g], var[s, g], logn[s, g])
     return 0.0
 
 
@@ -649,6 +662,7 @@ def _class_children(
     lut,
     mean,
     var,
+    logn,
     kind,
     gidx,
     attrs,
@@ -688,7 +702,7 @@ def _class_children(
             for c in range(n_classes):
                 st = states[c]
                 if st >= 0:
-                    totals[c] += _gaussian_ll(x, mean[st, g], var[st, g])
+                    totals[c] += _gaussian_ll(x, mean[st, g], var[st, g], logn[st, g])
 
 
 @nb.njit(cache=True)
@@ -707,6 +721,7 @@ def _two_class_children(
     lut,
     mean,
     var,
+    logn,
     kind,
     gidx,
     attrs,
@@ -745,9 +760,9 @@ def _two_class_children(
             g = gidx[j]
             x = xg[r, g]
             if s0 >= 0:
-                t0 += _gaussian_ll(x, mean[s0, g], var[s0, g])
+                t0 += _gaussian_ll(x, mean[s0, g], var[s0, g], logn[s0, g])
             if s1 >= 0:
-                t1 += _gaussian_ll(x, mean[s1, g], var[s1, g])
+                t1 += _gaussian_ll(x, mean[s1, g], var[s1, g], logn[s1, g])
     totals[0], totals[1] = t0, t1
 
 
@@ -776,6 +791,7 @@ def component_scores(
     lut,
     mean,
     var,
+    logn,
     pk_off,
     pk_keys,
     pk_count,
@@ -784,6 +800,7 @@ def component_scores(
     b_disc,
     b_mean,
     b_var,
+    b_logn,
     kind,
     voff,
     gidx,
@@ -878,6 +895,7 @@ def component_scores(
                             lut,
                             mean,
                             var,
+                            logn,
                             kind,
                             gidx,
                             attrs,
@@ -901,6 +919,7 @@ def component_scores(
                             lut,
                             mean,
                             var,
+                            logn,
                             kind,
                             gidx,
                             attrs,
@@ -930,6 +949,7 @@ def component_scores(
                                         b_disc,
                                         b_mean,
                                         b_var,
+                                        b_logn,
                                         kind,
                                         voff,
                                         gidx,
@@ -971,7 +991,9 @@ def component_scores(
                                     ll = lut[int(count[s]), grp[j], hits[dcol[j]]]
                             else:
                                 g = gidx[j]
-                                ll = _gaussian_ll(xg[r, g], mean[s, g], var[s, g])
+                                ll = _gaussian_ll(
+                                    xg[r, g], mean[s, g], var[s, g], logn[s, g]
+                                )
                             if per_factor:
                                 out[r, c, m, 1 + j - q] = ll
                             else:
@@ -998,6 +1020,7 @@ def component_scores(
                                     b_disc,
                                     b_mean,
                                     b_var,
+                                    b_logn,
                                     kind,
                                     voff,
                                     gidx,
@@ -1025,6 +1048,7 @@ def component_scores(
                         b_disc,
                         b_mean,
                         b_var,
+                        b_logn,
                         kind,
                         voff,
                         gidx,
@@ -1058,6 +1082,7 @@ def pooled_scores(
     lut,
     mean,
     var,
+    logn,
     pk_off,
     pk_keys,
     pk_count,
@@ -1066,6 +1091,7 @@ def pooled_scores(
     b_disc,
     b_mean,
     b_var,
+    b_logn,
     kind,
     voff,
     gidx,
@@ -1175,6 +1201,7 @@ def pooled_scores(
                         lut,
                         mean,
                         var,
+                        logn,
                         kind,
                         gidx,
                         attrs,
@@ -1198,6 +1225,7 @@ def pooled_scores(
                         lut,
                         mean,
                         var,
+                        logn,
                         kind,
                         gidx,
                         attrs,
@@ -1229,6 +1257,7 @@ def pooled_scores(
                                 b_disc,
                                 b_mean,
                                 b_var,
+                                b_logn,
                                 kind,
                                 voff,
                                 gidx,
@@ -1290,6 +1319,7 @@ def pooled_scores(
                             b_disc,
                             b_mean,
                             b_var,
+                            b_logn,
                             kind,
                             voff,
                             gidx,
