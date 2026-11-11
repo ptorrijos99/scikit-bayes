@@ -255,7 +255,7 @@ def _is_missing(value):
 
 def _raise_missing(j, name):
     raise ValueError(
-        f"Input X contains missing values (None or NaN) in its non-numeric column"
+        "Input X contains missing values (None or NaN) in its non-numeric column"
         f" {j}.\n{name} does not support missing values yet; impute them first,"
         " for example with sklearn.impute.SimpleImputer(strategy='most_frequent')."
     )
@@ -428,7 +428,7 @@ def _validate_labels(estimator, X, y, reset):
         X = encoder.fit_transform(X, name)
     elif columns != encoder.columns:
         raise ValueError(
-            f"The columns of X that hold labels (strings or pandas categories)"
+            "The columns of X that hold labels (strings or pandas categories)"
             f" must be those that held them in fit, {encoder.columns}; got"
             f" {columns}. Pass labels, not their codes, to these columns, and"
             " numbers to the others."
