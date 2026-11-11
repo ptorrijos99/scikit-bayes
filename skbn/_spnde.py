@@ -31,7 +31,7 @@ from ._core import (
     _VAR_SMOOTHING,
     _AttributeEncoder,
     _ChildEncodingMixin,
-    _label_feature_indices,
+    _discretized_children,
     _LabelInputMixin,
     _validate_input,
 )
@@ -416,15 +416,14 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
         #        (X and y are validated; the codes of the categorical attributes
         #        serve the parents and the children as well)
         y_int = np.searchsorted(self.classes_, y)
+        X, discrete, gaussian = _discretized_children(self, X, y_int)
         self.backoff_, cat_codes = MixedNB(
             alpha=self.alpha,
             categorical_features=self.categorical_features,
             bernoulli_features=self.bernoulli_features,
-            gaussian_features=self.gaussian_features,
+            gaussian_features=gaussian,
             var_prior_weight=self.var_prior_weight,
-        )._fit_encoded(
-            X, y_int, self.classes_, _label_feature_indices(self), return_codes=True
-        )
+        )._fit_encoded(X, y_int, self.classes_, discrete, return_codes=True)
         types = self.backoff_.feature_types_
 
         # --- 2. Discretize parents, with the types the children use ---

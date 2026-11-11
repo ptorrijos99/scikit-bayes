@@ -28,9 +28,9 @@ from ._core import (
     _VAR_SMOOTHING,
     _AttributeEncoder,
     _ChildEncodingMixin,
+    _discretized_children,
     _fit_weights,
     _fold_padding,
-    _label_feature_indices,
     _LabelInputMixin,
     _pad_last,
     _row_chunks,
@@ -128,13 +128,14 @@ class _BaseAugmentedNB(
         y_idx = np.searchsorted(self.classes_, y).astype(np.int64)
 
         # --- 1. Class-level model: prior, parentless conditionals, types ---
+        X, discrete, gaussian = _discretized_children(self, X, y_idx)
         self.backoff_ = MixedNB(
             alpha=self.alpha,
             categorical_features=self.categorical_features,
             bernoulli_features=self.bernoulli_features,
-            gaussian_features=self.gaussian_features,
+            gaussian_features=gaussian,
             var_prior_weight=self.var_prior_weight,
-        )._fit_encoded(X, y_idx, self.classes_, _label_feature_indices(self))
+        )._fit_encoded(X, y_idx, self.classes_, discrete)
         types = self.backoff_.feature_types_
 
         # --- 2. Discretize attributes (structure learning and parents), with
