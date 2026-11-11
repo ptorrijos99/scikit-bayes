@@ -66,7 +66,10 @@ from ._kernels import (
     _weighted_geometric_gradient,
     _weighted_geometric_scores,
 )
-from ._spnde import _BaseAnDE
+
+# _Ensemble, the class of ``ensemble_``, is also imported here so that the
+# models pickled while it was defined in this module still load
+from ._spnde import _BaseAnDE, _Ensemble  # noqa: F401
 
 # =============================================================================
 # 1. Generative model
