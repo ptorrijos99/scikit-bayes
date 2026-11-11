@@ -128,11 +128,13 @@ for name, factory, color in [
 ]:
     fitted[name] = (factory().fit(X_train, y_train), color)
 
-# At weight_level=1, learned_weights_ holds one weight per factor, the class
-# prior first and then the conditional of every attribute in column order,
-# followed by the weight of the keys unseen in training, which stays at 1
+# At weight_level=1 there is one weight for the class prior and one for the
+# conditional of every attribute
 weights = {
-    name: fitted[name][0].learned_weights_[: len(labels)]
+    name: np.concatenate(
+        [fitted[name][0].prior_weights_]
+        + [w.ravel() for w in fitted[name][0].feature_weights_]
+    )
     for name in ("WeightedTAN", "WeightedKDB")
 }
 for name, w in weights.items():

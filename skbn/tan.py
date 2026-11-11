@@ -315,6 +315,70 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
             cards=cards,
         )
 
+    @property
+    def edges_(self):
+        """Arcs between attributes, as ``(parent, child)`` pairs of feature
+        indices in the order of the children. Every attribute also has the
+        class as a parent, which the pairs leave out."""
+        check_is_fitted(self, attributes=["parents_"])
+        return [
+            (int(p), i)
+            for i, pa in enumerate(self.parents_)
+            for p in np.atleast_1d(pa)
+            if p >= 0
+        ]
+
+    def to_dot(self, feature_names=None, class_name="class"):
+        """
+        Return the network in the DOT language of Graphviz.
+
+        The text can be rendered with Graphviz or read by the libraries that
+        take DOT, such as ``networkx`` and ``pydot``. The attributes the
+        model ignores (constant in training) are left out.
+
+        Parameters
+        ----------
+        feature_names : array-like of str of shape (n_features,), default=None
+            Names of the attributes. By default ``feature_names_in_``, or
+            ``x0``, ``x1``, ... when the model was fitted without names.
+
+        class_name : str, default="class"
+            Name of the class node.
+
+        Returns
+        -------
+        dot : str
+            A ``digraph`` with an arc from the class to every attribute and
+            the arcs of ``edges_``.
+        """
+        check_is_fitted(self, attributes=["parents_"])
+        if feature_names is None:
+            feature_names = getattr(
+                self,
+                "feature_names_in_",
+                [f"x{i}" for i in range(self.n_features_in_)],
+            )
+        if len(feature_names) != self.n_features_in_:
+            raise ValueError(
+                f"feature_names must have {self.n_features_in_} names, got"
+                f" {len(feature_names)}."
+            )
+
+        def quoted(name):
+            return '"' + str(name).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+        used = set(self._tables.children.tolist())
+        lines = [
+            f"    {quoted(class_name)} -> {quoted(feature_names[i])};"
+            for i in sorted(used)
+        ]
+        lines += [
+            f"    {quoted(feature_names[p])} -> {quoted(feature_names[i])};"
+            for p, i in self.edges_
+            if p in used and i in used
+        ]
+        return "\n".join(["digraph {", *lines, "}"]) + "\n"
+
     def _conditional(self, i):
         """The conditional of attribute ``i``: its augmented-state keys
         ``class_index * n_parent_combos + parent_key``, their training counts,
@@ -465,6 +529,35 @@ class _WeightedAugmentedNB:
         _warn_not_converged(not converged, 1, self.max_iter)
         self.learned_weights_ = weights
         return self
+
+    def _term_weights(self, t):
+        """Weights of term ``t`` (0 is the class prior, then the factors), a
+        row per key seen in training and a column per class when the level
+        has it."""
+        check_is_fitted(self, attributes=["learned_weights_"])
+        lo, hi = self._key_off[t : t + 2] * self._class_weights
+        return self.learned_weights_[lo:hi].reshape(-1, self._class_weights)
+
+    @property
+    def prior_weights_(self):
+        """Weights of the class prior: one per class at ``weight_level`` 3
+        and 4, a single one below."""
+        return self._term_weights(0)[0]
+
+    @property
+    def feature_weights_(self):
+        """Weights of the conditional of every attribute, a list with one
+        array per attribute, of shape (n_keys, n_classes) at ``weight_level``
+        3 and 4 and (n_keys, 1) below. The rows are the combinations that the
+        level tells apart (values of the attribute, with its parents at level
+        4) seen in training, a single row at level 1. An attribute the model
+        ignores has no rows."""
+        children = self._tables.children.tolist()
+        empty = np.empty((0, self._class_weights))
+        return [
+            self._term_weights(1 + children.index(i)) if i in children else empty
+            for i in range(self.n_features_in_)
+        ]
 
     def _term_keys(self, inputs):
         """Key of the weight of every term within the term, before the class:
@@ -692,6 +785,11 @@ class TAN(_BaseAugmentedNB):
 
     parents_ : ndarray of shape (n_features,)
         Attribute parent of every attribute in the tree, ``-1`` for the root.
+
+    edges_ : list of tuple of int
+        Arcs between attributes, as ``(parent, child)`` pairs of feature
+        indices: ``parents_`` in the form :class:`TAN` and :class:`KDB`
+        share. :meth:`to_dot` gives the whole network, class included.
 
     backoff_ : MixedNB
         Naive Bayes on the original class. Provides the class prior, the root
@@ -939,6 +1037,11 @@ class WeightedTAN(_WeightedAugmentedNB, TAN):
     parents_ : ndarray of shape (n_features,)
         Attribute parent of every attribute in the tree, ``-1`` for the root.
 
+    edges_ : list of tuple of int
+        Arcs between attributes, as ``(parent, child)`` pairs of feature
+        indices: ``parents_`` in the form :class:`TAN` and :class:`KDB`
+        share. :meth:`to_dot` gives the whole network, class included.
+
     backoff_ : MixedNB
         Naive Bayes on the original class. Provides the class prior, the root
         conditional and the detected feature types (``feature_types_``).
@@ -948,6 +1051,15 @@ class WeightedTAN(_WeightedAugmentedNB, TAN):
 
     n_weights_ : int
         Number of weights, including the shared one for unseen combinations.
+
+    prior_weights_ : ndarray of shape (n_classes,) or (1,)
+        Weights of the class prior, taken from ``learned_weights_``.
+
+    feature_weights_ : list of ndarray
+        Weights of the conditional of every attribute, taken from
+        ``learned_weights_``: a row per combination that ``weight_level``
+        tells apart and a column per class when it has one. At level 1
+        ``feature_weights_[i]`` is the single weight of attribute ``i``.
 
     n_iter_ : int
         Number of L-BFGS-B iterations.
