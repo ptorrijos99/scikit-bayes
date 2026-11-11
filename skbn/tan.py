@@ -348,7 +348,7 @@ class _BaseAugmentedNB(_ChildEncodingMixin, ClassifierMixin, BaseEstimator):
         X = validate_data(self, X, reset=False)
         with _threads(self.n_jobs):
             jll = conditional_scores(
-                *self._evaluation_inputs(X), *self._tables, len(self.classes_), False
+                self._evaluation_inputs(X), self._tables, len(self.classes_), False
             )
         return jll[:, :, 0] + self.backoff_.class_log_prior_
 
@@ -519,7 +519,7 @@ class _WeightedAugmentedNB:
         keys = self._term_keys(inputs)
         n_classes = len(self.classes_)
         with _threads(self.n_jobs):
-            terms = conditional_scores(*inputs, *self._tables, n_classes, True)
+            terms = conditional_scores(inputs, self._tables, n_classes, True)
         terms[:, :, 0] = self.backoff_.class_log_prior_
 
         # The weight of class 0 of every term; those of the other classes

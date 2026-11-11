@@ -7,10 +7,8 @@ field in :class:`SPnDETables`. The conditionals of TAN and KDB are stored the
 same way (:class:`ConditionalTables`), and the samples to evaluate come in an
 :class:`EvaluationInputs`.
 
-The kernels of the SPnDEs take the named tuples themselves and read their
-fields by name. :func:`conditional_scores` takes them splatted
-(``*tables``), so the order of their fields is the order of its
-parameters, which a test checks.
+The evaluation kernels take the named tuples themselves and read their
+fields by name, so the order of the fields does not matter.
 """
 
 # Authors: scikit-bayes developers
@@ -750,10 +748,10 @@ def _two_class_children(
 
 
 class EvaluationInputs(NamedTuple):
-    """Per-sample inputs of the evaluation kernels: ``inputs`` of
-    :func:`component_scores` and :func:`pooled_scores`, and the first
-    parameters of :func:`conditional_scores`. A discrete code of -1 marks a
-    value never seen in training, which contributes nothing."""
+    """Per-sample inputs of the evaluation kernels (``inputs`` of
+    :func:`component_scores`, :func:`pooled_scores` and
+    :func:`conditional_scores`). A discrete code of -1 marks a value never
+    seen in training, which contributes nothing."""
 
     # Value of every discrete attribute as a child, shape (n, n_features)
     codes: np.ndarray
@@ -2294,8 +2292,8 @@ def count_conditionals(
 
 
 class ConditionalTables(NamedTuple):
-    """The fitted conditionals of a TAN or KDB network, in the order of the
-    parameters of :func:`conditional_scores`.
+    """The fitted conditionals of a TAN or KDB network (``tables`` of
+    :func:`conditional_scores`).
 
     Factor ``m`` is ``P(x_j | y, x_pa)`` of child ``j = children[m]``; its
     augmented states ``s`` are ``state_off[m]:state_off[m + 1]``, and ``t``
@@ -2343,41 +2341,41 @@ class ConditionalTables(NamedTuple):
 
 
 @_Kernel
-def conditional_scores(
-    codes,
-    xg,
-    uninf,
-    pcodes,
-    punseen,
-    parents,
-    strides,
-    n_parents,
-    children,
-    n_combos,
-    state_off,
-    state_keys,
-    disc_off,
-    disc,
-    cell_off,
-    cell_keys,
-    cell_unseen,
-    mean,
-    var,
-    logn,
-    kind,
-    gidx,
-    cards,
-    n_classes,
-    per_factor,
-):
+def conditional_scores(inputs, tables, n_classes, per_factor):
     """Sum over the factors of ``log P(x_j | y, x_pa)``, shape
-    (n, n_classes, 1). With ``per_factor`` the factors are kept apart instead,
+    (n, n_classes, 1), from the :class:`EvaluationInputs` of the samples and
+    the :class:`ConditionalTables` of the network. With ``per_factor`` the factors are kept apart instead,
     factor ``m`` at ``[:, :, 1 + m]``, and ``[:, :, 0]`` is left at 0 for the
     class log-prior, which the caller adds.
 
     A state never seen in training, or a parent value never seen, gives the
     uninformed estimate ``uninf[r, j]``.
     """
+    # The fields are read once, by name: the loops below index plain arrays
+    codes = inputs.codes
+    xg = inputs.xg
+    uninf = inputs.uninf
+    pcodes = inputs.pcodes
+    punseen = inputs.punseen
+    parents = tables.parents
+    strides = tables.strides
+    n_parents = tables.n_parents
+    children = tables.children
+    n_combos = tables.n_combos
+    state_off = tables.state_off
+    state_keys = tables.state_keys
+    disc_off = tables.disc_off
+    disc = tables.disc
+    cell_off = tables.cell_off
+    cell_keys = tables.cell_keys
+    cell_unseen = tables.cell_unseen
+    mean = tables.mean
+    var = tables.var
+    logn = tables.logn
+    kind = tables.kind
+    gidx = tables.gidx
+    cards = tables.cards
+
     n = codes.shape[0]
     n_factors = parents.shape[0]
     out = np.zeros((n, n_classes, 1 + n_factors if per_factor else 1))
