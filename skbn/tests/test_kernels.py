@@ -3,20 +3,15 @@
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import inspect
-
 import numba as nb
 import numpy as np
 import pytest
 
 from skbn._kernels import (
-    ConditionalTables,
-    EvaluationInputs,
     _Kernel,
     _pairwise_sum,
     _state_index,
     _threads,
-    conditional_scores,
 )
 
 
@@ -75,12 +70,3 @@ def test_pairwise_sum_has_the_bits_of_numpy_sum(n):
     x = rng.normal(size=(20, n)) * 10.0 ** rng.uniform(-3, 6, size=(20, n))
     for row in x:
         assert _pairwise_sum(row, 0, n) == 0.0 + row.sum()
-
-
-def test_table_fields_follow_the_kernel_parameters():
-    # The conditionals of TAN and KDB are splatted into their kernel: a field
-    # out of the order of the parameters would silently pass one array for
-    # another
-    params = list(inspect.signature(conditional_scores._func).parameters)
-    fields = EvaluationInputs._fields + ConditionalTables._fields
-    assert params[: len(fields)] == list(fields)

@@ -1635,7 +1635,7 @@ class WeightedAnDE(AnDE):
         """Number of value and parent codes of every term, each of shape
         (n_models, n_terms)."""
         n_combos = np.array([info["n_parent_combos"] for info in self.ensemble_])
-        if self.weight_scope == "component":
+        if self._weight_scope == "component":
             # One term per component, valued by its parent instantiation
             return n_combos[:, None], np.ones((len(n_combos), 1), dtype=np.int64)
         types = self.backoff_.feature_types_
@@ -1654,7 +1654,7 @@ class WeightedAnDE(AnDE):
         """Value and parent codes of every term, each of shape
         (n_samples, n_models, n_terms)."""
         parent_keys = self._parent_keys(X_parents_disc)[:, :, None]
-        if self.weight_scope == "component":
+        if self._weight_scope == "component":
             return parent_keys, np.zeros_like(parent_keys)
         child_codes = self._child_value_codes(X)[:, self._children()]
         value_codes = np.concatenate([parent_keys, child_codes], axis=2)
@@ -1676,7 +1676,7 @@ class WeightedAnDE(AnDE):
         collected for class 0 alone (``_base_keys``) and the weight of class
         ``c`` follows that of class 0 by ``c`` places.
         """
-        dims = _LEVEL_DIMS[self.weight_scope][self.weight_level]
+        dims = _LEVEL_DIMS[self._weight_scope][self._weight_level]
         n_classes = len(self.classes_)
         value_cards, parent_cards = self._term_cardinalities()
         self._class_step = int("class" in dims)
@@ -1728,7 +1728,7 @@ class WeightedAnDE(AnDE):
         costs one float64 per (sample, class, component, term) and one int32
         per (sample, component, term).
         """
-        per_factor = self.weight_scope == "factor"
+        per_factor = self._weight_scope == "factor"
         ll, X_parents_disc, active, nb_jll = self._jll_per_model(X, per_factor)
         n_samples, _, n_models = ll.shape[:3]
         n_terms = ll.shape[3] if per_factor else 1
@@ -1778,7 +1778,7 @@ class WeightedAnDE(AnDE):
             design.active,
             n_classes,
         )
-        if self.mean == "geometric":
+        if self._mean == "geometric":
             return _weighted_geometric_scores(*args), None
         return _weighted_arithmetic_scores(*args, self._pools_posteriors)
 
@@ -1792,7 +1792,7 @@ class WeightedAnDE(AnDE):
         n_classes = len(self.classes_)
         n_padded = theta.size + design.class_step * (n_classes - 1)
         args = design.kernel_args()
-        if self.mean == "geometric":
+        if self._mean == "geometric":
             grad = _weighted_geometric_gradient(*args, dscores, design.active, n_padded)
         else:
             grad = _weighted_arithmetic_gradient(
@@ -1809,7 +1809,7 @@ class WeightedAnDE(AnDE):
     def _optimize(self, theta, design, Y):
         bounds = (
             [(0.0, None)] * theta.size
-            if self.weight_scope == "component" and self.mean == "geometric"
+            if self._weight_scope == "component" and self._mean == "geometric"
             else None
         )
         theta, n_iter, converged = _fit_weights(
