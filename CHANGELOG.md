@@ -2,7 +2,9 @@
 
 All notable changes to scikit-bayes are listed here. The project follows [semantic versioning](https://semver.org/).
 
-## Unreleased
+## 1.4.0 (2026-11-12)
+
+Two new models, `WeightedTAN` and `WeightedKDB`, every classifier takes columns of labels without an encoder, and the networks show their structure and tables. `WeightedAnDE` now runs its optimizer to convergence by default, so its weights and predictions change; the other models change their predictions only in the cases listed under Changed and Fixed. Models pickled with an earlier version must be fitted again.
 
 ### New
 
@@ -63,7 +65,6 @@ All notable changes to scikit-bayes are listed here. The project follows [semant
 - `WeightedAnDE`, `GaussianALR`, `WeightedTAN` and `WeightedKDB` keep one weight index per term instead of one per term and class: the weights of the classes of a term are consecutive, so the index of class 0 is enough. The keys of the weights are collected, and looked up, once per term as well. The fitted weights and the predictions are the same to the last bit. `GaussianALR` on the digits data (1 437 samples, 64 attributes, 10 classes) fits in 42 s instead of 62 s, of which the layout of its 4.9 million weights takes 3 s instead of 25 s, and peaks at 1.8 GB instead of 2.1 GB; on 60 000 samples, 24 attributes and 3 classes the factor weights of `WeightedAnDE` peak at 1.39 GB instead of 1.56 GB and predict in 1.0 s instead of 1.5 s.
 - `TAN` and `KDB` read the normaliser of their Gaussian children from a table as well; on continuous attributes they predict 5 to 10% faster, with the same results.
 - The weighted models run L-BFGS-B with a single BLAS thread. Its vectors are too small for threads, which slowed it down (`ALR` fits about 20% faster with four) and made its sums, and so the last digits of the weights, depend on their number.
-- `TAN` and `KDB` on attributes of thousands of values: the conditional mutual information of a pair whose (class, value, value) table has more than four cells per training sample sums over its non-empty cells only, and a conditional whose (state, value) table would be that large keeps only its non-empty cells. The probabilities, the structure and the tables are the same as before. On one fold of KDD Cup 09 Upselling (11 attributes of more than 100 values, up to 13 333), with one CPU, TAN fits in 5.2 s instead of 101 s and peaks at 0.68 GB instead of 35 GB, and KDB with `k=2` fits in 5.6 s instead of 124 s and peaks at 0.70 GB instead of 52 GB. On Amazon Employee Access, TAN peaks at 0.31 GB instead of 2.7 GB. Data without such attributes fit as before.
 
 ## 1.3.2 (2026-11-06)
 
