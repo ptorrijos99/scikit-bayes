@@ -22,6 +22,8 @@ def test_all_estimators():
         "MixedNB",
         "TAN",
         "WeightedAnDE",
+        "WeightedKDB",
+        "WeightedTAN",
     ]
     classifiers = [name for name, cls in estimators.items() if is_classifier(cls())]
-    assert len(classifiers) == 9  # all but the two discretizers
+    assert len(classifiers) == 11  # all but the two discretizers

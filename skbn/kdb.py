@@ -30,7 +30,7 @@ import numpy as np
 from sklearn.base import _fit_context
 from sklearn.utils._param_validation import Interval, StrOptions
 
-from .tan import _BaseAugmentedNB, _conditional_mutual_info
+from .tan import _BaseAugmentedNB, _conditional_mutual_info, _WeightedAugmentedNB
 
 
 def _mutual_info_with_class(codes, y_idx, cards, n_classes):
@@ -333,3 +333,236 @@ class KDB(_BaseAugmentedNB):
             self.mutual_info_, self.conditional_mutual_info_, self.k
         )
         return self.parents_
+
+
+class WeightedKDB(_WeightedAugmentedNB, KDB):
+    """
+    Discriminatively weighted K-Dependence Bayesian classifier.
+
+    The weighted conditionally Bayesian network (wCCBN) of Zaidi et al. [1]_
+    on the structure and the conditionals of :class:`KDB` [2]_: every
+    parameter of the network gets an exponent weight,
+
+    .. math::
+        P^w(y \\mid \\mathbf{x}) \\propto P(y)^{w_y}
+        \\prod_{i} P(x_i \\mid y, \\mathbf{x}_{\\Pi(i)})^{
+        w_{i, x_i, y, \\mathbf{x}_{\\Pi(i)}}},
+
+    and the weights maximise the conditional log-likelihood of the training
+    set, penalized by ``l2_reg * ||w - 1||^2``, with L-BFGS-B and analytic
+    gradients. The structure and the probabilities are those of :class:`KDB`
+    and stay fixed: the weights start at, and are regularized towards, the
+    generative model (``w = 1``). The objective is convex in the weights.
+    With ``k=0`` the network is Naive Bayes and the model is the weighted
+    Naive Bayes of [1]_.
+
+    The weights correct what the generative fit gets wrong when the data
+    break the independence assumptions of the network, for instance
+    attributes that are correlated or duplicated beyond what ``k`` parents
+    explain: they scale down the conditionals that count the same evidence
+    twice.
+
+    Weight levels (variables indexing each weight, from coarsest to finest),
+    the nested parameterizations of [1]_:
+
+    ===== ===================================
+    Level Variables
+    ===== ===================================
+    1     Factor
+    2     Factor x value
+    3     Factor x value x class
+    4     Factor x value x class x parents
+    ===== ===================================
+
+    A factor is the class prior :math:`P(y)` or the conditional of an
+    attribute; the class prior has a single value and no parents, so it gets
+    one weight per class at levels 3 and 4. Level 4 (the default), one weight
+    per parameter of the network, is the wCCBN of [1]_, equivalent to
+    discriminative parameter learning of the same network but faster to
+    optimize. The value of a Gaussian child is not discretized, so its
+    weights ignore the "value" dimension. Only the combinations that occur in
+    training get a weight; the others share one weight that keeps its
+    generative value, so the number of weights is bounded by the data. This is
+    :class:`WeightedAnDE` with ``weight_scope="factor"`` and
+    ``mean="geometric"`` applied to the single network of KDB. A test instance
+    in a parent state never seen in training gets the uninformed conditional
+    of :class:`KDB`. The fit keeps the per-factor log-likelihoods of the
+    training set in memory, about ``12 * n_samples * n_classes * (n_features +
+    1)`` bytes, and each evaluation of the objective costs as much.
+
+    Parameters
+    ----------
+    k : int, default=1
+        Maximum number of attribute parents of every attribute, in addition
+        to the class. ``k=0`` gives Naive Bayes. :meth:`fit` raises a
+        :class:`ValueError` when the joint states of the class and the parents
+        of an attribute (with the values of the attribute, at
+        ``weight_level=4``) exceed a 64-bit index, which calls for a smaller
+        ``k`` or fewer bins.
+
+    n_bins : int, default=5
+        Number of bins used to discretize continuous attributes for the
+        structure learning and when they act as parents. Continuous children
+        remain continuous.
+
+    strategy : {'uniform', 'quantile', 'kmeans'}, default='quantile'
+        Strategy used for the discretization of continuous attributes.
+
+    alpha : float, default=1.0
+        Non-negative additive (Laplace/Lidstone) smoothing parameter for the
+        discrete conditional probability tables.
+
+    categorical_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as categorical,
+        passed to :class:`MixedNB`, which describes how the undeclared
+        features are typed.
+
+    bernoulli_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as Bernoulli.
+        See :class:`MixedNB`.
+
+    gaussian_features : array-like of int or bool, default=None
+        Indices (or a boolean mask) of the features to treat as Gaussian.
+        See :class:`MixedNB`.
+
+    var_prior_weight : float, default=1.0
+        Non-negative number of pseudo-observations shrinking each Gaussian
+        variance towards the pooled variance of the feature (see
+        :class:`MixedNB`).
+
+    n_jobs : int, default=None
+        Number of threads used to compute the conditional mutual information
+        and to count and evaluate the conditionals; the weights are optimized
+        in a single thread. ``None`` means 1 and ``-1`` all the processors.
+
+    weight_level : int, default=4
+        Granularity of the weights, from 1 (coarsest) to 4 (finest); see the
+        table above.
+
+    l2_reg : float, default=1.0
+        Non-negative L2 regularization towards the generative solution
+        (``w = 1``), added to the summed conditional log-likelihood.
+
+    max_iter : int, default=100
+        Maximum number of L-BFGS-B iterations (at least 1). A
+        :class:`~sklearn.exceptions.ConvergenceWarning` is raised at the end of
+        :meth:`fit` when L-BFGS-B stops at ``max_iter`` before converging;
+        increase ``max_iter`` or ``tol`` in that case.
+
+    tol : float or None, default=None
+        Stopping tolerance of L-BFGS-B on the relative reduction of the
+        objective and on the projected gradient; None uses SciPy's defaults.
+
+    Attributes
+    ----------
+    classes_ : ndarray of shape (n_classes,)
+        Class labels known to the classifier.
+
+    n_features_in_ : int
+        Number of features seen during :term:`fit`.
+
+    feature_names_in_ : ndarray of shape (`n_features_in_`,)
+        Names of features seen during :term:`fit`. Defined only when `X`
+        has feature names that are all strings.
+
+    mutual_info_ : ndarray of shape (n_features,)
+        Empirical mutual information :math:`I(A_i; C)` (in nats) between every
+        (discretized) attribute and the class.
+
+    conditional_mutual_info_ : ndarray of shape (n_features, n_features)
+        Empirical conditional mutual information :math:`I(A_i; A_j \\mid C)`
+        (in nats) between every pair of (discretized) attributes.
+
+    feature_order_ : ndarray of shape (n_features,)
+        Attributes in the order in which they were added to the network
+        (decreasing ``mutual_info_``).
+
+    parents_ : list of ndarray
+        ``parents_[i]`` holds the attribute parents of attribute ``i``, by
+        decreasing ``conditional_mutual_info_``; it is empty for the
+        attributes that depend only on the class.
+
+    backoff_ : MixedNB
+        Naive Bayes on the original class. Provides the class prior, the
+        conditionals of the attributes without attribute parents and the
+        detected feature types (``feature_types_``).
+
+    learned_weights_ : ndarray of shape (n_weights,)
+        Learned weights ``w``.
+
+    n_weights_ : int
+        Number of weights, including the shared one for unseen combinations.
+
+    n_iter_ : int
+        Number of L-BFGS-B iterations.
+
+    See Also
+    --------
+    KDB : The generative model.
+    WeightedTAN : The same weighting on a TAN network.
+    WeightedAnDE : Factor weights inside the SPnDEs of an AnDE ensemble.
+
+    References
+    ----------
+    .. [1] Zaidi, N. A., Webb, G. I., Carman, M. J., Petitjean, F., Buntine, W.,
+           Hynes, M., & De Sterck, H. (2017). Efficient parameter learning of
+           Bayesian network classifiers. Machine Learning, 106(9-10), 1289-1329.
+    .. [2] Sahami, M. (1996). Learning limited dependence Bayesian
+           classifiers. In Proceedings of the Second International Conference
+           on Knowledge Discovery and Data Mining (KDD-96), 335-338.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.metrics import log_loss
+    >>> from skbn import KDB, WeightedKDB
+    >>> rng = np.random.RandomState(0)
+    >>> y = rng.randint(0, 2, size=300)
+    >>> x = rng.normal(size=300) + y
+    >>> X = np.column_stack([x, x, x, rng.normal(size=300) + y])  # x three times
+    >>> clf = WeightedKDB(k=2, weight_level=1).fit(X, y)
+    >>> [p.tolist() for p in clf.parents_]
+    [[], [0], [0, 1], [0, 1]]
+    >>> clf.learned_weights_.round(1)  # the copies of x count less
+    array([1. , 1.1, 0.3, 0.3, 1. , 1. ])
+    >>> kdb = KDB(k=2).fit(X, y)
+    >>> bool(log_loss(y, clf.predict_proba(X)) < log_loss(y, kdb.predict_proba(X)))
+    True
+    """
+
+    _parameter_constraints: dict = {
+        **KDB._parameter_constraints,
+        **_WeightedAugmentedNB._weight_constraints,
+    }
+
+    def __init__(
+        self,
+        k=1,
+        n_bins=5,
+        strategy="quantile",
+        alpha=1.0,
+        categorical_features=None,
+        bernoulli_features=None,
+        gaussian_features=None,
+        var_prior_weight=1.0,
+        n_jobs=None,
+        weight_level=4,
+        l2_reg=1.0,
+        max_iter=100,
+        tol=None,
+    ):
+        super().__init__(
+            k=k,
+            n_bins=n_bins,
+            strategy=strategy,
+            alpha=alpha,
+            categorical_features=categorical_features,
+            bernoulli_features=bernoulli_features,
+            gaussian_features=gaussian_features,
+            var_prior_weight=var_prior_weight,
+            n_jobs=n_jobs,
+        )
+        self.weight_level = weight_level
+        self.l2_reg = l2_reg
+        self.max_iter = max_iter
+        self.tol = tol
