@@ -425,7 +425,8 @@ def test_gaussian_alr_shows_only_its_parameters():
     # The settings of WeightedAnDE that the model fixes are not parameters,
     # and are not public attributes either
     model = GaussianALR()
-    public = [a for a in dir(model) if not a.startswith("_")]
+    # Without the fitted attributes, which an unfitted model does not have
+    public = [a for a in dir(model) if not a.startswith("_") and not a.endswith("_")]
     assert sorted(a for a in public if not callable(getattr(model, a))) == sorted(
         model.get_params()
     )
