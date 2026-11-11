@@ -451,8 +451,6 @@ class MDLPDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
         self : MDLPDiscretizer
             Fitted estimator.
         """
-        if self.max_bins is not None and self.max_bins < 1:
-            raise ValueError(f"max_bins must be >= 1 or None, got {self.max_bins!r}.")
         X, y = validate_data(self, X, y, ensure_all_finite="allow-nan")
         y_codes = np.unique(y, return_inverse=True)[1]
         n_classes = y_codes.max() + 1
