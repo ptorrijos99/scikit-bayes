@@ -59,7 +59,7 @@ iterations on that sample, which is the cost shown on the right.
  .. code-block:: none
 
     AnJE             log loss [0.707 0.429 0.344 0.326 0.328]
-    ALR              log loss [4.742 2.716 3.035 4.657 1.109]
+    ALR              log loss [4.742 2.716 3.035 4.657 1.081]
     ALR, $\lambda = 1$ log loss [4.736 2.493 1.045 0.829 0.354]
     ALR, $\lambda = 10$ log loss [4.739 2.536 1.044 0.536 0.293]
 
@@ -164,7 +164,7 @@ iterations on that sample, which is the cost shown on the right.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 43.805 seconds)
+   **Total running time of the script:** (0 minutes 50.513 seconds)
 
 
 .. _sphx_glr_download_auto_examples_anje_19_plot_anje_vs_alr.py:

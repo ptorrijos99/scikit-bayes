@@ -203,7 +203,7 @@ seconds for the other three, with 10,000 samples.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 24.148 seconds)
+   **Total running time of the script:** (0 minutes 32.614 seconds)
 
 
 .. _sphx_glr_download_auto_examples_hybrid_12_plot_weight_scope.py:

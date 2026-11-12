@@ -38,7 +38,7 @@ and the largest difference, in the title, is at the level of rounding.
 
 
 .. image-sg:: /auto_examples/mixednb/images/sphx_glr_01_plot_mixednb_equivalence_001.png
-   :alt: MixedNB and the Naive Bayes estimators of scikit-learn, Continuous features Largest difference: 7e-16, Binary features Largest difference: 8e-16, Categorical features Largest difference: 6e-16
+   :alt: MixedNB and the Naive Bayes estimators of scikit-learn, Continuous features Largest difference: 0, Binary features Largest difference: 8e-16, Categorical features Largest difference: 0
    :srcset: /auto_examples/mixednb/images/sphx_glr_01_plot_mixednb_equivalence_001.png
    :class: sphx-glr-single-img
 
@@ -47,9 +47,9 @@ and the largest difference, in the title, is at the level of rounding.
 
  .. code-block:: none
 
-    Continuous features: largest difference 6.7e-16
+    Continuous features: largest difference 0.0e+00
     Binary features: largest difference 7.8e-16
-    Categorical features: largest difference 5.6e-16
+    Categorical features: largest difference 0.0e+00
 
 
 
@@ -119,7 +119,7 @@ and the largest difference, in the title, is at the level of rounding.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 1.317 seconds)
+   **Total running time of the script:** (0 minutes 2.021 seconds)
 
 
 .. _sphx_glr_download_auto_examples_mixednb_01_plot_mixednb_equivalence.py:
