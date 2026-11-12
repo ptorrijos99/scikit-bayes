@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:09.048** total execution time for 6 files **from auto_examples/ande**:
+**00:07.084** total execution time for 6 files **from auto_examples/ande**:
 
 .. container::
 
@@ -33,20 +33,20 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_auto_examples_ande_05_plot_aode_mixed_demo.py` (``05_plot_aode_mixed_demo.py``)
-     - 00:05.345
+     - 00:04.341
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_07_plot_a2de_xor_slice.py` (``07_plot_a2de_xor_slice.py``)
-     - 00:01.135
+     - 00:00.890
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_11_plot_order_cost.py` (``11_plot_order_cost.py``)
-     - 00:01.005
+     - 00:00.795
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_09_plot_arithmetic_vs_geometric_mean.py` (``09_plot_arithmetic_vs_geometric_mean.py``)
-     - 00:00.982
+     - 00:00.640
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_06_plot_aode_xor.py` (``06_plot_aode_xor.py``)
-     - 00:00.343
+     - 00:00.247
      - 0.0
    * - :ref:`sphx_glr_auto_examples_ande_10_plot_unseen_states.py` (``10_plot_unseen_states.py``)
-     - 00:00.237
+     - 00:00.172
      - 0.0

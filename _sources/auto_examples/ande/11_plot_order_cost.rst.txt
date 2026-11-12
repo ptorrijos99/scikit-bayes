@@ -51,12 +51,12 @@ over this range, while that of order 2 grows with its number of components.
 
  .. code-block:: none
 
-    d =  5   components: [1, 5, 10]   fit time (s): [0.002, 0.001, 0.002]
-    d = 10   components: [1, 10, 45]   fit time (s): [0.001, 0.002, 0.003]
-    d = 15   components: [1, 15, 105]   fit time (s): [0.002, 0.002, 0.006]
-    d = 20   components: [1, 20, 190]   fit time (s): [0.002, 0.002, 0.012]
-    d = 30   components: [1, 30, 435]   fit time (s): [0.002, 0.003, 0.038]
-    d = 40   components: [1, 40, 780]   fit time (s): [0.002, 0.004, 0.095]
+    d =  5   components: [1, 5, 10]   fit time (s): [0.001, 0.001, 0.001]
+    d = 10   components: [1, 10, 45]   fit time (s): [0.001, 0.001, 0.002]
+    d = 15   components: [1, 15, 105]   fit time (s): [0.001, 0.001, 0.004]
+    d = 20   components: [1, 20, 190]   fit time (s): [0.001, 0.002, 0.007]
+    d = 30   components: [1, 30, 435]   fit time (s): [0.001, 0.003, 0.026]
+    d = 40   components: [1, 40, 780]   fit time (s): [0.002, 0.003, 0.061]
 
 
 
@@ -139,7 +139,7 @@ over this range, while that of order 2 grows with its number of components.
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** (0 minutes 1.005 seconds)
+   **Total running time of the script:** (0 minutes 0.795 seconds)
 
 
 .. _sphx_glr_download_auto_examples_ande_11_plot_order_cost.py:
