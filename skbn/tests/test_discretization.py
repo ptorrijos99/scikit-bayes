@@ -154,3 +154,62 @@ def test_discretizer_feature_names_and_pandas_output(Discretizer, iris_data):
     expected = ["x0", "x1", "x2", "x3"]
     np.testing.assert_array_equal(disc.get_feature_names_out(), expected)
     assert list(disc.transform(X).columns) == expected
+
+
+# --- Sample weights -----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "Discretizer, kwargs",
+    [
+        (MDLPDiscretizer, {}),
+        (DecisionTreeDiscretizer, {"random_state": 0}),
+        (DecisionTreeDiscretizer, {"fallback": "quantile", "random_state": 0}),
+        (DecisionTreeDiscretizer, {"fallback": "uniform", "random_state": 0}),
+    ],
+    ids=[
+        "MDLPDiscretizer",
+        "DecisionTreeDiscretizer",
+        "DecisionTreeDiscretizer-quantile",
+        "DecisionTreeDiscretizer-uniform",
+    ],
+)
+def test_discretizer_sample_weight_equivalence(Discretizer, kwargs, iris_data):
+    X, y = iris_data
+    rng = np.random.RandomState(7)
+    sw = rng.choice([0, 1, 2, 3], size=len(y))
+    X_rep = np.repeat(X, sw, axis=0)
+    y_rep = np.repeat(y, sw, axis=0)
+
+    weighted = Discretizer(**kwargs).fit(X, y, sample_weight=sw)
+    repeated = Discretizer(**kwargs).fit(X_rep, y_rep)
+    np.testing.assert_array_equal(weighted.transform(X), repeated.transform(X))
+
+
+@pytest.mark.parametrize(
+    "Discretizer", [DecisionTreeDiscretizer, MDLPDiscretizer], ids=lambda c: c.__name__
+)
+def test_discretizer_sample_weight_validation(Discretizer, iris_data):
+    X, y = iris_data
+    with pytest.raises(ValueError, match="non-negative"):
+        Discretizer().fit(X, y, sample_weight=np.full(len(y), -1.0))
+    with pytest.raises(ValueError, match="positive sum"):
+        Discretizer().fit(X, y, sample_weight=np.zeros(len(y)))
+
+
+def test_decision_tree_discretizer_fallback_quantile_weighted():
+    rng = np.random.RandomState(0)
+    X = rng.randn(80, 2)
+    y = np.ones(80, dtype=int)  # Single class triggers fallback
+    sw = rng.choice([0, 1, 2, 3], size=80)
+    X_rep = np.repeat(X, sw, axis=0)
+    y_rep = np.repeat(y, sw, axis=0)
+
+    for fallback in ("quantile", "uniform"):
+        d_w = DecisionTreeDiscretizer(n_bins=4, fallback=fallback, random_state=0).fit(
+            X, y, sample_weight=sw
+        )
+        d_r = DecisionTreeDiscretizer(n_bins=4, fallback=fallback, random_state=0).fit(
+            X_rep, y_rep
+        )
+        np.testing.assert_array_equal(d_w.transform(X), d_r.transform(X))

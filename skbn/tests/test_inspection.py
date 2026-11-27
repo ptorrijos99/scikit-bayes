@@ -14,12 +14,17 @@ from sklearn.datasets import load_iris
 from sklearn.exceptions import ConvergenceWarning, NotFittedError
 
 from skbn import (
+    ALR,
     KDB,
     TAN,
     AnDE,
+    AnJE,
     GaussianAnJE,
     MDLPDiscretizer,
+    MixedNB,
+    WeightedAnDE,
     WeightedKDB,
+    WeightedNB,
     WeightedTAN,
 )
 
@@ -291,3 +296,99 @@ def test_cut_points_are_those_the_model_bins_with(iris):
     quantiles = TAN(n_bins=4).fit(X, y).cut_points_
     assert [len(c) for c in quantiles[:4]] == [3, 3, 3, 3]
     assert_allclose(quantiles[0], np.quantile(X.iloc[:, 0], [0.25, 0.5, 0.75]))
+    anje_cuts = AnJE(n_bins=4).fit(X, y).cut_points_
+    assert anje_cuts[4] is None
+    assert_allclose(anje_cuts[0], quantiles[0])
+
+
+def test_mixed_nb_inspection(cars, iris):
+    X, y = cars
+    nb = MixedNB().fit(X, y)
+    assert nb.edges_ == []
+    assert '"class" -> "price";' in nb.to_dot()
+    table = nb.conditional_table("price")
+    assert table.parents == [] and table.parent_values.shape == (2, 0)
+    assert table.feature_values.tolist() == ["high", "low", "medium"]
+    assert_allclose(table.proba.sum(axis=1), 1.0)
+    frame = nb.conditional_table(0, as_frame=True)
+    assert frame.index.names == ["class"] and frame.columns.name == "price"
+    assert_array_equal(frame.to_numpy(), table.proba)
+
+    Xi, yi = iris
+    nb_g = MixedNB().fit(Xi, yi)
+    tg = nb_g.conditional_table(0)
+    assert tg.proba is None and tg.mean.shape == (3,) and tg.var.shape == (3,)
+    fg = nb_g.conditional_table(Xi.columns[0], as_frame=True)
+    assert list(fg.columns) == ["mean", "var"]
+
+
+@pytest.mark.parametrize("level", [1, 2, 3])
+def test_weighted_nb_matches_weighted_kdb_zero_and_inspects(cars, iris, level):
+    X, y = cars
+    wnb = _fit(WeightedNB(weight_level=level, max_iter=50), X, y)
+    wkdb = _fit(WeightedKDB(k=0, weight_level=level, max_iter=50), X, y)
+    assert_allclose(wnb.learned_weights_, wkdb.learned_weights_, atol=1e-4)
+    assert_allclose(wnb.predict_proba(X), wkdb.predict_proba(X), atol=1e-4)
+
+    n_classes = 2 if level == 3 else 1
+    assert wnb.prior_weights_.shape == (n_classes,)
+    parts = [wnb.prior_weights_] + [w.ravel() for w in wnb.feature_weights_]
+    assert_array_equal(np.concatenate(parts + [[1.0]]), wnb.learned_weights_)
+
+    table = wnb.weight_table("price")
+    assert_array_equal(table.weights, wnb.feature_weights_[0])
+    frame = wnb.weight_table(0, as_frame=True)
+    assert_array_equal(frame.to_numpy(), table.weights)
+    assert list(frame.columns) == (["weight"] if level < 3 else ["bad", "good"])
+
+    # Also test Gaussian + constant ignored attribute
+    Xi, yi = iris
+    Xi_c = Xi.assign(constant=1.0)
+    wnb_g = _fit(WeightedNB(weight_level=1, max_iter=20), Xi_c, yi)
+    assert wnb_g.feature_weights_[4].shape == (0, 1)
+    assert '"constant"' not in wnb_g.to_dot()
+    with pytest.raises(ValueError, match="constant in training"):
+        wnb_g.weight_table("constant")
+
+
+@pytest.mark.parametrize("level", [1, 2, 3, 4])
+def test_weighted_ande_weight_table(cars, level):
+    X, y = cars
+    w_comp = _fit(
+        WeightedAnDE(weight_scope="component", weight_level=level, max_iter=15), X, y
+    )
+    assert len(w_comp.component_weights_) == X.shape[1]
+    t_all = w_comp.weight_table()
+    assert t_all.weights.shape[1] == (2 if level >= 3 else 1)
+    assert w_comp.weight_table(as_frame=True).shape == t_all.weights.shape
+    t_one = w_comp.weight_table("price")
+    assert t_one.component == 0 and t_one.parents == [0]
+    assert_array_equal(t_one.weights, w_comp.component_weights_[0])
+
+    w_fac = _fit(
+        WeightedAnDE(weight_scope="factor", weight_level=level, max_iter=15), X, y
+    )
+    t_root = w_fac.weight_table("price")
+    assert t_root.feature is None
+    t_child = w_fac.weight_table("price", feature="cost")
+    assert t_child.feature == 2
+    assert w_fac.weight_table("price", feature="cost", as_frame=True).shape == (
+        t_child.weights.shape
+    )
+
+
+@pytest.mark.parametrize("level", [1, 2, 3])
+def test_alr_weight_table(cars, level):
+    X, y = cars
+    alr = _fit(ALR(n_join=2, weight_level=level, max_iter=15, l2_reg=1.0), X, y)
+    assert alr.prior_weights_.shape == (2 if level == 3 else 1,)
+    if level == 1:
+        t_all = alr.weight_table()
+        assert len(t_all.weights) == len(alr.joins_)
+        assert alr.weight_table(as_frame=True).shape == t_all.weights.shape
+    else:
+        with pytest.raises(ValueError, match="join must be specified"):
+            alr.weight_table()
+    t_j = alr.weight_table(("price", "cost"))
+    assert t_j.features == [0, 2]
+    assert alr.weight_table(t_j.join, as_frame=True).shape == t_j.weights.shape

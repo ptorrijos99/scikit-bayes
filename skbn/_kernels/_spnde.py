@@ -44,7 +44,9 @@ def index_states(y, pcodes_t, parents, strides, n_combos, n_classes, max_light):
         states, index = _state_index(keys, n_classes * n_combos[m])
         rows_of = np.zeros(states.shape[0], dtype=np.int64)
         for r in range(n):
-            rows_of[index[r]] += 1
+            idx = index[r]
+            if idx >= 0:
+                rows_of[idx] += 1
         sizes[m, 0] = states.shape[0]
         for s in range(states.shape[0]):
             if rows_of[s] > max_light:
@@ -76,27 +78,25 @@ def count_tables(
     by_shared,
     pcards,
     max_cells,
+    sw,
 ):
     """Sufficient statistics of every component.
 
-    Returns the state keys, the number of training rows of every state, the
+    Returns the state keys, the total sample weight of every state, the
     dense row of every state (-1 for a light one) and the offset of its
     training rows in ``rows`` (-1 for a dense one), the value counts of the
     dense states (``n_columns`` columns, see ``doff``), the training rows of
-    the light states, and the mean and the (biased) variance of every
-    Gaussian attribute per state. ``codes`` holds the value codes of the
-    training rows. The columns of the parents of a component are left at
-    zero, and so are those of the discrete children that :func:`count_pairs`
-    (one parent) or :func:`count_triples` (two) count: when ``by_shared[m]``,
-    the children ``j`` whose table over the class, the parents and ``j`` has
-    at most ``max_cells`` cells (``n_classes * pcards[j]`` times the
-    ``pcards`` of the parents).
+    the light states, the mean and the (biased) variance of every Gaussian
+    attribute per state, and the valid weight sum of every Gaussian attribute
+    per state. ``sw`` is empty when unweighted; negative codes and ``NaN``
+    entries are skipped.
     """
     n = y.shape[0]
     n_models = parents.shape[0]
     n_dep = parents.shape[1]
     n_total = state_off[n_models]
     n_gauss = xg.shape[1]
+    weighted = sw.shape[0] > 0
     keys_out = np.empty(n_total, dtype=np.int64)
     count = np.zeros(n_total)
     drow = np.empty(n_total, dtype=np.int64)
@@ -105,32 +105,41 @@ def count_tables(
     rows = np.empty(light_off[n_models], dtype=np.int32)
     mean = np.zeros((n_total, n_gauss))
     var = np.zeros((n_total, n_gauss))
+    gcount = np.zeros((n_total, n_gauss))
     for m in nb.prange(n_models):
         keys = _augmented_keys(y, pcodes_t, parents[m], strides[m], n_combos[m])
         states, index = _state_index(keys, n_classes * n_combos[m])
         o = state_off[m]
         n_states = states.shape[0]
         keys_out[o : o + n_states] = states
+        rows_of = np.zeros(n_states, dtype=np.int64)
         for r in range(n):
-            count[o + index[r]] += 1.0
+            idx = index[r]
+            if idx >= 0:
+                rows_of[idx] += 1
+                count[o + idx] += sw[r] if weighted else 1.0
         next_dense, next_light = dense_off[m], light_off[m]
-        for s in range(o, o + n_states):
-            if count[s] > max_light:
+        for t in range(n_states):
+            s = o + t
+            if rows_of[t] > max_light:
                 drow[s], loff[s] = next_dense, -1
                 next_dense += 1
             else:
                 drow[s], loff[s] = -1, next_light
-                next_light += int(count[s])
+                next_light += rows_of[t]
         # Training rows of the light states, in row order; dense row of every
-        # training row (-1 when its state is light)
+        # training row (-1 when its state is light or missing)
         filled = np.zeros(n_states, dtype=np.int64)
-        row_dense = np.empty(n, dtype=np.int64)
+        row_dense = np.full(n, -1, dtype=np.int64)
         for r in range(n):
-            s = o + index[r]
+            idx = index[r]
+            if idx < 0:
+                continue
+            s = o + idx
             row_dense[r] = drow[s]
             if drow[s] < 0:
-                rows[loff[s] + filled[index[r]]] = r
-                filled[index[r]] += 1
+                rows[loff[s] + filled[idx]] = r
+                filled[idx] += 1
         # Discrete children of the dense states
         child = np.empty(attrs.shape[0], dtype=np.int64)
         n_child = 0
@@ -155,10 +164,13 @@ def count_tables(
         for r in range(n):
             if row_dense[r] < 0:
                 continue
+            w = sw[r] if weighted else 1.0
             row = dense[row_dense[r]]
             sample = codes[r]
             for t in range(n_child):
-                row[offset[t] + sample[child[t]]] += 1.0
+                v = sample[child[t]]
+                if v >= 0:
+                    row[offset[t] + v] += w
         if n_gauss == 0:
             continue
         # Gaussian children of every state
@@ -171,15 +183,38 @@ def count_tables(
                 continue
             g = gidx[j]
             for r in range(n):
-                mean[o + index[r], g] += xg[r, g]
+                idx = index[r]
+                if idx < 0:
+                    continue
+                x = xg[r, g]
+                if x != x:
+                    continue
+                w = sw[r] if weighted else 1.0
+                s = o + idx
+                gcount[s, g] += w
+                mean[s, g] += w * x
             for s in range(o, o + n_states):
-                mean[s, g] /= count[s]
+                if gcount[s, g] > 0.0:
+                    mean[s, g] /= gcount[s, g]
+                else:
+                    mean[s, g] = np.nan
             for r in range(n):
-                diff = xg[r, g] - mean[o + index[r], g]
-                var[o + index[r], g] += diff * diff
+                idx = index[r]
+                if idx < 0:
+                    continue
+                x = xg[r, g]
+                if x != x:
+                    continue
+                w = sw[r] if weighted else 1.0
+                s = o + idx
+                diff = x - mean[s, g]
+                var[s, g] += w * diff * diff
             for s in range(o, o + n_states):
-                var[s, g] /= count[s]
-    return keys_out, count, drow, loff, dense, rows, mean, var
+                if gcount[s, g] > 0.0:
+                    var[s, g] /= gcount[s, g]
+                else:
+                    var[s, g] = np.nan
+    return keys_out, count, drow, loff, dense, rows, mean, var, gcount
 
 
 @_Kernel

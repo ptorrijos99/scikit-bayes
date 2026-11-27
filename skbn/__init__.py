@@ -15,11 +15,12 @@ from .ande import AnDE, WeightedAnDE
 from .anje import ALR, AnJE, GaussianALR, GaussianAnJE
 from .discretization import DecisionTreeDiscretizer, MDLPDiscretizer
 from .kdb import KDB, WeightedKDB
-from .mixed_nb import MixedNB
+from .mixed_nb import MixedNB, WeightedNB
 from .tan import TAN, WeightedTAN
 
 __all__ = [
     "MixedNB",
+    "WeightedNB",
     "AnDE",
     "AnJE",
     "ALR",

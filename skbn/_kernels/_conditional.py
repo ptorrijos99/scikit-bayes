@@ -55,19 +55,91 @@ def _sparse_pair_cmi(base, card, x, size, n_c, marg, off_i, ci, off_j):
     return total
 
 
+@nb.njit(cache=True)
+def _weighted_pair_cmi(xi, xj, y, ci, cj, n_classes, sw, max_cells):
+    """Empirical ``I(A_i; A_j | C)`` for one pair with sample weights and/or
+    missing values (negative codes), computed over jointly observed rows."""
+    n = y.shape[0]
+    weighted = sw.shape[0] > 0
+    n_c = np.zeros(n_classes)
+    n_ca = np.zeros(n_classes * ci)
+    n_cb = np.zeros(n_classes * cj)
+    size = n_classes * ci * cj
+    total_w = 0.0
+    if size <= max_cells:
+        table = np.zeros(size)
+        for r in range(n):
+            a, b = xi[r], xj[r]
+            if a < 0 or b < 0:
+                continue
+            c = y[r]
+            w = sw[r] if weighted else 1.0
+            total_w += w
+            n_c[c] += w
+            n_ca[c * ci + a] += w
+            n_cb[c * cj + b] += w
+            table[(c * ci + a) * cj + b] += w
+        if total_w <= 0.0:
+            return 0.0
+        total = 0.0
+        for c in range(n_classes):
+            for a in range(ci):
+                row = (c * ci + a) * cj
+                for b in range(cj):
+                    n_cab = table[row + b]
+                    if n_cab > 0.0:
+                        ratio = n_cab * n_c[c] / (n_ca[c * ci + a] * n_cb[c * cj + b])
+                        total += n_cab * np.log(ratio)
+        return max(total / total_w, 0.0)
+    keys = np.full(n, -1, dtype=np.int64)
+    for r in range(n):
+        a, b = xi[r], xj[r]
+        if a < 0 or b < 0:
+            continue
+        c = y[r]
+        w = sw[r] if weighted else 1.0
+        total_w += w
+        n_c[c] += w
+        n_ca[c * ci + a] += w
+        n_cb[c * cj + b] += w
+        keys[r] = (c * ci + a) * cj + b
+    if total_w <= 0.0:
+        return 0.0
+    cells, index = _state_index(keys, size)
+    counts = np.zeros(cells.shape[0])
+    for r in range(n):
+        idx = index[r]
+        if idx >= 0:
+            counts[idx] += sw[r] if weighted else 1.0
+    total = 0.0
+    for t in range(cells.shape[0]):
+        ca, b = divmod(cells[t], cj)
+        c, a = divmod(ca, ci)
+        n_cab = counts[t]
+        if n_cab > 0.0:
+            ratio = n_cab * n_c[c] / (n_ca[c * ci + a] * n_cb[c * cj + b])
+            total += n_cab * np.log(ratio)
+    return max(total / total_w, 0.0)
+
+
 @_Kernel
-def conditional_mutual_info(codes_t, y, cards, n_classes):
+def conditional_mutual_info(codes_t, y, cards, n_classes, sw):
     """Empirical ``I(A_i; A_j | C)`` of every pair of attributes, in nats.
 
-    ``codes_t`` holds the attribute codes transposed, shape (n_features, n).
-    The (c, a) counts of every attribute are computed once; every pair counts
-    its joint table and sums ``n_cab log(n_cab n_c / (n_ca n_cb))`` over its
-    non-empty cells, which is exactly 0 for a constant attribute. A table
-    with more than ``_DENSE_CELLS_PER_ROW`` cells per sample (attributes of
-    thousands of values) is counted on its non-empty cells only.
+    ``codes_t`` holds the attribute codes transposed, shape (n_features, n),
+    with ``-1`` for missing values. ``sw`` holds sample weights (empty when
+    unweighted). Pairs without weights or missing values run the fast integer
+    path; the rest sum over jointly observed rows with float64 weights.
     """
     d, n = codes_t.shape
+    weighted = sw.shape[0] > 0
     max_cells = _DENSE_CELLS_PER_ROW * n + 1024
+    miss = np.zeros(d, dtype=np.bool_)
+    for j in nb.prange(d):
+        for r in range(n):
+            if codes_t[j, r] < 0:
+                miss[j] = True
+                break
     n_c = np.zeros(n_classes)
     for r in range(n):
         n_c[y[r]] += 1.0
@@ -76,22 +148,32 @@ def conditional_mutual_info(codes_t, y, cards, n_classes):
     for j in range(d):
         moff[j + 1] = moff[j] + n_classes * cards[j]
     marg = np.zeros(moff[d])
-    for j in nb.prange(d):
-        for r in range(n):
-            marg[moff[j] + y[r] * cards[j] + codes_t[j, r]] += 1.0
+    if not weighted:
+        for j in nb.prange(d):
+            if not miss[j]:
+                for r in range(n):
+                    marg[moff[j] + y[r] * cards[j] + codes_t[j, r]] += 1.0
     cmi = np.zeros((d, d))
     for i in nb.prange(d):
         ci = cards[i]
-        mi, base = moff[i], np.empty(n, dtype=np.int64)
-        for r in range(n):
-            base[r] = y[r] * ci + codes_t[i, r]
+        mi = moff[i]
+        use_fast_i = (not weighted) and (not miss[i])
+        base = np.empty(n if use_fast_i else 0, dtype=np.int64)
         dense = 0
-        for j in range(i + 1, d):
-            if n_classes * ci * cards[j] <= max_cells:
-                dense = max(dense, n_classes * ci * cards[j])
+        if use_fast_i:
+            for r in range(n):
+                base[r] = y[r] * ci + codes_t[i, r]
+            for j in range(i + 1, d):
+                if not miss[j] and n_classes * ci * cards[j] <= max_cells:
+                    dense = max(dense, n_classes * ci * cards[j])
         table = np.empty(dense, dtype=np.int64)
         for j in range(i + 1, d):
             cj, mj = cards[j], moff[j]
+            if not use_fast_i or miss[j]:
+                cmi[i, j] = cmi[j, i] = _weighted_pair_cmi(
+                    codes_t[i], codes_t[j], y, ci, cj, n_classes, sw, max_cells
+                )
+                continue
             size = n_classes * ci * cj
             if size > max_cells:
                 total = _sparse_pair_cmi(
@@ -115,9 +197,38 @@ def conditional_mutual_info(codes_t, y, cards, n_classes):
     return cmi
 
 
+@nb.njit(cache=True)
+def _factor_keys(y, pcodes_t, parents, strides, n_combos, codes, xg, j, kind_j, g_j):
+    """Augmented state keys of factor with child ``j``, marking ``-1`` for
+    any row where a parent or child ``j`` is missing."""
+    keys = _augmented_keys(y, pcodes_t, parents, strides, n_combos)
+    n = keys.shape[0]
+    if kind_j == DISCRETE:
+        for r in range(n):
+            if codes[r, j] < 0:
+                keys[r] = -1
+    elif kind_j == GAUSSIAN:
+        for r in range(n):
+            x = xg[r, g_j]
+            if x != x:
+                keys[r] = -1
+    return keys
+
+
 @_Kernel
 def count_states(
-    y, pcodes_t, parents, strides, n_combos, n_classes, codes, children, child_cards
+    y,
+    pcodes_t,
+    parents,
+    strides,
+    n_combos,
+    n_classes,
+    codes,
+    xg,
+    children,
+    child_cards,
+    kind,
+    gidx,
 ):
     """Number of augmented states observed in training by each component
     and, for a component whose discrete child ``children[m]`` has
@@ -129,12 +240,24 @@ def count_states(
     n_states = np.empty(n_models, dtype=np.int64)
     n_cells = np.zeros(n_models, dtype=np.int64)
     for m in nb.prange(n_models):
-        keys = _augmented_keys(y, pcodes_t, parents[m], strides[m], n_combos[m])
+        j = children[m]
+        keys = _factor_keys(
+            y,
+            pcodes_t,
+            parents[m],
+            strides[m],
+            n_combos[m],
+            codes,
+            xg,
+            j,
+            kind[j],
+            gidx[j],
+        )
         states, index = _state_index(keys, n_classes * n_combos[m])
         n_states[m] = states.shape[0]
         card = child_cards[m]
         if n_states[m] * card > _DENSE_CELLS_PER_ROW * n + 1024:
-            cells = _value_cells(index, codes, children[m], card, n_states[m])
+            cells = _value_cells(index, codes, j, card, n_states[m])
             n_cells[m] = cells[0].shape[0]
     return n_states, n_cells
 
@@ -156,14 +279,16 @@ def count_conditionals(
     kind,
     gidx,
     cards,
+    sw,
 ):
-    """Sufficient statistics of every factor: the state keys, the training
-    rows of every state, the value counts of a discrete child (on its
-    non-empty cells, whose keys it also returns, when ``cell_off`` gives it
-    some) and the mean and (biased) variance of a Gaussian one."""
+    """Sufficient statistics of every factor: the state keys, the total
+    sample weight of every state, the value counts of a discrete child (on
+    its non-empty cells, whose keys it also returns, when ``cell_off`` gives
+    it some) and the mean and (biased) variance of a Gaussian one."""
     n = y.shape[0]
     n_factors = parents.shape[0]
     n_total = state_off[n_factors]
+    weighted = sw.shape[0] > 0
     keys_out = np.empty(n_total, dtype=np.int64)
     count = np.zeros(n_total)
     disc = np.zeros(disc_off[n_factors])
@@ -171,34 +296,53 @@ def count_conditionals(
     mean = np.zeros(n_total)
     var = np.zeros(n_total)
     for m in nb.prange(n_factors):
-        keys = _augmented_keys(y, pcodes_t, parents[m], strides[m], n_combos[m])
+        j = children[m]
+        keys = _factor_keys(
+            y,
+            pcodes_t,
+            parents[m],
+            strides[m],
+            n_combos[m],
+            codes,
+            xg,
+            j,
+            kind[j],
+            gidx[j],
+        )
         states, index = _state_index(keys, n_classes * n_combos[m])
         o = state_off[m]
         keys_out[o : o + states.shape[0]] = states
-        j = children[m]
         sparse = cell_off[m + 1] > cell_off[m]
         cell = index
         if sparse:
             cells, cell = _value_cells(index, codes, j, cards[j], states.shape[0])
             cell_keys[cell_off[m] : cell_off[m + 1]] = cells
         for r in range(n):
-            s = o + index[r]
-            count[s] += 1.0
+            idx = index[r]
+            if idx < 0:
+                continue
+            w = sw[r] if weighted else 1.0
+            s = o + idx
+            count[s] += w
             if kind[j] == DISCRETE:
                 if sparse:
-                    disc[disc_off[m] + cell[r]] += 1.0
+                    disc[disc_off[m] + cell[r]] += w
                 else:
-                    disc[disc_off[m] + index[r] * cards[j] + codes[r, j]] += 1.0
+                    disc[disc_off[m] + idx * cards[j] + codes[r, j]] += w
             elif kind[j] == GAUSSIAN:
-                mean[s] += xg[r, gidx[j]]
+                mean[s] += w * xg[r, gidx[j]]
         if kind[j] != GAUSSIAN:
             continue
         for s in range(o, o + states.shape[0]):
             mean[s] /= count[s]
         for r in range(n):
-            s = o + index[r]
+            idx = index[r]
+            if idx < 0:
+                continue
+            w = sw[r] if weighted else 1.0
+            s = o + idx
             diff = xg[r, gidx[j]] - mean[s]
-            var[s] += diff * diff
+            var[s] += w * diff * diff
         for s in range(o, o + states.shape[0]):
             var[s] /= count[s]
     return keys_out, count, disc, cell_keys, mean, var

@@ -6,7 +6,7 @@ and the fit of the discriminative weights."""
 # SPDX-License-Identifier: BSD-3-Clause
 
 import warnings
-from numbers import Number
+from numbers import Integral, Number
 
 import numpy as np
 import sklearn
@@ -15,6 +15,7 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.utils.fixes import parse_version
 from sklearn.utils.validation import (
+    _check_sample_weight,
     check_array,
     check_is_fitted,
     check_X_y,
@@ -71,8 +72,14 @@ def _integer_range(values):
 
 
 def _unique_values(col):
-    """``np.unique(col)``, counted with a table when ``col`` holds integers in
-    a small range."""
+    """``np.unique(col)`` over non-missing entries, counted with a table when
+    ``col`` holds integers in a small range."""
+    if np.issubdtype(col.dtype, np.floating):
+        valid = ~np.isnan(col)
+        if not np.all(valid):
+            col = col[valid]
+    if col.size == 0:
+        return np.empty(0, dtype=col.dtype)
     span = _integer_range(col)
     if span is None:
         return np.unique(col)
@@ -84,6 +91,8 @@ def _unique_values(col):
 def _encode_values(col, categories):
     """Codes of ``col`` in the sorted array ``categories`` and a mask of the
     values that are not in it (their code is 0)."""
+    if len(categories) == 0:
+        return np.zeros(len(col), dtype=np.int64), np.ones(len(col), dtype=bool)
     span = _integer_range(categories)
     if span is None or not (
         np.issubdtype(col.dtype, np.integer) or np.issubdtype(col.dtype, np.floating)
@@ -136,12 +145,12 @@ def _encode_columns(X, columns, categories):
 
 
 def _discrete_codes(X, columns):
-    """Sorted distinct values of the columns ``columns`` of ``X`` and the code
-    of every value among them: a list with the values of each column (as
-    :func:`_unique_values`) and the int32 codes, shape (n_samples,
-    len(columns)) (as :func:`_encode_values`). The columns that hold integers
-    in a small range, in an integer or a floating ``X``, are encoded together
-    in one compiled pass over the rows; the rest column by column."""
+    """Sorted distinct non-missing values of the columns ``columns`` of ``X``
+    and the code of every value among them (``-1`` for ``NaN``): a list with
+    the values of each column (as :func:`_unique_values`) and the int32 codes,
+    shape (n_samples, len(columns)). The columns without missing values that
+    hold integers in a small range are encoded together in one compiled pass
+    over the rows; the rest column by column."""
     columns = np.asarray(columns, dtype=np.int64)
     n = X.shape[0]
     categories = [None] * len(columns)
@@ -150,9 +159,14 @@ def _discrete_codes(X, columns):
         lo, hi = _column_ranges(X, columns)
         fast = hi - lo <= 4 * n + 1024  # The span rule of _integer_range
     elif n and len(columns) and np.issubdtype(X.dtype, np.floating):
-        lo, hi, whole, _ = _column_profiles(X, columns)
+        lo, hi, whole, distinct, has_nan = _column_profiles(X, columns)
         with np.errstate(invalid="ignore"):
-            fast = whole & (np.maximum(-lo, hi) < _EXACT_FLOAT)
+            fast = (
+                (~has_nan)
+                & (distinct > 0)
+                & whole
+                & (np.maximum(-lo, hi) < _EXACT_FLOAT)
+            )
             fast &= hi - lo <= 4 * n + 1024
         lo = np.where(fast, lo, 0).astype(np.int64)
         hi = np.where(fast, hi, 0).astype(np.int64)
@@ -172,19 +186,25 @@ def _discrete_codes(X, columns):
     for c in np.flatnonzero(~fast):
         col = X[:, columns[c]]
         categories[c] = _unique_values(col)
-        codes[:, c] = _encode_values(col, categories[c])[0]
+        if len(categories[c]) == 0:
+            codes[:, c] = -1
+        else:
+            enc, unseen = _encode_values(col, categories[c])
+            codes[:, c] = np.where(unseen, -1, enc)
     return categories, codes
 
 
 def _auto_type(col):
-    """Type inferred for an undeclared attribute from its training values:
-    None for a constant, then "bernoulli" (two values), "categorical"
-    (non-negative integer values, at most ``_MAX_AUTO_CATEGORIES`` of them) or
-    "gaussian" (anything else).
-
-    The values are only counted when the answer depends on their number:
-    counting those of a continuous attribute would sort it.
-    """
+    """Type inferred for an undeclared attribute from its non-missing training
+    values: None for a constant or all-missing column, then "bernoulli" (two
+    values), "categorical" (non-negative integer values, at most
+    ``_MAX_AUTO_CATEGORIES`` of them) or "gaussian" (anything else)."""
+    if np.issubdtype(col.dtype, np.floating):
+        valid = ~np.isnan(col)
+        if not np.all(valid):
+            col = col[valid]
+    if col.size == 0:
+        return None
     lo, hi = col.min(), col.max()
     if lo == hi:
         return None
@@ -219,9 +239,9 @@ def _holds_labels(col, j, name):
     category holds labels rather than numbers.
 
     A pandas ``category`` column always does. Otherwise a column holds labels
-    when it holds strings; a column of numbers stored as objects is numeric,
-    as scikit-learn takes it. Strings mixed with numbers or with other
-    objects are rejected, and so are missing values among strings."""
+    when it holds strings (possibly alongside missing values); a column of
+    numbers stored as objects is numeric, as scikit-learn takes it. Strings
+    mixed with numbers or with other non-missing objects are rejected."""
     if _is_category(col):
         return True
     values = col.to_numpy(dtype=object) if hasattr(col, "to_numpy") else col
@@ -241,7 +261,7 @@ def _holds_labels(col, j, name):
             f" ({', '.join(sorted(t.__name__ for t in other))}): every argument"
             " must be a string or a number, and one column holds only one kind."
         )
-    _raise_missing(j, name)
+    return True
 
 
 def _is_missing(value):
@@ -253,12 +273,47 @@ def _is_missing(value):
     )
 
 
-def _raise_missing(j, name):
-    raise ValueError(
-        "Input X contains missing values (None or NaN) in its non-numeric column"
-        f" {j}.\n{name} does not support missing values yet; impute them first,"
-        " for example with sklearn.impute.SimpleImputer(strategy='most_frequent')."
+def _has_missing(X):
+    """Whether a validated array ``X`` contains any ``NaN``."""
+    return bool(np.issubdtype(X.dtype, np.floating) and np.isnan(X).any())
+
+
+def _validate_sample_weight(sample_weight, X):
+    """Validate optional per-sample weights: None, or a 1-D float64 array of
+    non-negative weights with positive sum."""
+    if sample_weight is None:
+        return None
+    sw = _check_sample_weight(sample_weight, X, dtype=np.float64)
+    if np.any(sw < 0):
+        raise ValueError("sample_weight must be non-negative.")
+    if sw.sum() <= 0:
+        raise ValueError("sample_weight must have a positive sum.")
+    return sw
+
+
+def _weighted_moments(X, sample_weight=None):
+    """Per-column weighted mean and population variance over non-missing
+    entries of a 2-D float array ``X``."""
+    d = X.shape[1]
+    if d == 0:
+        return np.zeros(0), np.zeros(0)
+    if sample_weight is None and not np.isnan(X).any():
+        return X.mean(axis=0), X.var(axis=0)
+    w = (
+        np.ones(X.shape[0], dtype=np.float64)
+        if sample_weight is None
+        else np.asarray(sample_weight, dtype=np.float64)
     )
+    valid = ~np.isnan(X)
+    w_valid = np.where(valid, w[:, None], 0.0)
+    total = w_valid.sum(axis=0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        mean = np.where(
+            total > 0, (np.where(valid, X, 0.0) * w_valid).sum(axis=0) / total, 0.0
+        )
+        diff = np.where(valid, X - mean[None, :], 0.0)
+        var = np.where(total > 0, (diff * diff * w_valid).sum(axis=0) / total, 0.0)
+    return mean, var
 
 
 def _label_columns(X, name):
@@ -305,20 +360,32 @@ class _LabelEncoder:
             col = _column(X, j)
             if _is_category(col):
                 cat_codes = col.cat.codes.to_numpy()
-                if np.any(cat_codes < 0):
-                    _raise_missing(j, name)
-                seen = np.unique(cat_codes)
+                missing = cat_codes < 0
+                seen = np.unique(cat_codes[~missing])
                 values = col.cat.categories.to_numpy(dtype=object)[seen]
                 order = _label_order(values, j)
                 table = np.full(len(col.cat.categories), -1, dtype=np.int64)
                 table[seen[order]] = np.arange(len(seen))
                 self.labels.append(values[order])
-                codes.append(table[cat_codes])
+                if missing.any():
+                    encoded = np.full(len(cat_codes), np.nan, dtype=np.float64)
+                    encoded[~missing] = table[cat_codes[~missing]]
+                    codes.append(encoded)
+                else:
+                    codes.append(table[cat_codes])
             else:
                 values = col.to_numpy(dtype=object) if hasattr(col, "to_numpy") else col
-                labels, inverse = np.unique(values, return_inverse=True)
-                self.labels.append(labels.astype(object))
-                codes.append(inverse.reshape(-1).astype(np.int64))
+                missing = np.array([_is_missing(v) for v in values], dtype=bool)
+                if missing.any():
+                    labels, inverse = np.unique(values[~missing], return_inverse=True)
+                    self.labels.append(labels.astype(object))
+                    encoded = np.full(len(values), np.nan, dtype=np.float64)
+                    encoded[~missing] = inverse.reshape(-1)
+                    codes.append(encoded)
+                else:
+                    labels, inverse = np.unique(values, return_inverse=True)
+                    self.labels.append(labels.astype(object))
+                    codes.append(inverse.reshape(-1).astype(np.int64))
         self._index = [{v: k for k, v in enumerate(lab)} for lab in self.labels]
         return self._replace(X, codes)
 
@@ -328,19 +395,33 @@ class _LabelEncoder:
             col = _column(X, j)
             if _is_category(col):
                 cat_codes = col.cat.codes.to_numpy()
-                if np.any(cat_codes < 0):
-                    _raise_missing(j, name)
+                missing = cat_codes < 0
                 table = np.array(
                     [index.get(v, -1) for v in col.cat.categories], dtype=np.int64
                 )
-                codes.append(table[cat_codes])
+                if missing.any():
+                    encoded = np.full(len(cat_codes), np.nan, dtype=np.float64)
+                    encoded[~missing] = table[cat_codes[~missing]]
+                    codes.append(encoded)
+                else:
+                    codes.append(table[cat_codes])
             else:
                 values = col.to_numpy(dtype=object) if hasattr(col, "to_numpy") else col
-                codes.append(
-                    np.fromiter(
-                        (index.get(v, -1) for v in values), np.int64, len(values)
+                missing = np.array([_is_missing(v) for v in values], dtype=bool)
+                if missing.any():
+                    encoded = np.full(len(values), np.nan, dtype=np.float64)
+                    encoded[~missing] = np.fromiter(
+                        (index.get(v, -1) for v in values[~missing]),
+                        np.int64,
+                        int((~missing).sum()),
                     )
-                )
+                    codes.append(encoded)
+                else:
+                    codes.append(
+                        np.fromiter(
+                            (index.get(v, -1) for v in values), np.int64, len(values)
+                        )
+                    )
         return self._replace(X, codes)
 
     def _replace(self, X, codes):
@@ -414,7 +495,9 @@ def _validate_labels(estimator, X, y, reset):
     if encoder is None and not columns:
         if reset:
             estimator._label_encoder = None
-        return validate_data(estimator, X, y, reset=reset)
+        return validate_data(
+            estimator, X, y, reset=reset, ensure_all_finite="allow-nan"
+        )
     if encoder is None and not reset:
         raise ValueError(
             f"X has non-numeric values in the columns {columns}, but {name} was"
@@ -436,8 +519,10 @@ def _validate_labels(estimator, X, y, reset):
     else:
         X = encoder.transform(X, name)
     if isinstance(y, str) and y == "no_validation":
-        return check_array(X, input_name="X", estimator=estimator)
-    return check_X_y(X, y, estimator=estimator)
+        return check_array(
+            X, input_name="X", estimator=estimator, ensure_all_finite="allow-nan"
+        )
+    return check_X_y(X, y, estimator=estimator, ensure_all_finite="allow-nan")
 
 
 def _label_feature_indices(estimator):
@@ -459,12 +544,13 @@ def _check_label_types(label_columns, gaussian_features):
 
 
 class _LabelInputMixin:
-    """Tags of the classifiers, which take strings through
+    """Tags of the classifiers, which take strings and missing values through
     :func:`_validate_input`."""
 
     def __sklearn_tags__(self):
         tags = super().__sklearn_tags__()
         tags.input_tags.string = True
+        tags.input_tags.allow_nan = True
         return tags
 
 
@@ -474,10 +560,12 @@ def _auto_types(X, columns):
     columns = np.asarray(columns, dtype=np.int64)
     if not len(columns) or not X.shape[0] or X.dtype.kind not in "iuf":
         return [_auto_type(X[:, j]) for j in columns]
-    lo, hi, whole, distinct = _column_profiles(X, columns)
+    lo, hi, whole, distinct, _ = _column_profiles(X, columns)
     types = []
     for k, j in enumerate(columns):
-        if max(-lo[k], hi[k]) >= _EXACT_FLOAT:  # Rounded as floats
+        if distinct[k] == 0:
+            types.append(None)
+        elif max(-lo[k], hi[k]) >= _EXACT_FLOAT:  # Rounded as floats
             types.append(_auto_type(X[:, j]))
         elif distinct[k] == 1:
             types.append(None)
@@ -534,13 +622,67 @@ class _Cuts:
         return np.digitize(col.ravel(), self.cuts)
 
 
-def _fit_bins(col, y_idx, n_classes, n_bins, strategy):
+def _weighted_quantile_cuts(x, sw, n_bins):
+    """Inner quantile cut-points for 1-D values ``x`` with positive weights
+    ``sw``. For integer weights this matches ``np.quantile(np.repeat(x, sw),
+    q, method="linear")``; for general fractional weights it uses the
+    averaged inverted CDF."""
+    order = np.argsort(x, kind="mergesort")
+    xs = x[order].astype(float)
+    ws = sw[order].astype(float)
+    cum = np.cumsum(ws)
+    total = cum[-1]
+    q = np.linspace(0.0, 100.0, n_bins + 1)[1:-1] / 100.0
+    if total > 1.0 and np.all(ws == np.floor(ws)):
+        p = q * (total - 1.0)
+        k = np.floor(p)
+        frac = p - k
+        i0 = np.minimum(np.searchsorted(cum, k, side="right"), len(xs) - 1)
+        i1 = np.minimum(np.searchsorted(cum, k + 1.0, side="right"), len(xs) - 1)
+        a, b = xs[i0], xs[i1]
+        # NumPy's exact linear interpolation (_lerp): preserves a when a == b
+        diff = b - a
+        cuts = np.where(frac >= 0.5, b - (1.0 - frac) * diff, a + frac * diff)
+    else:
+        target = q * total
+        lo = np.minimum(np.searchsorted(cum, target, side="left"), len(xs) - 1)
+        hi = np.minimum(np.searchsorted(cum, target, side="right"), len(xs) - 1)
+        cuts = 0.5 * (xs[lo] + xs[hi])
+    edges = np.concatenate([[xs[0]], cuts, [xs[-1]]])
+    edges = edges[np.ediff1d(edges, to_begin=np.inf) > 1e-8]
+    return edges[1:-1] if len(edges) > 2 else np.empty(0, dtype=float)
+
+
+def _fit_bins(col, y_idx, n_classes, n_bins, strategy, sample_weight=None):
     """Bins of the continuous column ``col`` (2-D, one column): the cut-points
     of Fayyad and Irani when ``strategy`` is ``"mdlp"`` (``n_bins`` is then
-    not used), else a fitted :class:`KBinsDiscretizer`. Either has a
-    ``transform`` that gives the bin of every value of a column."""
+    not used), else a fitted :class:`KBinsDiscretizer` (or weighted quantile
+    cuts when ``strategy="quantile"`` and ``sample_weight`` is given).
+    Missing values are ignored during fitting."""
+    col_1d = col.ravel()
+    valid = (
+        ~np.isnan(col_1d)
+        if np.issubdtype(col_1d.dtype, np.floating)
+        else np.ones(len(col_1d), dtype=bool)
+    )
+    if sample_weight is not None:
+        valid = valid & (sample_weight > 0)
+    if valid.sum() < 2 or np.ptp(col_1d[valid]) == 0:
+        return _Cuts(np.empty(0, dtype=float))
+    col_valid = col if np.all(valid) else col[valid]
+    y_valid = y_idx if np.all(valid) else y_idx[valid]
+    sw_valid = (
+        None
+        if sample_weight is None
+        else (sample_weight if np.all(valid) else sample_weight[valid])
+    )
     if strategy == "mdlp":
-        return _Cuts(_mdlp_cuts(col.ravel().astype(float), y_idx, n_classes))
+        x_val = col_valid.ravel().astype(float)
+        if sw_valid is None:
+            return _Cuts(_mdlp_cuts(x_val, y_valid, n_classes))
+        return _Cuts(_mdlp_cuts(x_val, y_valid, n_classes, sample_weight=sw_valid))
+    if strategy == "quantile" and sw_valid is not None:
+        return _Cuts(_weighted_quantile_cuts(col_valid.ravel(), sw_valid, n_bins))
     kwargs = {"subsample": None}
     # quantile_method was added in scikit-learn 1.7
     if strategy == "quantile" and parse_version(
@@ -550,11 +692,30 @@ def _fit_bins(col, y_idx, n_classes, n_bins, strategy):
     bins = KBinsDiscretizer(
         n_bins=n_bins, encode="ordinal", strategy=strategy, **kwargs
     )
+    fit_kwargs = {}
+    if sw_valid is not None and strategy == "kmeans":
+        fit_kwargs["sample_weight"] = sw_valid
     with warnings.catch_warnings():
         # Repeated values leave fewer bins than asked for, which the callers
         # account for
         warnings.filterwarnings("ignore", message="Bins whose width are too small")
-        return bins.fit(col)
+        return bins.fit(col_valid, **fit_kwargs)
+
+
+def _transform_bins(enc, col_1d):
+    """Bin indices of a 1-D column ``col_1d`` and a boolean mask of missing
+    entries (whose code is 0)."""
+    if np.issubdtype(col_1d.dtype, np.floating):
+        missing = np.isnan(col_1d)
+        if missing.any():
+            out = np.zeros(len(col_1d), dtype=np.int64)
+            valid = ~missing
+            if valid.any():
+                out[valid] = enc.transform(col_1d[valid].reshape(-1, 1)).ravel()
+            return out, missing
+    return enc.transform(col_1d.reshape(-1, 1)).ravel().astype(np.int64), np.zeros(
+        len(col_1d), dtype=bool
+    )
 
 
 def _cut_points(bins):
@@ -584,27 +745,29 @@ class _Binning:
         self.bins = bins
 
     @classmethod
-    def fit_transform(cls, X, y_idx, columns, n_bins, strategy):
+    def fit_transform(cls, X, y_idx, columns, n_bins, strategy, sample_weight=None):
         """The binning of the columns ``columns`` of ``X`` and the binned
         copy of ``X``."""
         n_classes = int(y_idx.max()) + 1 if len(y_idx) else 0
         bins = [
-            _fit_bins(X[:, [j]], y_idx, n_classes, n_bins, strategy) for j in columns
+            _fit_bins(X[:, [j]], y_idx, n_classes, n_bins, strategy, sample_weight)
+            for j in columns
         ]
         binning = cls(list(columns), bins)
         return binning, binning.transform(X)
 
     def transform(self, X):
-        """Copy of ``X`` with the bin of every value in the binned columns.
-        Values beyond the range seen in training fall in the first or the
-        last bin."""
+        """Copy of ``X`` with the bin of every non-missing value in the binned
+        columns (missing values stay ``NaN``). Values beyond the range seen in
+        training fall in the first or the last bin."""
         X = np.array(X, dtype=np.float64)
         for j, bins in zip(self.columns, self.bins):
-            X[:, j] = bins.transform(X[:, [j]]).ravel()
+            codes, missing = _transform_bins(bins, X[:, j])
+            X[:, j] = np.where(missing, np.nan, codes.astype(np.float64))
         return X
 
 
-def _discretized_children(estimator, X, y_idx):
+def _discretized_children(estimator, X, y_idx, sample_weight=None):
     """Apply ``continuous_children`` to the validated training ``X`` of
     ``estimator``.
 
@@ -640,7 +803,7 @@ def _discretized_children(estimator, X, y_idx):
     if not columns:
         return X, labels, None
     estimator._binning, X = _Binning.fit_transform(
-        X, y_idx, columns, estimator.n_bins, estimator.strategy
+        X, y_idx, columns, estimator.n_bins, estimator.strategy, sample_weight
     )
     return X, labels + columns, None
 
@@ -668,18 +831,19 @@ class _AttributeEncoder:
         self.gaussian_features = gaussian_features
         self.discrete_features = discrete_features
 
-    def fit_transform(self, X, y_idx, known=None, dtype=np.int64):
+    def fit_transform(self, X, y_idx, known=None, dtype=np.int64, sample_weight=None):
         """Fit the encoders and return the codes of ``X``, of type ``dtype``
-        (with None, 16 bits when every attribute fits in them, else 32).
-        ``y_idx`` holds the class indices, which only the ``"mdlp"`` strategy
-        looks at. ``known`` optionally gives ``(columns, categories, codes)``,
-        the output of :func:`_discrete_codes` for some discrete columns,
-        reused as is; the other discrete columns are encoded together."""
+        (with None, 16 bits when every attribute fits in them and there are no
+        missing values, else 32). Missing values get code ``-1``. ``y_idx``
+        holds the class indices, which only the ``"mdlp"`` strategy looks at.
+        ``known`` optionally gives ``(columns, categories, codes)``, the output
+        of :func:`_discrete_codes` for some discrete columns, reused as is."""
         known_columns = {}
         if known is not None:
             known_columns = {int(c): k for k, c in enumerate(known[0])}
         declared_gaussian = {int(i) for i in self.gaussian_features or []}
         declared_discrete = {int(i) for i in self.discrete_features or []}
+        has_nan = _has_missing(X)
         # The encoders whose number of codes is only known once fitted come
         # first, since that number decides the type of the codes
         self.encoders_ = [None] * X.shape[1]
@@ -699,7 +863,9 @@ class _AttributeEncoder:
             else:
                 continuous = auto[i] == "gaussian"
             if continuous and self.strategy == "mdlp":
-                self.encoders_[i] = _fit_bins(X[:, [i]], y_idx, n_classes, None, "mdlp")
+                self.encoders_[i] = _fit_bins(
+                    X[:, [i]], y_idx, n_classes, None, "mdlp", sample_weight
+                )
             elif continuous:
                 binned.append(i)
             elif i in known_columns:
@@ -721,28 +887,34 @@ class _AttributeEncoder:
                     if enc is not None
                 ]
             )
-            dtype = np.uint16 if widest <= 1 << 16 else np.int32
+            dtype = np.int32 if (has_nan or widest > 1 << 16) else np.uint16
 
         codes = np.zeros(X.shape, dtype=dtype)
         for i, enc in enumerate(self.encoders_):
             if isinstance(enc, _Cuts):
-                codes[:, i] = enc.transform(X[:, i])
+                c, missing = _transform_bins(enc, X[:, i])
+                codes[:, i] = np.where(missing, -1, c)
         for i in binned:
-            enc = _fit_bins(X[:, [i]], y_idx, n_classes, self.n_bins, self.strategy)
-            codes[:, i] = enc.transform(X[:, [i]]).ravel()
+            enc = _fit_bins(
+                X[:, [i]], y_idx, n_classes, self.n_bins, self.strategy, sample_weight
+            )
+            c, missing = _transform_bins(enc, X[:, i])
+            codes[:, i] = np.where(missing, -1, c)
             self.encoders_[i] = enc
         if reused:
             codes[:, reused] = known[2][:, [known_columns[i] for i in reused]]
         if encoded:
             codes[:, encoded] = encoded_codes
-        self.cards_ = codes.max(axis=0).astype(np.int64) + 1
+        self.cards_ = np.maximum(codes.max(axis=0), 0).astype(np.int64) + 1
         return codes
 
     def transform(self, X):
-        """Codes of ``X`` and a mask of discrete values never seen in training.
+        """Codes of ``X`` and a mask of missing values or discrete values never
+        seen in training.
 
-        Codes are clipped to the training range; the code of an unseen value
-        is meaningless and callers decide how to treat it through the mask.
+        Codes are clipped to the training range; the code of an unseen or
+        missing value is meaningless and callers decide how to treat it
+        through the mask.
         """
         codes = np.zeros(X.shape, dtype=np.int64)
         unseen = np.zeros(X.shape, dtype=bool)
@@ -755,7 +927,7 @@ class _AttributeEncoder:
             )
         for i, enc in enumerate(self.encoders_):
             if not isinstance(enc, np.ndarray):
-                codes[:, i] = enc.transform(X[:, i].reshape(-1, 1)).ravel()
+                codes[:, i], unseen[:, i] = _transform_bins(enc, X[:, i])
         np.clip(codes, 0, self.cards_ - 1, out=codes)
         return codes, unseen
 
@@ -837,10 +1009,11 @@ class _ChildEncodingMixin:
 
     def _value_codes(self, X, cat_codes=None, dtype=np.int64):
         """Value of every discrete attribute as a child (the category of a
-        categorical attribute, the bit of a Bernoulli one), -1 for categories
-        never seen in training and 0 for the other attributes. ``cat_codes``
-        optionally holds the codes of the categorical attributes of a
-        training ``X``, as the back-off model returns them."""
+        categorical attribute, the bit of a Bernoulli one), -1 for missing
+        values or categories never seen in training and 0 for the other
+        attributes. ``cat_codes`` optionally holds the codes of the
+        categorical attributes of a training ``X``, as the back-off model
+        returns them."""
         types = self.backoff_.feature_types_
         codes = np.zeros(X.shape, dtype=dtype)
         if cat_codes is not None:
@@ -849,9 +1022,15 @@ class _ChildEncodingMixin:
             cat, unseen = self.backoff_._categorical_codes(X)
             codes[:, types["categorical"]] = np.where(unseen, -1, cat)
         if types["bernoulli"]:
-            codes[:, types["bernoulli"]] = (
-                X[:, types["bernoulli"]] > self.backoff_.bernoulli_thresholds_
-            )
+            X_b = X[:, types["bernoulli"]]
+            bits = (X_b > self.backoff_.bernoulli_thresholds_).astype(dtype)
+            if np.issubdtype(X_b.dtype, np.floating):
+                missing = np.isnan(X_b)
+                if missing.any():
+                    if np.issubdtype(codes.dtype, np.unsignedinteger):
+                        codes = codes.astype(np.int32)
+                    bits = np.where(missing, -1, bits)
+            codes[:, types["bernoulli"]] = bits
         return codes
 
     def _backoff_tables(self, kind, voff, cards, n_values):
@@ -876,7 +1055,10 @@ class _ChildEncodingMixin:
         else:
             mean = var = np.zeros((n_classes, 0))
         logn = gaussian_log_norms(var)
-        return self.backoff_.class_log_prior_, disc, mean, var, logn
+        root = np.nan_to_num(
+            self.backoff_.class_log_prior_, nan=LOG_ZERO, neginf=LOG_ZERO
+        )
+        return root, disc, mean, var, logn
 
     def _evaluation_inputs(self, X):
         """Per-sample inputs of the evaluation kernels for a validated ``X``:
@@ -891,9 +1073,10 @@ class _ChildEncodingMixin:
         uninf = np.zeros(X.shape)
         if types["gaussian"]:
             diff = xg - self._pooled_mean
-            uninf[:, types["gaussian"]] = -0.5 * (
+            ll = -0.5 * (
                 diff**2 / self._pooled_var + np.log(2.0 * np.pi * self._pooled_var)
             )
+            uninf[:, types["gaussian"]] = np.where(np.isnan(xg), 0.0, ll)
         kind, _, _, cards = self._layout()
         discrete = np.flatnonzero(kind == DISCRETE)
         uninf[:, discrete] = np.where(
@@ -1014,3 +1197,67 @@ def _warn_not_converged(n_failed, n_problems, max_iter):
         ),
         ConvergenceWarning,
     )
+
+
+def _resolve_feature(estimator, feature):
+    """Index of ``feature`` (given by index or by name in
+    ``feature_names_in_``) in a fitted estimator."""
+    if isinstance(feature, str):
+        names = getattr(estimator, "feature_names_in_", None)
+        if names is None or feature not in names:
+            raise ValueError(f"{feature!r} is not the name of a feature seen in fit.")
+        return int(np.flatnonzero(names == feature)[0])
+    if isinstance(feature, Integral) and 0 <= feature < estimator.n_features_in_:
+        return int(feature)
+    raise ValueError(
+        "feature must be the name of a feature seen in fit or its index in"
+        f" [0, {estimator.n_features_in_ - 1}], got {feature!r}."
+    )
+
+
+def _feature_name(estimator, j):
+    names = getattr(estimator, "feature_names_in_", None)
+    return f"x{j}" if names is None else names[j]
+
+
+def _table_frame(data, index_values, index_names, columns=None):
+    """A DataFrame of ``data`` whose rows are indexed by the arrays
+    ``index_values``, named ``index_names``; a single row when there is
+    nothing to tell the rows apart."""
+    try:
+        import pandas as pd
+    except ImportError as error:
+        raise ImportError("as_frame=True requires pandas.") from error
+    if index_values:
+        index = pd.MultiIndex.from_arrays(index_values, names=index_names)
+    else:
+        index = pd.Index(["all"])
+    return pd.DataFrame(data, index=index, columns=columns)
+
+
+def _format_dot(estimator, used, edges, feature_names=None, class_name="class"):
+    """Graphviz DOT description of a Bayesian network classifier."""
+    if feature_names is None:
+        feature_names = getattr(
+            estimator,
+            "feature_names_in_",
+            [f"x{i}" for i in range(estimator.n_features_in_)],
+        )
+    if len(feature_names) != estimator.n_features_in_:
+        raise ValueError(
+            f"feature_names must have {estimator.n_features_in_} names, got"
+            f" {len(feature_names)}."
+        )
+
+    def quoted(name):
+        return '"' + str(name).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+    lines = [
+        f"    {quoted(class_name)} -> {quoted(feature_names[i])};" for i in sorted(used)
+    ]
+    lines += [
+        f"    {quoted(feature_names[p])} -> {quoted(feature_names[i])};"
+        for p, i in edges
+        if p in used and i in used
+    ]
+    return "\n".join(["digraph {", *lines, "}"]) + "\n"

@@ -24,7 +24,8 @@ _DENSE_CELLS_PER_ROW = 4
 def _augmented_keys(y, pcodes_t, parents, strides, n_combos):
     """Key ``y * n_combos + parent_key`` of every training row, from the
     parent codes transposed, shape (n_features, n): the parent columns are
-    read whole, instead of a row of every attribute per training row."""
+    read whole, instead of a row of every attribute per training row. A row
+    with any negative (missing) parent code gets key ``-1``."""
     n = y.shape[0]
     keys = np.empty(n, dtype=np.int64)
     for r in range(n):
@@ -32,19 +33,25 @@ def _augmented_keys(y, pcodes_t, parents, strides, n_combos):
     for q in range(parents.shape[0]):
         column, stride = pcodes_t[parents[q]], strides[q]
         for r in range(n):
-            keys[r] += column[r] * stride
+            v = column[r]
+            if v < 0:
+                keys[r] = -1
+            elif keys[r] >= 0:
+                keys[r] += v * stride
     return keys
 
 
 @nb.njit(cache=True)
 def _state_index(keys, n_grid):
-    """Sorted distinct values of ``keys`` (all in ``[0, n_grid)``) and the
-    position of every key among them."""
+    """Sorted distinct non-negative values of ``keys`` (in ``[0, n_grid)``)
+    and the position of every key among them (``-1`` for negative keys)."""
     n = keys.shape[0]
     if n_grid <= _DENSE_CELLS_PER_ROW * n + 1024:
         pos = np.full(n_grid, -1, dtype=np.int64)
         for r in range(n):
-            pos[keys[r]] = 0
+            k = keys[r]
+            if k >= 0:
+                pos[k] = 0
         n_states = 0
         for g in range(n_grid):
             if pos[g] == 0:
@@ -56,30 +63,39 @@ def _state_index(keys, n_grid):
                 states[pos[g]] = g
         index = np.empty(n, dtype=np.int64)
         for r in range(n):
-            index[r] = pos[keys[r]]
+            k = keys[r]
+            index[r] = pos[k] if k >= 0 else -1
         return states, index
-    # Larger grids: order the rows by key with a radix sort, 16 bits a pass
-    # (np.unique would compile NumPy's whole sorting machinery)
-    order = np.arange(n)
-    spare = np.empty(n, dtype=np.int64)
+    # Larger grids: order the valid rows by key with a radix sort, 16 bits a
+    # pass (np.unique would compile NumPy's whole sorting machinery)
+    order = np.empty(n, dtype=np.int64)
+    m = 0
+    for r in range(n):
+        if keys[r] >= 0:
+            order[m] = r
+            m += 1
+    index = np.full(n, -1, dtype=np.int64)
+    if m == 0:
+        return np.empty(0, dtype=np.int64), index
+    order = order[:m]
+    spare = np.empty(m, dtype=np.int64)
     count = np.empty((1 << 16) + 1, dtype=np.int64)
     shift = 0
     while shift < 64 and (n_grid - 1) >> shift > 0:
         count[:] = 0
-        for r in range(n):
-            count[((keys[order[r]] >> shift) & 0xFFFF) + 1] += 1
+        for t in range(m):
+            count[((keys[order[t]] >> shift) & 0xFFFF) + 1] += 1
         for b in range(1 << 16):
             count[b + 1] += count[b]
-        for r in range(n):
-            digit = (keys[order[r]] >> shift) & 0xFFFF
-            spare[count[digit]] = order[r]
+        for t in range(m):
+            digit = (keys[order[t]] >> shift) & 0xFFFF
+            spare[count[digit]] = order[t]
             count[digit] += 1
         order, spare = spare, order
         shift += 16
-    states = np.empty(n, dtype=np.int64)
-    index = np.empty(n, dtype=np.int64)
+    states = np.empty(m, dtype=np.int64)
     n_states = 0
-    for t in range(n):
+    for t in range(m):
         r = order[t]
         if t == 0 or keys[r] != keys[order[t - 1]]:
             states[n_states] = keys[r]
@@ -91,12 +107,15 @@ def _state_index(keys, n_grid):
 @nb.njit(cache=True)
 def _value_cells(index, codes, j, card, n_states):
     """Cells ``index[r] * card + codes[r, j]`` (local state, value of
-    attribute ``j``) of the training rows, sorted and distinct, and the
-    position of every row among them."""
+    attribute ``j``) of the valid training rows, sorted and distinct, and the
+    position of every row among them (``-1`` when missing)."""
     n = index.shape[0]
     keys = np.empty(n, dtype=np.int64)
     for r in range(n):
-        keys[r] = index[r] * card + codes[r, j]
+        if index[r] < 0 or codes[r, j] < 0:
+            keys[r] = -1
+        else:
+            keys[r] = index[r] * card + codes[r, j]
     return _state_index(keys, n_states * card)
 
 

@@ -24,7 +24,10 @@ from ._runtime import _BLOCK_ROWS, _find, _Kernel
 def _join_key(codes_t, r, j, joins, strides, join_off):
     key = join_off[j]
     for q in range(joins.shape[1]):
-        key += codes_t[joins[j, q], r] * strides[j, q]
+        v = codes_t[joins[j, q], r]
+        if v < 0:
+            return -1
+        key += v * strides[j, q]
     return key
 
 
@@ -38,7 +41,8 @@ def _join_row(key, j, row_of_cell, cell_keys):
 
 @_Kernel
 def join_cells_seen(codes_t, joins, strides, join_off, n_keys):
-    """Mask of the keys that occur in ``codes_t`` (key 0 always does)."""
+    """Mask of the keys that occur in ``codes_t`` (key 0 always does).
+    Rows with a negative (missing) code in a join are skipped for that join."""
     seen = np.zeros(n_keys, dtype=np.bool_)
     seen[0] = True
     n = codes_t.shape[1]
@@ -47,10 +51,14 @@ def join_cells_seen(codes_t, joins, strides, join_off, n_keys):
             first, second = codes_t[joins[j, 0]], codes_t[joins[j, 1]]
             s0, s1, off = strides[j, 0], strides[j, 1], join_off[j]
             for r in range(n):
-                seen[off + first[r] * s0 + second[r] * s1] = True
+                a, b = first[r], second[r]
+                if a >= 0 and b >= 0:
+                    seen[off + a * s0 + b * s1] = True
         else:
             for r in range(n):
-                seen[_join_key(codes_t, r, j, joins, strides, join_off)] = True
+                key = _join_key(codes_t, r, j, joins, strides, join_off)
+                if key >= 0:
+                    seen[key] = True
     return seen
 
 
@@ -80,38 +88,55 @@ def join_key_counts(codes_t, y, joins, strides, join_off, n_keys, n_classes):
 
 @_Kernel
 def join_keys(codes_t, joins, strides, join_off):
-    """Key of every sample and join, shape (n, n_joins)."""
+    """Key of every sample and join, shape (n, n_joins); 0 when a join
+    contains a missing (negative) code."""
     n = codes_t.shape[1]
     keys = np.empty((n, joins.shape[0]), dtype=np.int64)
     for r in nb.prange(n):
         for j in range(joins.shape[0]):
-            keys[r, j] = _join_key(codes_t, r, j, joins, strides, join_off)
+            key = _join_key(codes_t, r, j, joins, strides, join_off)
+            keys[r, j] = key if key >= 0 else 0
     return keys
 
 
 @_Kernel
 def join_counts(
-    codes_t, y, joins, strides, join_off, row_of_cell, cell_keys, n_classes
+    codes_t, y, joins, strides, join_off, row_of_cell, cell_keys, n_classes, sw
 ):
-    """Training count of every table row and class, shape (n_rows, n_classes);
-    row 0 (the class prior) counts every sample."""
+    """Weighted count of every table row and class, shape (n_rows, n_classes),
+    and the valid weight per join and class, shape (n_joins, n_classes).
+    Row 0 (the class prior) counts every sample; rows with a negative
+    (missing) code in a join are skipped for that join."""
     n = codes_t.shape[1]
     n_joins = joins.shape[0]
+    weighted = sw.shape[0] > 0
     counts = np.zeros((cell_keys.shape[0] + n_joins, n_classes))
+    join_class = np.zeros((n_joins, n_classes))
     for r in range(n):
-        counts[0, y[r]] += 1.0
+        counts[0, y[r]] += sw[r] if weighted else 1.0
     for j in nb.prange(n_joins):  # joins own disjoint rows
         if joins.shape[1] == 2:
             first, second = codes_t[joins[j, 0]], codes_t[joins[j, 1]]
             s0, s1, off = strides[j, 0], strides[j, 1], join_off[j]
             for r in range(n):
-                key = off + first[r] * s0 + second[r] * s1
-                counts[_join_row(key, j, row_of_cell, cell_keys), y[r]] += 1.0
+                a, b = first[r], second[r]
+                if a < 0 or b < 0:
+                    continue
+                w = sw[r] if weighted else 1.0
+                key = off + a * s0 + b * s1
+                yr = y[r]
+                counts[_join_row(key, j, row_of_cell, cell_keys), yr] += w
+                join_class[j, yr] += w
         else:
             for r in range(n):
                 key = _join_key(codes_t, r, j, joins, strides, join_off)
-                counts[_join_row(key, j, row_of_cell, cell_keys), y[r]] += 1.0
-    return counts
+                if key < 0:
+                    continue
+                w = sw[r] if weighted else 1.0
+                yr = y[r]
+                counts[_join_row(key, j, row_of_cell, cell_keys), yr] += w
+                join_class[j, yr] += w
+    return counts, join_class
 
 
 @nb.njit(cache=True, inline="always")
@@ -279,6 +304,7 @@ def join_objective(
     cached_rows,
     table,
     n_chunks,
+    sw,
 ):
     """Conditional negative log-likelihood of the scores of :func:`join_scores`
     and its derivative with respect to every table entry, shape
@@ -286,18 +312,12 @@ def join_objective(
 
     ``cached_rows`` holds the output of :func:`join_rows` for ``codes_t``
     (``by_sample`` with two classes), or is empty and the rows are computed
-    block by block. The samples are split into ``n_chunks`` contiguous
-    chunks with their own accumulators, summed at the end.
-
-    Two classes, the common case, have their own loop: each sample is scored
-    and its residuals spread over its rows in one visit, about three times
-    faster than the loop over a run-time number of classes. With more
-    classes a block of samples is processed join by join, which keeps the
-    rows of the table that a join reaches in cache.
+    block by block. ``sw`` holds per-sample weights (empty when unweighted).
     """
     n = codes_t.shape[1]
     n_joins = joins.shape[0]
     n_rows, n_classes = table.shape
+    weighted = sw.shape[0] > 0
     binary = n_classes == 2
     cached = cached_rows.shape[0 if binary else 1] == n
     block = _block_size(n_joins)
@@ -343,17 +363,20 @@ def join_objective(
                     for i in range(i0, i0 + k):
                         sample = rows[off + i]
                         yi = y[lo + i]
+                        w = sw[lo + i] if weighted else 1.0
                         s0, s1 = sums[i - i0, 0], sums[i - i0, 1]
                         peak = max(s0, s1)
                         log_norm = peak + np.log(np.exp(s0 - peak) + np.exp(s1 - peak))
-                        nll[t] -= (s0 if yi == 0 else s1) - log_norm
-                        # Softmax residuals P(c | x) - [c == y]
+                        nll[t] -= w * ((s0 if yi == 0 else s1) - log_norm)
+                        # Softmax residuals w * (P(c | x) - [c == y])
                         r0 = np.exp(s0 - log_norm)
                         r1 = np.exp(s1 - log_norm)
                         if yi == 0:
                             r0 -= 1.0
                         else:
                             r1 -= 1.0
+                        r0 *= w
+                        r1 *= w
                         g[0, 0] += r0
                         g[0, 1] += r1
                         for j in range(n_joins):
@@ -364,18 +387,20 @@ def join_objective(
                 resid = _block_scores(cached_rows, lo, m, table)
             else:
                 resid = _block_scores(buf, 0, m, table)
-            # Softmax residuals P(c | x) - [c == y] in place
+            # Softmax residuals w * (P(c | x) - [c == y]) in place
             for i in range(m):
+                w = sw[lo + i] if weighted else 1.0
                 peak = resid[i].max()
                 total = 0.0
                 for c in range(n_classes):
                     total += np.exp(resid[i, c] - peak)
                 log_norm = peak + np.log(total)
-                nll[t] -= resid[i, y[lo + i]] - log_norm
+                nll[t] -= w * (resid[i, y[lo + i]] - log_norm)
                 for c in range(n_classes):
                     resid[i, c] = np.exp(resid[i, c] - log_norm)
                 resid[i, y[lo + i]] -= 1.0
                 for c in range(n_classes):
+                    resid[i, c] *= w
                     g[0, c] += resid[i, c]
             for j in range(n_joins):
                 for i in range(m):

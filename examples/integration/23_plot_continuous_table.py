@@ -44,9 +44,9 @@ scaler or a discretizer in front.
 # * ``many concave points``, a boolean: a worst number of concave points
 #   above 0.15.
 #
-# The table has no missing values; the models do not take them, and
-# :ref:`sphx_glr_auto_examples_integration_16_plot_pipeline_grid_search.py`
-# shows how to impute them in a pipeline. A quarter of the rows is set aside
+# The table has no missing values; :ref:`sphx_glr_auto_examples_integration_16_plot_pipeline_grid_search.py`
+# shows how to combine preprocessing (such as imputation and encoding) with a
+# classifier in a pipeline. A quarter of the rows is set aside
 # for the final evaluation.
 
 import matplotlib.pyplot as plt

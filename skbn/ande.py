@@ -45,6 +45,7 @@ from typing import NamedTuple, Optional
 import numpy as np
 from scipy.special import logsumexp
 from sklearn.base import _fit_context
+from sklearn.utils import Bunch
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.validation import (
     check_is_fitted,
@@ -53,18 +54,24 @@ from sklearn.utils.validation import (
 
 from ._core import (
     _LEVEL_DIMS,
+    _feature_name,
     _fit_weights,
     _fold_padding,
     _pad_last,
+    _resolve_feature,
     _row_chunks,
+    _table_frame,
     _validate_input,
+    _validate_sample_weight,
     _warn_not_converged,
 )
 from ._kernels import (
+    _threads,
     _weighted_arithmetic_gradient,
     _weighted_arithmetic_scores,
     _weighted_geometric_gradient,
     _weighted_geometric_scores,
+    component_scores,
 )
 
 # _Ensemble, the class of ``ensemble_``, is also imported here so that the
@@ -292,7 +299,7 @@ class AnDE(_BaseAnDE):
         self.continuous_children = continuous_children
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """
         Fit the ensemble of SPnDEs by counting frequencies.
 
@@ -300,17 +307,21 @@ class AnDE(_BaseAnDE):
         ----------
         X : array-like of shape (n_samples, n_features)
             Training vectors, where ``n_samples`` is the number of samples and
-            ``n_features`` is the number of features.
+            ``n_features`` is the number of features. May contain missing
+            values (``NaN`` or missing labels).
 
         y : array-like of shape (n_samples,)
             Target values.
+
+        sample_weight : array-like of shape (n_samples,), default=None
+            Non-negative weights applied to individual samples.
 
         Returns
         -------
         self : object
             Returns the instance itself.
         """
-        return super().fit(X, y)
+        return super().fit(X, y, sample_weight=sample_weight)
 
     def predict_log_proba(self, X):
         """
@@ -739,17 +750,19 @@ class WeightedAnDE(AnDE):
     def _child_value_codes(self, X):
         """Value code of every attribute as a child: the category of a
         categorical attribute, the bit of a Bernoulli one and 0 for Gaussian
-        (or ignored) attributes, whose values are not discretized. A category
-        never seen in training gets code 0; its factor is 0, so its weight
-        does not matter."""
+        (or ignored) attributes, whose values are not discretized. A missing
+        or unseen discrete value gets code ``-1``."""
         types = self.backoff_.feature_types_
         codes = np.zeros(X.shape, dtype=np.int64)
         if types["categorical"]:
-            codes[:, types["categorical"]] = self.backoff_._categorical_codes(X)[0]
+            cat, unseen = self.backoff_._categorical_codes(X)
+            codes[:, types["categorical"]] = np.where(unseen, -1, cat)
         if types["bernoulli"]:
-            codes[:, types["bernoulli"]] = (
-                X[:, types["bernoulli"]] > self.backoff_.bernoulli_thresholds_
-            )
+            X_b = X[:, types["bernoulli"]]
+            bits = (X_b > self.backoff_.bernoulli_thresholds_).astype(np.int64)
+            if np.issubdtype(X_b.dtype, np.floating):
+                bits = np.where(np.isnan(X_b), -1, bits)
+            codes[:, types["bernoulli"]] = bits
         return codes
 
     def _term_cardinalities(self):
@@ -771,17 +784,31 @@ class WeightedAnDE(AnDE):
         parent_cards[:, 0] = 1
         return value_cards, parent_cards
 
-    def _term_codes(self, X, X_parents_disc):
-        """Value and parent codes of every term, each of shape
-        (n_samples, n_models, n_terms)."""
+    def _term_codes(self, X, X_parents_disc, punseen=None):
+        """Value and parent codes of every term, and a mask of terms with an
+        unseen or missing value/parent (their weight key is ``-1``)."""
         parent_keys = self._parent_keys(X_parents_disc)[:, :, None]
+        if punseen is not None and self.n_dependence > 0:
+            p_miss = punseen[:, self._tables.parents].any(axis=2)[:, :, None]
+        else:
+            p_miss = np.zeros(parent_keys.shape, dtype=bool)
+        dims = _LEVEL_DIMS[self._weight_scope][self._weight_level]
         if self._weight_scope == "component":
-            return parent_keys, np.zeros_like(parent_keys)
+            unseen = p_miss if "value" in dims else np.zeros_like(p_miss)
+            return parent_keys, np.zeros_like(parent_keys), unseen
         child_codes = self._child_value_codes(X)[:, self._children()]
+        child_miss = child_codes < 0
+        child_codes = np.where(child_miss, 0, child_codes)
         value_codes = np.concatenate([parent_keys, child_codes], axis=2)
         parent_codes = np.broadcast_to(parent_keys, value_codes.shape).copy()
         parent_codes[:, :, 0] = 0
-        return value_codes, parent_codes
+        unseen = np.zeros(value_codes.shape, dtype=bool)
+        if "value" in dims:
+            unseen[:, :, 0] = p_miss[:, :, 0]
+            unseen[:, :, 1:] |= child_miss
+        if "parents" in dims:
+            unseen[:, :, 1:] |= p_miss
+        return value_codes, parent_codes, unseen
 
     def _setup_weights(self, X):
         """Lay out the weights on a validated training ``X``.
@@ -811,12 +838,16 @@ class WeightedAnDE(AnDE):
         size = size * (parent_cards if "parents" in dims else 1)
         self._term_offsets = np.cumsum(size.ravel()).reshape(size.shape) - size
 
-        X_parents_disc = self._encoder.transform(X)[0]
-        seen = [
-            np.unique(self._weight_base(X[rows], X_parents_disc[rows]))
-            for rows in _row_chunks(len(X), size.size)
-        ]
-        self._base_keys = np.unique(np.concatenate(seen))
+        X_parents_disc, punseen = self._encoder.transform(X)
+        seen = []
+        for rows in _row_chunks(len(X), size.size):
+            chunk_keys = self._weight_base(X[rows], X_parents_disc[rows], punseen[rows])
+            valid = chunk_keys[chunk_keys >= 0]
+            if len(valid):
+                seen.append(np.unique(valid))
+        self._base_keys = (
+            np.unique(np.concatenate(seen)) if seen else np.zeros(0, dtype=np.int64)
+        )
         self._n_seen = len(self._base_keys) * per_key
         self.n_weights_ = self._n_seen + 1
         self._component_bounds = np.append(
@@ -824,22 +855,30 @@ class WeightedAnDE(AnDE):
             self._n_seen,
         )
 
-    def _weight_base(self, X, X_parents_disc):
-        """Key of the class-0 weight of every (sample, component, term)."""
-        value_codes, parent_codes = self._term_codes(X, X_parents_disc)
-        return (
+    def _weight_base(self, X, X_parents_disc, punseen=None):
+        """Key of the class-0 weight of every (sample, component, term);
+        ``-1`` for unseen or missing combinations."""
+        value_codes, parent_codes, unseen = self._term_codes(X, X_parents_disc, punseen)
+        keys = (
             self._term_offsets
             + value_codes * self._value_stride
             + parent_codes * self._parent_stride
         )
+        if unseen.any():
+            keys = np.where(unseen, -1, keys)
+        return keys
 
     def _weight_index(self, keys):
         """Class-0 weight of each class-0 key; the keys unseen in training
         share the last weight, whatever the class."""
+        if not len(self._base_keys):
+            return np.full(keys.shape, self._n_seen, dtype=np.int64)
         last = len(self._base_keys) - 1
         pos = np.minimum(np.searchsorted(self._base_keys, keys), last)
         per_key = len(self.classes_) if self._class_step else 1
-        return np.where(self._base_keys[pos] == keys, pos * per_key, self._n_seen)
+        return np.where(
+            (keys >= 0) & (self._base_keys[pos] == keys), pos * per_key, self._n_seen
+        )
 
     def _design(self, X):
         """Weighted-score design for a validated ``X``, and the NB fallback.
@@ -850,7 +889,17 @@ class WeightedAnDE(AnDE):
         per (sample, component, term).
         """
         per_factor = self._weight_scope == "factor"
-        ll, X_parents_disc, active, nb_jll = self._jll_per_model(X, per_factor)
+        inputs = self._evaluation_inputs(X)
+        with _threads(self.n_jobs):
+            out, active, nb_jll = component_scores(
+                inputs,
+                self._tables,
+                max(self.min_parent_count, 1),
+                self.unseen_state == "backoff",
+                per_factor,
+            )
+        ll = out if per_factor else out[..., 0]
+        X_parents_disc, punseen = inputs.pcodes, inputs.punseen
         n_samples, _, n_models = ll.shape[:3]
         n_terms = ll.shape[3] if per_factor else 1
         idx_dtype = (
@@ -860,7 +909,7 @@ class WeightedAnDE(AnDE):
         index = np.empty((n_samples, n_models, n_terms), dtype=idx_dtype)
         for rows in _row_chunks(n_samples, n_models * n_terms):
             index[rows] = self._weight_index(
-                self._weight_base(X[rows], X_parents_disc[rows])
+                self._weight_base(X[rows], X_parents_disc[rows], punseen[rows])
             )
 
         # Exponent weights multiply the log-terms; mixture weights add to the
@@ -908,7 +957,8 @@ class WeightedAnDE(AnDE):
         set to zero leave their samples out of the objective."""
         scores, terms = self._scores(theta, design)
         log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
-        nll = -np.sum(log_prob * Y)
+        with np.errstate(invalid="ignore"):
+            nll = -np.sum(np.where(Y > 0, log_prob * Y, 0.0))
         dscores = np.exp(log_prob) * Y.sum(axis=1, keepdims=True) - Y
         n_classes = len(self.classes_)
         n_padded = theta.size + design.class_step * (n_classes - 1)
@@ -950,7 +1000,7 @@ class WeightedAnDE(AnDE):
         return theta
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """
         Fit the generative ensemble, then learn the discriminative weights.
 
@@ -962,10 +1012,14 @@ class WeightedAnDE(AnDE):
         ----------
         X : array-like of shape (n_samples, n_features)
             Training vectors, where ``n_samples`` is the number of samples and
-            ``n_features`` is the number of features.
+            ``n_features`` is the number of features. May contain missing
+            values (``NaN`` or missing labels).
 
         y : array-like of shape (n_samples,)
             Target values.
+
+        sample_weight : array-like of shape (n_samples,), default=None
+            Non-negative weights applied to individual samples.
 
         Returns
         -------
@@ -973,18 +1027,23 @@ class WeightedAnDE(AnDE):
             Returns the instance itself.
         """
         # 1. Generative phase (pre-conditioning)
-        super().fit(X, y)
+        super().fit(X, y, sample_weight=sample_weight)
 
         # 2. Weight layout and design on the training set
         X = _validate_input(self, X, reset=False)
+        sw = _validate_sample_weight(sample_weight, X)
+        y_idx = np.searchsorted(self.classes_, column_or_1d(y))
+        if sw is not None and np.any(sw == 0):
+            pos = sw > 0
+            X, y_idx, sw = X[pos], y_idx[pos], sw[pos]
         self._setup_weights(X)
         design, _ = self._design(X)
 
-        # The generative fit has already validated y (and warned on a column
-        # vector). Samples with no active component are predicted by the NB
-        # fallback, do not depend on the weights and are left out.
-        y_idx = np.searchsorted(self.classes_, column_or_1d(y))
+        # Samples with no active component are predicted by the NB fallback,
+        # do not depend on the weights and are left out.
         Y = np.eye(len(self.classes_))[y_idx] * design.active.any(axis=1)[:, None]
+        if sw is not None:
+            Y = Y * sw[:, None]
 
         theta = np.zeros(self.n_weights_) if self._offset else np.ones(self.n_weights_)
         self.n_iter_ = 0
@@ -1049,3 +1108,255 @@ class WeightedAnDE(AnDE):
             scores[fallback] = nb_jll[fallback]
             out[rows] = self._normalize(scores)
         return out
+
+    @property
+    def component_weights_(self):
+        """Weights of every SPnDE component, a list with one array per
+        component of shape (n_keys, n_classes) when class-specific and
+        (n_keys, 1) otherwise."""
+        check_is_fitted(self, attributes=["learned_weights_"])
+        n_cols = len(self.classes_) if self._class_step else 1
+        bounds = self._component_bounds
+        return [
+            self.learned_weights_[lo:hi].reshape(-1, n_cols)
+            for lo, hi in zip(bounds[:-1], bounds[1:])
+        ]
+
+    def _resolve_component(self, component):
+        """Index of an SPnDE component from its integer index, a feature name
+        (when ``n_dependence == 1``) or a tuple of parent indices/names."""
+        n_models = len(self.ensemble_)
+        if isinstance(component, Integral):
+            if 0 <= component < n_models:
+                return int(component)
+            raise ValueError(
+                f"component must be in [0, {n_models - 1}], got {component!r}."
+            )
+        if isinstance(component, str):
+            if self.n_dependence != 1:
+                raise ValueError(
+                    "Passing a feature name as component requires n_dependence=1;"
+                    " pass an integer component index or a tuple of parent features."
+                )
+            target = (_resolve_feature(self, component),)
+        elif isinstance(component, (tuple, list)):
+            target = tuple(sorted(_resolve_feature(self, p) for p in component))
+        else:
+            raise ValueError(
+                "component must be an integer index, a feature name (for"
+                " n_dependence=1) or a tuple of parent features."
+            )
+        for m, info in enumerate(self.ensemble_):
+            if info["parent_indices"] == target:
+                return m
+        raise ValueError(f"No component has super-parents {target}.")
+
+    def _decode_parent_keys(self, m, parent_keys):
+        """Values of the super-parents of component ``m`` for ``parent_keys``."""
+        info = self.ensemble_[m]
+        parents = list(info["parent_indices"])
+        values = np.empty((len(parent_keys), len(parents)), dtype=object)
+        strides = info["parent_strides"]
+        cards = info["parent_cards"]
+        for q, p in enumerate(parents):
+            codes = parent_keys // strides[q] % cards[q]
+            values[:, q] = self._parent_values(p)[codes]
+        return parents, values
+
+    def _term_key_slice(self, m, t):
+        """Base keys and reshaped weights of component ``m``, term ``t``."""
+        flat = self._term_offsets.ravel()
+        pos = m * self._term_offsets.shape[1] + t
+        start_key = flat[pos]
+        end_key = flat[pos + 1] if pos + 1 < len(flat) else None
+        lo = int(np.searchsorted(self._base_keys, start_key))
+        hi = (
+            len(self._base_keys)
+            if end_key is None
+            else int(np.searchsorted(self._base_keys, end_key))
+        )
+        per_key = len(self.classes_) if self._class_step else 1
+        keys = self._base_keys[lo:hi] - start_key
+        weights = self.learned_weights_[lo * per_key : hi * per_key].reshape(
+            -1, per_key
+        )
+        return keys, weights
+
+    def weight_table(self, component=None, feature=None, as_frame=False):
+        """Return the learned weights with the combinations they belong to.
+
+        With ``weight_scope="component"``, returns the weights of one
+        component or of every component (when ``component=None``). With
+        ``weight_scope="factor"``, returns the weights of the root factor
+        (``feature=None``) or of a child attribute inside ``component``
+        (which defaults to 0 when ``n_dependence=0``).
+
+        Parameters
+        ----------
+        component : int, str, tuple or None, default=None
+            Component index, parent feature name (for ``n_dependence=1``), or
+            tuple of parent features. With ``weight_scope="component"``,
+            ``None`` returns all components together.
+
+        feature : int, str or None, default=None
+            Child attribute (for ``weight_scope="factor"``), by index or by
+            name in ``feature_names_in_``. ``None`` selects the root factor
+            :math:`P(y, \\mathbf{x}_P)`.
+
+        as_frame : bool, default=False
+            If True, return a pandas DataFrame.
+
+        Returns
+        -------
+        table : :class:`~sklearn.utils.Bunch` or DataFrame
+            Dictionary-like object holding the decoded weights and labels.
+        """
+        check_is_fitted(self, attributes=["learned_weights_"])
+        dims = _LEVEL_DIMS[self._weight_scope][self._weight_level]
+        classes = self.classes_ if self._class_step else None
+        columns = ["weight"] if classes is None else classes
+
+        if self._weight_scope == "component":
+            if feature is not None:
+                raise ValueError("feature is only used when weight_scope='factor'.")
+            if component is None:
+                comp_ids, parent_labels, pval_rows, weight_blocks = [], [], [], []
+                for m in range(len(self.ensemble_)):
+                    keys, w = self._term_key_slice(m, 0)
+                    parents = list(self.ensemble_[m]["parent_indices"])
+                    label = (
+                        ", ".join(_feature_name(self, p) for p in parents)
+                        if parents
+                        else "all"
+                    )
+                    comp_ids.extend([m] * len(keys))
+                    parent_labels.extend([label] * len(keys))
+                    weight_blocks.append(w)
+                    if "value" in dims and parents:
+                        vstride = self._value_stride[m, 0]
+                        vcodes = keys // vstride if vstride else np.zeros_like(keys)
+                        _, pv = self._decode_parent_keys(m, vcodes)
+                        pval_rows.append(
+                            np.array(
+                                [
+                                    pv[r, 0] if pv.shape[1] == 1 else tuple(pv[r])
+                                    for r in range(len(keys))
+                                ],
+                                dtype=object,
+                            )
+                        )
+                weights = (
+                    np.vstack(weight_blocks)
+                    if weight_blocks
+                    else np.empty((0, len(columns)))
+                )
+                pvals = np.concatenate(pval_rows) if pval_rows else None
+                table = Bunch(
+                    component=np.asarray(comp_ids, dtype=np.int64),
+                    parents=parent_labels,
+                    parent_values=pvals,
+                    weights=weights,
+                    classes=classes,
+                )
+                if not as_frame:
+                    return table
+                idx_vals = [table.parents]
+                idx_names = ["parents"]
+                if pvals is not None:
+                    idx_vals.append(pvals)
+                    idx_names.append("parent_value")
+                return _table_frame(weights, idx_vals, idx_names, columns)
+
+            m = self._resolve_component(component)
+            keys, weights = self._term_key_slice(m, 0)
+            parents = list(self.ensemble_[m]["parent_indices"])
+            if "value" in dims and parents:
+                vstride = self._value_stride[m, 0]
+                vcodes = keys // vstride if vstride else np.zeros_like(keys)
+                _, pvals = self._decode_parent_keys(m, vcodes)
+            else:
+                pvals = np.empty((len(keys), 0), dtype=object)
+            table = Bunch(
+                component=m,
+                parents=parents,
+                parent_values=pvals,
+                weights=weights,
+                classes=classes,
+            )
+            if not as_frame:
+                return table
+            idx_vals = list(pvals.T) if pvals.shape[1] else []
+            idx_names = [_feature_name(self, p) for p in parents] if idx_vals else []
+            return _table_frame(weights, idx_vals, idx_names, columns)
+
+        # weight_scope == "factor"
+        if component is None:
+            if self.n_dependence == 0:
+                m = 0
+            else:
+                raise ValueError(
+                    "component must be specified when weight_scope='factor' and"
+                    " n_dependence > 0."
+                )
+        else:
+            m = self._resolve_component(component)
+        info = self.ensemble_[m]
+        parents = list(info["parent_indices"])
+        children = info["child_indices"]
+        if feature is None:
+            t = 0
+            feat_idx = None
+        else:
+            feat_idx = _resolve_feature(self, feature)
+            if feat_idx not in children:
+                raise ValueError(
+                    f"Feature {feat_idx} is a super-parent of component {m}, not a"
+                    " child."
+                )
+            t = 1 + children.index(feat_idx)
+
+        keys, weights = self._term_key_slice(m, t)
+        pstride = self._parent_stride[m, t]
+        vstride = self._value_stride[m, t]
+        if pstride:
+            pcodes, rem = np.divmod(keys, pstride)
+        else:
+            pcodes, rem = np.zeros_like(keys), keys
+        vcodes = rem // vstride if vstride else np.zeros_like(keys)
+
+        feature_values = None
+        if t == 0:
+            if "value" in dims and parents:
+                _, parent_values = self._decode_parent_keys(m, vcodes)
+                used_parents = parents
+            else:
+                parent_values = np.empty((len(keys), 0), dtype=object)
+                used_parents = []
+        else:
+            child_vals = self._child_values(feat_idx)
+            if "value" in dims and child_vals is not None:
+                feature_values = child_vals[vcodes]
+            if "parents" in dims and parents:
+                _, parent_values = self._decode_parent_keys(m, pcodes)
+                used_parents = parents
+            else:
+                parent_values = np.empty((len(keys), 0), dtype=object)
+                used_parents = []
+
+        table = Bunch(
+            component=m,
+            parents=used_parents,
+            feature=feat_idx,
+            weights=weights,
+            feature_values=feature_values,
+            parent_values=parent_values,
+            classes=classes,
+        )
+        if not as_frame:
+            return table
+        idx_vals = ([] if feature_values is None else [feature_values]) + list(
+            parent_values.T
+        )
+        idx_names = [] if feature_values is None else [_feature_name(self, feat_idx)]
+        idx_names += [_feature_name(self, p) for p in used_parents]
+        return _table_frame(weights, idx_vals, idx_names, columns)

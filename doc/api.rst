@@ -19,6 +19,7 @@ Mixed Naive Bayes
    :template: class.rst
 
    MixedNB
+   WeightedNB
 
 .. _ande_api:
 

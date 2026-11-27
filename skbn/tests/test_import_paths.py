@@ -31,6 +31,7 @@ def test_every_public_name_imports_from_the_package(name):
         ("skbn.kdb", "KDB"),
         ("skbn.kdb", "WeightedKDB"),
         ("skbn.mixed_nb", "MixedNB"),
+        ("skbn.mixed_nb", "WeightedNB"),
         ("skbn.discretization", "MDLPDiscretizer"),
         ("skbn.discretization", "DecisionTreeDiscretizer"),
     ],

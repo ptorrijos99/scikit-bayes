@@ -32,60 +32,83 @@ def _column_ranges(X, columns):
 
 @nb.njit(cache=True)
 def _column_profiles(X, columns):
-    """For every column in ``columns``: its smallest and largest value (as
-    floats), whether all its values are integers and how many distinct values
-    it has, counted up to three. One pass over the rows gives what typing an
-    attribute needs, without sorting it."""
+    """For every column in ``columns``: its smallest and largest non-missing
+    value (as floats), whether all its non-missing values are integers, how
+    many distinct non-missing values it has (counted up to three, 0 when all
+    missing) and whether it holds any NaN. One pass over the rows gives what
+    typing an attribute needs, without sorting it."""
     k = columns.shape[0]
-    lo = np.empty(k)
-    hi = np.empty(k)
+    lo = np.zeros(k)
+    hi = np.zeros(k)
     whole = np.ones(k, dtype=np.bool_)
-    first = np.empty(k)
-    second = np.empty(k)
-    distinct = np.ones(k, dtype=np.int64)
-    for c in range(k):
-        lo[c] = hi[c] = first[c] = second[c] = X[0, columns[c]]
+    first = np.zeros(k)
+    second = np.zeros(k)
+    distinct = np.zeros(k, dtype=np.int64)
+    has_nan = np.zeros(k, dtype=np.bool_)
     for r in range(X.shape[0]):
         for c in range(k):
             v = X[r, columns[c]]
-            lo[c] = min(lo[c], v)
-            hi[c] = max(hi[c], v)
+            if v != v:
+                has_nan[c] = True
+                continue
+            if distinct[c] == 0:
+                lo[c] = hi[c] = first[c] = second[c] = v
+                distinct[c] = 1
+            else:
+                lo[c] = min(lo[c], v)
+                hi[c] = max(hi[c], v)
+                if distinct[c] == 1:
+                    if v != first[c]:
+                        second[c] = v
+                        distinct[c] = 2
+                elif distinct[c] == 2 and v != first[c] and v != second[c]:
+                    distinct[c] = 3
             whole[c] &= v == np.floor(v)
-            if distinct[c] == 1:
-                if v != first[c]:
-                    second[c] = v
-                    distinct[c] = 2
-            elif distinct[c] == 2 and v != first[c] and v != second[c]:
-                distinct[c] = 3
-    return lo, hi, whole, distinct
+    return lo, hi, whole, distinct, has_nan
 
 
 @nb.njit(cache=True, error_model="numpy")
-def _class_moments(X, y, n_classes):
+def _class_moments(X, y, n_classes, sw):
     """Mean and variance of every column of ``X`` within each class, each of
-    shape (n_classes, n_features), and the class counts. The sums run over
-    the rows in order, as ``np.bincount`` with weights does, without the
-    array of squared deviations."""
+    shape (n_classes, n_features), and the per-(class, feature) valid weight
+    sums. ``sw`` holds per-sample weights (empty when unweighted). Missing
+    values (``NaN``) are skipped; cells with zero valid weight hold ``NaN``
+    for ``mean`` and ``var``."""
     n, d = X.shape
-    count = np.zeros(n_classes)
+    weighted = sw.shape[0] > 0
+    count = np.zeros((n_classes, d))
     mean = np.zeros((n_classes, d))
     var = np.zeros((n_classes, d))
     for r in range(n):
         c = y[r]
-        count[c] += 1.0
+        w = sw[r] if weighted else 1.0
         for j in range(d):
-            mean[c, j] += X[r, j]
+            v = X[r, j]
+            if v != v:
+                continue
+            count[c, j] += w
+            mean[c, j] += w * v
     for c in range(n_classes):
         for j in range(d):
-            mean[c, j] /= count[c]
+            if count[c, j] > 0.0:
+                mean[c, j] /= count[c, j]
+            else:
+                mean[c, j] = np.nan
     for r in range(n):
         c = y[r]
+        w = sw[r] if weighted else 1.0
         for j in range(d):
-            diff = X[r, j] - mean[c, j]
-            var[c, j] += diff * diff
+            v = X[r, j]
+            if v != v:
+                continue
+            diff = v - mean[c, j]
+            var[c, j] += w * diff * diff
     for c in range(n_classes):
         for j in range(d):
-            var[c, j] /= count[c]
+            if count[c, j] > 0.0:
+                var[c, j] /= count[c, j]
+            else:
+                var[c, j] = np.nan
     return count, mean, var
 
 
@@ -141,11 +164,18 @@ def _table_codes(X, columns, lo, table, table_off):
 
 
 @nb.njit(cache=True)
-def _categorical_counts(X, y, offsets, cards, size):
-    """Count of every (feature, class, value) cell of a categorical Naive
-    Bayes: feature ``j`` owns the cells ``offsets[j] + y * cards[j] + v``."""
+def _categorical_counts(X, y, offsets, cards, size, sw):
+    """Weighted count of every (feature, class, value) cell of a categorical
+    Naive Bayes: feature ``j`` owns ``offsets[j] + y * cards[j] + v``.
+    Negative codes (missing values) are skipped; ``sw`` is empty when
+    unweighted."""
+    weighted = sw.shape[0] > 0
     flat = np.zeros(size)
     for r in range(X.shape[0]):
+        w = sw[r] if weighted else 1.0
+        yr = y[r]
         for j in range(X.shape[1]):
-            flat[offsets[j] + y[r] * cards[j] + X[r, j]] += 1.0
+            v = X[r, j]
+            if v >= 0:
+                flat[offsets[j] + yr * cards[j] + v] += w
     return flat
