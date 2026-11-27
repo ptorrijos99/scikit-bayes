@@ -29,6 +29,9 @@
         ~MDLPDiscretizer.get_params
       
       
+        ~MDLPDiscretizer.set_fit_request
+      
+      
         ~MDLPDiscretizer.set_output
       
       

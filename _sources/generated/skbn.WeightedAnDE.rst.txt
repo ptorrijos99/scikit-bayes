@@ -35,10 +35,16 @@
         ~WeightedAnDE.score
       
       
+        ~WeightedAnDE.set_fit_request
+      
+      
         ~WeightedAnDE.set_params
       
       
         ~WeightedAnDE.set_score_request
+      
+      
+        ~WeightedAnDE.weight_table
       
    
    

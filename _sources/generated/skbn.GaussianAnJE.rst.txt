@@ -35,6 +35,9 @@
         ~GaussianAnJE.score
       
       
+        ~GaussianAnJE.set_fit_request
+      
+      
         ~GaussianAnJE.set_params
       
       

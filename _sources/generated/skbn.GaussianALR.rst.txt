@@ -35,10 +35,16 @@
         ~GaussianALR.score
       
       
+        ~GaussianALR.set_fit_request
+      
+      
         ~GaussianALR.set_params
       
       
         ~GaussianALR.set_score_request
+      
+      
+        ~GaussianALR.weight_table
       
    
    

@@ -38,6 +38,9 @@
         ~KDB.score
       
       
+        ~KDB.set_fit_request
+      
+      
         ~KDB.set_params
       
       

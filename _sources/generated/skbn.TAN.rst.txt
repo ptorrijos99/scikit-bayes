@@ -38,6 +38,9 @@
         ~TAN.score
       
       
+        ~TAN.set_fit_request
+      
+      
         ~TAN.set_params
       
       

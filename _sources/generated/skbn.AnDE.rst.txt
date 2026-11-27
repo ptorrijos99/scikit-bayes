@@ -35,6 +35,9 @@
         ~AnDE.score
       
       
+        ~AnDE.set_fit_request
+      
+      
         ~AnDE.set_params
       
       

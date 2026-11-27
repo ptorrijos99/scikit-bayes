@@ -38,6 +38,9 @@
         ~WeightedKDB.score
       
       
+        ~WeightedKDB.set_fit_request
+      
+      
         ~WeightedKDB.set_params
       
       

@@ -38,6 +38,9 @@
         ~WeightedTAN.score
       
       
+        ~WeightedTAN.set_fit_request
+      
+      
         ~WeightedTAN.set_params
       
       

@@ -35,10 +35,16 @@
         ~ALR.score
       
       
+        ~ALR.set_fit_request
+      
+      
         ~ALR.set_params
       
       
         ~ALR.set_score_request
+      
+      
+        ~ALR.weight_table
       
    
    

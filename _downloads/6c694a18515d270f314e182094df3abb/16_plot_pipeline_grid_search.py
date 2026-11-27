@@ -7,10 +7,11 @@ The estimators of the library follow the scikit-learn interface, so they
 can be combined with its preprocessing, pipelines and model selection.
 
 The data are a table with numeric and text columns and some missing values,
-as it would come out of a database. A single
-:class:`sklearn.pipeline.Pipeline` imputes the missing values and encodes
-the text columns as integers (:class:`sklearn.compose.ColumnTransformer`),
-and then fits an :class:`skbn.ALR`, told which columns are categorical.
+as it would come out of a database. Although the classifiers in scikit-bayes
+handle text columns and missing values natively, a
+:class:`sklearn.pipeline.Pipeline` with
+:class:`sklearn.compose.ColumnTransformer` can still be used when explicit
+imputation or encoding is preferred before fitting :class:`skbn.ALR`.
 
 A :class:`sklearn.model_selection.GridSearchCV` then chooses the size of
 the attribute subsets of ALR (``n_join``) and the granularity of its

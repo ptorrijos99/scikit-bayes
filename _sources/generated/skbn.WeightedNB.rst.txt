@@ -1,0 +1,62 @@
+﻿WeightedNB
+=============================
+
+.. currentmodule:: skbn
+
+.. autoclass:: WeightedNB
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      
+      
+        ~WeightedNB.conditional_table
+      
+      
+        ~WeightedNB.fit
+      
+      
+        ~WeightedNB.get_metadata_routing
+      
+      
+        ~WeightedNB.get_params
+      
+      
+        ~WeightedNB.predict
+      
+      
+        ~WeightedNB.predict_log_proba
+      
+      
+        ~WeightedNB.predict_proba
+      
+      
+        ~WeightedNB.score
+      
+      
+        ~WeightedNB.set_fit_request
+      
+      
+        ~WeightedNB.set_params
+      
+      
+        ~WeightedNB.set_score_request
+      
+      
+        ~WeightedNB.to_dot
+      
+      
+        ~WeightedNB.weight_table
+      
+   
+   
+
+.. include:: skbn.WeightedNB.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>

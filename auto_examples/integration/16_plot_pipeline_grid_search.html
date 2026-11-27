@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Pipelines and model selection with scikit-learn &#8212; scikit-bayes 1.4.0.post1.dev2 documentation</title>
+    <title>Pipelines and model selection with scikit-learn &#8212; scikit-bayes 1.4.0.post1.dev9 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=1a9f8ce2"></script>
+    <script src="../../_static/documentation_options.js?v=0ef43587"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
@@ -122,8 +122,8 @@
       
     
     
-    <img src="../../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.4.0.post1.dev2 documentation - Home"/>
-    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.4.0.post1.dev2 documentation - Home"/>
+    <img src="../../_static/logo.png" class="logo__image only-light" alt="scikit-bayes 1.4.0.post1.dev9 documentation - Home"/>
+    <img src="../../_static/logo.png" class="logo__image only-dark pst-js-only" alt="scikit-bayes 1.4.0.post1.dev9 documentation - Home"/>
   
   
 </a></div>
@@ -540,10 +540,11 @@ to download the full example code.</p>
 <p>The estimators of the library follow the scikit-learn interface, so they
 can be combined with its preprocessing, pipelines and model selection.</p>
 <p>The data are a table with numeric and text columns and some missing values,
-as it would come out of a database. A single
-<a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html#sklearn.pipeline.Pipeline" title="(in scikit-learn v1.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">sklearn.pipeline.Pipeline</span></code></a> imputes the missing values and encodes
-the text columns as integers (<a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.compose.ColumnTransformer.html#sklearn.compose.ColumnTransformer" title="(in scikit-learn v1.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">sklearn.compose.ColumnTransformer</span></code></a>),
-and then fits an <a class="reference internal" href="../../generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.ALR</span></code></a>, told which columns are categorical.</p>
+as it would come out of a database. Although the classifiers in scikit-bayes
+handle text columns and missing values natively, a
+<a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html#sklearn.pipeline.Pipeline" title="(in scikit-learn v1.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">sklearn.pipeline.Pipeline</span></code></a> with
+<a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.compose.ColumnTransformer.html#sklearn.compose.ColumnTransformer" title="(in scikit-learn v1.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">sklearn.compose.ColumnTransformer</span></code></a> can still be used when explicit
+imputation or encoding is preferred before fitting <a class="reference internal" href="../../generated/skbn.ALR.html#skbn.ALR" title="skbn.ALR"><code class="xref py py-class docutils literal notranslate"><span class="pre">skbn.ALR</span></code></a>.</p>
 <p>A <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html#sklearn.model_selection.GridSearchCV" title="(in scikit-learn v1.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">sklearn.model_selection.GridSearchCV</span></code></a> then chooses the size of
 the attribute subsets of ALR (<code class="docutils literal notranslate"><span class="pre">n_join</span></code>) and the granularity of its
 weights (<code class="docutils literal notranslate"><span class="pre">weight_level</span></code>) by cross-validated log loss. The heatmap shows
@@ -672,7 +673,7 @@ Test log loss: 0.265
 <a href="https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.show.html#matplotlib.pyplot.show" title="matplotlib.pyplot.show" class="sphx-glr-backref-module-matplotlib-pyplot sphx-glr-backref-type-py-function"><span class="n">plt</span><span class="o">.</span><span class="n">show</span></a><span class="p">()</span>
 </pre></div>
 </div>
-<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 1.169 seconds)</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 0.605 seconds)</p>
 <div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-auto-examples-integration-16-plot-pipeline-grid-search-py">
 <div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
 <p><a class="reference download internal" download="" href="../../_downloads/47aa84b568f3955a224a756dc9ac3fb0/16_plot_pipeline_grid_search.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">16_plot_pipeline_grid_search.ipynb</span></code></a></p>
@@ -776,7 +777,7 @@ Test log loss: 0.265
 
   <p class="copyright">
     
-      © Copyright 2025, Pablo Torrijos.
+      © Copyright 2025-2026, scikit-bayes developers.
       <br/>
     
   </p>

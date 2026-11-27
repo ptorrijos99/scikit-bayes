@@ -29,6 +29,9 @@
         ~DecisionTreeDiscretizer.get_params
       
       
+        ~DecisionTreeDiscretizer.set_fit_request
+      
+      
         ~DecisionTreeDiscretizer.set_output
       
       

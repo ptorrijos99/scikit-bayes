@@ -35,6 +35,9 @@
         ~AnJE.score
       
       
+        ~AnJE.set_fit_request
+      
+      
         ~AnJE.set_params
       
       

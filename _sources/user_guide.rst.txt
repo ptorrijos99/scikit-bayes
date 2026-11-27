@@ -120,9 +120,11 @@ and :attr:`~skbn.MixedNB.categories_` holds the labels of each column.
     # {'gaussian': [0], 'categorical': [1, 2], 'bernoulli': []}
 
 A column that holds labels in ``fit`` must hold labels in ``predict`` (strings
-and categories may be swapped), and the other columns must hold numbers. The
-estimators do not take missing values yet: impute them first, for example
-with :class:`~sklearn.impute.SimpleImputer`.
+and categories may be swapped), and the other columns must hold numbers.
+Missing values (``NaN``, ``None`` or pandas missing values) are supported
+natively in both ``fit`` and ``predict``: during training each conditional is
+estimated from the rows where its variables are observed, and during
+prediction missing attributes are marginalised out.
 
 Example
 -------
@@ -162,6 +164,14 @@ Parameters
 * ``categorical_features``: indices or boolean mask of the categorical features
 * ``bernoulli_features``: indices or boolean mask of the Bernoulli features
 * ``gaussian_features``: indices or boolean mask of the Gaussian features
+
+:class:`skbn.WeightedNB` adds discriminative exponent weights to
+:class:`skbn.MixedNB` (WANBIA-C at ``weight_level=1``, weighted CCBN on Naive
+Bayes at ``weight_level=3``), trained by maximising the conditional
+log-likelihood with L-BFGS-B. Like :class:`~skbn.TAN` and :class:`~skbn.KDB`,
+both :class:`~skbn.MixedNB` and :class:`~skbn.WeightedNB` expose
+``conditional_table(feature)`` and ``to_dot()``, and :class:`~skbn.WeightedNB`
+exposes ``prior_weights_``, ``feature_weights_`` and ``weight_table(feature)``.
 
 
 The AnDE family
@@ -766,12 +776,14 @@ generative model.
      - What it assumes or captures
      - Training cost
      - When to use it
-   * - :class:`~skbn.MixedNB`
-     - Features independent given the class; continuous, categorical and
-       binary features in one table.
-     - Counting, one estimate per feature and class.
-     - A baseline that scales well; fails when features depend strongly on
-       each other, as in XOR.
+   * - :class:`~skbn.MixedNB` / :class:`~skbn.WeightedNB`
+     - Features independent given the class; :class:`~skbn.WeightedNB` adds
+       discriminative exponent weights (WANBIA / wCCBN) to discount correlated
+       or duplicated features.
+     - Counting (one estimate per feature and class); :class:`~skbn.WeightedNB`
+       then runs L-BFGS-B on a convex objective.
+     - A fast baseline that scales well; :class:`~skbn.WeightedNB` corrects
+       overconfidence from correlated features without learning a graph.
    * - :class:`~skbn.AnDE`, ``n_dependence=1`` (AODE)
      - Every child conditioned on the class and one super-parent, averaged
        over the ``d`` super-parents.
@@ -912,21 +924,28 @@ Computational considerations
 What the models do not handle
 -----------------------------
 
-* **Missing values.** The classifiers reject ``NaN`` and missing labels;
-  impute them first, for example with
-  :class:`~sklearn.impute.SimpleImputer` in a pipeline. A categorical value
-  that was never seen in training is accepted at prediction time and carries
-  no information: its own factor is left out. Where the attribute is a parent
-  (a super-parent of AnDE, a parent in TAN or KDB), the component is left out
-  or the child takes the estimate of a parent value never seen, so the
-  prediction is not the one a removed column would give. The two discretizers
-  accept ``NaN`` and impute it with the median of the attribute.
-* **Sample weights.** ``fit`` takes no ``sample_weight``: the parameters are
-  estimated from integer counts.
 * **Incremental learning.** There is no ``partial_fit``: the bins of the
   continuous attributes, the categories and the structure are chosen on the
   whole training set.
 * **Sparse input.** The models take dense arrays and DataFrames.
+
+Missing values and sample weights
+---------------------------------
+
+* **Missing values.** Every classifier accepts ``NaN`` (and ``None`` or pandas
+  missing values in label columns) in both ``fit`` and ``predict``. During
+  training each distribution is estimated from the rows where its variables
+  are observed (available-case estimation). At prediction time a missing
+  child attribute contributes nothing (it is marginalised out), and a missing
+  parent behaves like a category never seen in training: SPnDEs whose
+  super-parent is missing are left out of the pool, n-joins containing a
+  missing attribute are left out, and in TAN/KDB a child with a missing
+  parent falls back to its uninformed estimate.
+* **Sample weights.** Every estimator (classifiers and discretizers) accepts
+  non-negative ``sample_weight`` in ``fit(X, y, sample_weight=...)``, used
+  for frequency counts, Gaussian moments, discretization (MDL, decision tree,
+  quantile and k-means), mutual information and the discriminative
+  log-likelihood objective. Rows with weight 0 are ignored.
 
 
 References
