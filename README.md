@@ -4,7 +4,7 @@
 [![codecov](https://codecov.io/gh/ptorrijos99/scikit-bayes/graph/badge.svg)](https://codecov.io/gh/ptorrijos99/scikit-bayes)
 [![doc](https://github.com/ptorrijos99/scikit-bayes/actions/workflows/deploy-gh-pages.yml/badge.svg)](https://ptorrijos99.github.io/scikit-bayes/)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![DOI](https://zenodo.org/badge/1081042310.svg)](https://doi.org/10.5281/zenodo.23950884)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23950884.svg)](https://doi.org/10.5281/zenodo.23950884)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green.svg)](LICENSE)
 
 scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model follows the scikit-learn estimator API, so it works in pipelines, cross-validation and grid search, supports `sample_weight` and missing values (`NaN`, `None`, `pd.NA`) natively, and takes tables that mix continuous, categorical and binary attributes, including pandas DataFrames with columns of strings or of `category` dtype. Counting and prediction run in compiled Numba kernels.
@@ -95,7 +95,7 @@ If you use scikit-bayes in a scientific publication, please cite:
 
 ```bibtex
 @software{scikit_bayes,
-  author = {Torrijos, Pablo and Alcarria Laserna, {\'O}scar and G{\'a}mez, Jos{\'e} A. and Puerta, Jos{\'e} M.},
+  author = {Torrijos, Pablo and Alcarria, {\'O}scar and G{\'a}mez, Jos{\'e} A. and Puerta, Jos{\'e} M.},
   title = {scikit-bayes: Bayesian Network Classifiers for Python},
   year = {2026},
   doi = {10.5281/zenodo.23950884},

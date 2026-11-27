@@ -7,7 +7,7 @@ name = "scikit-bayes"
 dynamic = ["version"]
 authors = [
   { name="Pablo Torrijos", email="pablo.torrijos@uclm.es" },
-  { name="Óscar Alcarria Laserna" },
+  { name="Óscar Alcarria" },
   { name="José A. Gámez" },
   { name="José M. Puerta" },
 ]

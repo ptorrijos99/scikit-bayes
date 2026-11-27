@@ -142,8 +142,8 @@ The weighted models now compute in Numba arithmetic that 1.3.0 left to NumPy and
 
 ### New estimators
 
-- `TAN`: Tree Augmented Naive Bayes, with a Chow-Liu tree on the conditional mutual information (contributed by Óscar Alcarria Laserna, #15).
-- `KDB`: K-Dependence Bayesian classifier of Sahami (1996) (contributed by Óscar Alcarria Laserna, #16).
+- `TAN`: Tree Augmented Naive Bayes, with a Chow-Liu tree on the conditional mutual information (contributed by Óscar Alcarria, #15).
+- `KDB`: K-Dependence Bayesian classifier of Sahami (1996) (contributed by Óscar Alcarria, #16).
 - `GaussianAnJE` and `GaussianALR`: AnJE and ALR built on the factors of the SPnDEs, so that continuous attributes keep Gaussian conditionals.
 - `AnJE` and `ALR` now follow the definitions and training protocol of Zaidi et al. (2016), with the L-BFGS-B settings of their code (`factr = 1e7`, 5 corrections, no test on the projected gradient); `WeightedAnDE` gains weights per factor (`weight_scope="factor"`).
 
