@@ -96,7 +96,8 @@ def test_invalid_sample_weights_are_rejected():
     X, y = _mixed_data(n=30)
     with pytest.raises(ValueError, match="non-negative"):
         MixedNB().fit(X, y, sample_weight=np.full(len(y), -1.0))
-    with pytest.raises(ValueError, match="positive sum"):
+    # Recent scikit-learn rejects all-zero weights itself, with its own message
+    with pytest.raises(ValueError, match="positive sum|at least one non-zero"):
         TAN().fit(X, y, sample_weight=np.zeros(len(y)))
     with pytest.raises(ValueError):
         AnDE().fit(X, y, sample_weight=np.ones(len(y) - 1))

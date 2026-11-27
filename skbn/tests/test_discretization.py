@@ -193,7 +193,8 @@ def test_discretizer_sample_weight_validation(Discretizer, iris_data):
     X, y = iris_data
     with pytest.raises(ValueError, match="non-negative"):
         Discretizer().fit(X, y, sample_weight=np.full(len(y), -1.0))
-    with pytest.raises(ValueError, match="positive sum"):
+    # Recent scikit-learn rejects all-zero weights itself, with its own message
+    with pytest.raises(ValueError, match="positive sum|at least one non-zero"):
         Discretizer().fit(X, y, sample_weight=np.zeros(len(y)))
 
 
