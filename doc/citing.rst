@@ -17,8 +17,7 @@ If you use scikit-bayes in a scientific publication, please cite:
     }
 
 The DOI always resolves to the latest version; every release also has its own
-DOI on `Zenodo <https://doi.org/10.5281/zenodo.23950884>`__ (1.3.0:
-`10.5281/zenodo.23950885 <https://doi.org/10.5281/zenodo.23950885>`__). The
+DOI on `Zenodo <https://doi.org/10.5281/zenodo.23950884>`__. The
 same information is in `CITATION.cff
 <https://github.com/ptorrijos99/scikit-bayes/blob/main/CITATION.cff>`__, which
 GitHub shows as "Cite this repository".

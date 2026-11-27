@@ -12,8 +12,8 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 project = "scikit-bayes"
-copyright = "2025, Pablo Torrijos"
-author = "Pablo Torrijos"
+copyright = "2025-2026, scikit-bayes developers"
+author = "Pablo Torrijos, Óscar Alcarria Laserna, José A. Gámez, José M. Puerta"
 
 # The version comes from the git tags, not from the installed metadata: pixi
 # installs the package with the version written in pixi.lock when it was

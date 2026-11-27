@@ -22,8 +22,8 @@
 
 1. **The whole AnDE family in one place.** AnDE at any order, with arithmetic or geometric pooling, the n-join estimators (AnJE), and the hybrid generative-discriminative models: ALR and `WeightedAnDE`, with weights per component or per factor at four granularities, fitted jointly or one component at a time. To our knowledge no other library with the scikit-learn interface provides AnDE beyond order 1, and none in Python provides the hybrid models; A2DE is otherwise available in Weka (Java) and BayesNet (C++), and ALR in the Java code of its authors.
 2. **Mixed data without a discretisation step.** Every component is a Naive Bayes model on an augmented class, so continuous children keep Gaussian conditionals at any order and only the super-parents are discretised. The supervised MDL and decision-tree discretisers are available as transformers for those who prefer to discretise everything.
-3. **The scikit-learn interface.** Every estimator passes `sklearn.utils.estimator_checks.check_estimator` and works inside `Pipeline`, `GridSearchCV` and the rest of the ecosystem. The only dependencies are NumPy, SciPy, Numba and scikit-learn.
-4. **TAN and KDB on the same footing.** Both reuse the same estimators and the same handling of mixed data and unseen values, so the structured models and the ensembles can be compared under one implementation.
+3. **The scikit-learn interface.** Every estimator passes `sklearn.utils.estimator_checks.check_estimator`, supports `sample_weight` and missing values (`NaN`, `None`, `pd.NA`) natively, and works inside `Pipeline`, `GridSearchCV` and the rest of the ecosystem. The only dependencies are NumPy, SciPy, Numba and scikit-learn.
+4. **TAN, KDB and WeightedNB on the same footing.** All reuse the same estimators and the same handling of mixed data, missing values and unseen categories, so Naive Bayes, the structured models and the ensembles (and their weighted counterparts) can be compared under one implementation.
 
 ## What it leaves to other software
 
