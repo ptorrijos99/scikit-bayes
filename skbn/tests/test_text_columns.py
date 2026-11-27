@@ -25,6 +25,7 @@ from skbn import (
     MixedNB,
     WeightedAnDE,
     WeightedKDB,
+    WeightedNB,
     WeightedTAN,
 )
 
@@ -34,6 +35,7 @@ pytestmark = pytest.mark.filterwarnings("ignore::sklearn.exceptions.ConvergenceW
 
 CLASSIFIERS = [
     MixedNB(),
+    WeightedNB(max_iter=5),
     AnDE(n_dependence=1),
     AnDE(n_dependence=2),
     WeightedAnDE(max_iter=5),
@@ -235,15 +237,21 @@ def test_text_column_cannot_be_gaussian(model):
 def test_missing_labels(column):
     X = pd.DataFrame({"x": np.arange(60.0), "s": column})
     y = np.arange(60) % 2
-    with pytest.raises(ValueError, match=r"(?s)missing values .* column 1.*impute"):
-        AnDE().fit(X, y)
+    model = AnDE().fit(X, y)
+    proba = model.predict_proba(X)
+    assert np.all(np.isfinite(proba))
+    assert_allclose(proba.sum(axis=1), 1.0)
+
     complete = X.assign(s=["a", "c", "b"] * 20)
-    model = AnDE().fit(complete, y)
-    with pytest.raises(ValueError, match="missing values .* column 1"):
-        model.predict(X)
-    X = np.column_stack([np.arange(60.0), np.asarray(column, dtype=object)])
-    with pytest.raises(ValueError, match="missing values .* column 1"):
-        TAN().fit(X, y)
+    fitted = AnDE().fit(complete, y)
+    proba_test = fitted.predict_proba(X)
+    assert np.all(np.isfinite(proba_test))
+    assert_allclose(proba_test.sum(axis=1), 1.0)
+
+    X_arr = np.column_stack([np.arange(60.0), np.asarray(column, dtype=object)])
+    proba_tan = TAN().fit(X_arr, y).predict_proba(X_arr)
+    assert np.all(np.isfinite(proba_tan))
+    assert_allclose(proba_tan.sum(axis=1), 1.0)
 
 
 def test_feature_names_are_checked():

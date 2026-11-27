@@ -7,11 +7,12 @@
 [![DOI](https://zenodo.org/badge/1081042310.svg)](https://doi.org/10.5281/zenodo.23950884)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green.svg)](LICENSE)
 
-scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model follows the scikit-learn estimator API, so it works in pipelines, cross-validation and grid search, and takes tables that mix continuous, categorical and binary attributes, including pandas DataFrames with columns of strings or of `category` dtype. Counting and prediction run in compiled Numba kernels.
+scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model follows the scikit-learn estimator API, so it works in pipelines, cross-validation and grid search, supports `sample_weight` and missing values (`NaN`, `None`, `pd.NA`) natively, and takes tables that mix continuous, categorical and binary attributes, including pandas DataFrames with columns of strings or of `category` dtype. Counting and prediction run in compiled Numba kernels.
 
 ## Models
 
 - `MixedNB`: Naive Bayes with Gaussian, categorical and Bernoulli attributes in one model.
+- `WeightedNB`: Mixed Naive Bayes with discriminative exponent weights (WANBIA-C at level 1, weighted CCBN on Naive Bayes at levels 2 and 3).
 - `AnDE`: Averaged n-Dependence Estimators (AODE, A2DE), pooled with the arithmetic or the geometric mean.
 - `WeightedAnDE`: AnDE with discriminative weights, one per component or one per factor of each component (the weighted CCBN of Zaidi et al., 2017), at four levels of granularity, fitted jointly or one component at a time (which gives the AnDE<sup>w</sup> of FedAnDE).
 - `AnJE` and `ALR`: Averaged n-Join Estimators and Accelerated Logistic Regression as defined by Zaidi et al. (2016), trained by default with the protocol of the paper.
@@ -102,7 +103,7 @@ If you use scikit-bayes in a scientific publication, please cite:
 }
 ```
 
-The DOI always resolves to the latest version; every release also has its own DOI on [Zenodo](https://doi.org/10.5281/zenodo.23950884) (1.3.0: [10.5281/zenodo.23950885](https://doi.org/10.5281/zenodo.23950885)). The same information is in [`CITATION.cff`](CITATION.cff), which GitHub shows as "Cite this repository".
+The DOI always resolves to the latest version; every release also has its own DOI on [Zenodo](https://doi.org/10.5281/zenodo.23950884). The same information is in [`CITATION.cff`](CITATION.cff), which GitHub shows as "Cite this repository".
 
 ## References
 

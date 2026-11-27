@@ -41,7 +41,13 @@ _state = threading.local()
 @contextmanager
 def _threads(n_jobs):
     """Run the kernels with the number of threads that ``n_jobs`` asks for
-    (``None`` is 1, negative values count back from the number of CPUs)."""
+    (``None`` is 1, negative values count back from the number of CPUs).
+
+    ``numba.set_num_threads`` is process-wide, so nested calls in the same
+    process restore the previous count on exit; concurrent calls from
+    different Python threads (e.g. ``joblib``'s ``threading`` backend with
+    differing ``n_jobs``) are not isolated from each other.
+    """
     n = max(1, min(effective_n_jobs(n_jobs), nb.config.NUMBA_NUM_THREADS))
     previous = nb.get_num_threads(), getattr(_state, "parallel", False)
     nb.set_num_threads(n)
@@ -107,7 +113,10 @@ def _find(keys, lo, hi, key):
 @nb.njit(cache=True, inline="always")
 def _gaussian_ll(x, mean, var, logn):
     """Gaussian log-density, clamped as ``np.nan_to_num``; ``logn`` is
-    ``log(2 pi var)``, from :func:`gaussian_log_norms`."""
+    ``log(2 pi var)``, from :func:`gaussian_log_norms`. Missing values
+    (``NaN``) contribute 0 (marginalised out)."""
+    if x != x:
+        return 0.0
     diff = x - mean
     return _clamp(-0.5 * (diff * diff / var + logn))
 

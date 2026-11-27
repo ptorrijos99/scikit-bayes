@@ -63,11 +63,13 @@ def _models(n_jobs):
         MixedNB,
         WeightedAnDE,
         WeightedKDB,
+        WeightedNB,
         WeightedTAN,
     )
 
     return {
         "MixedNB()": MixedNB(),
+        "WeightedNB()": WeightedNB(max_iter=20),
         "AnDE(n_dependence=1)": AnDE(n_dependence=1, n_jobs=n_jobs),
         "AnDE(n_dependence=2)": AnDE(n_dependence=2, n_jobs=n_jobs),
         "WeightedAnDE()": WeightedAnDE(max_iter=20, n_jobs=n_jobs),

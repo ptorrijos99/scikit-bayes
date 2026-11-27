@@ -30,13 +30,19 @@ from ._core import (
     _AttributeEncoder,
     _ChildEncodingMixin,
     _discretized_children,
+    _feature_name,
     _fit_weights,
     _fold_padding,
+    _format_dot,
     _LabelInputMixin,
     _pad_last,
+    _resolve_feature,
     _row_chunks,
+    _table_frame,
     _validate_input,
+    _validate_sample_weight,
     _warn_not_converged,
+    _weighted_moments,
 )
 from ._kernels import (
     DISCRETE,
@@ -56,30 +62,39 @@ from ._kernels import (
 from .mixed_nb import MixedNB
 
 
-def _conditional_mutual_info(codes, y_idx, cards, n_classes):
+def _conditional_mutual_info(codes, y_idx, cards, n_classes, sample_weight=None):
     """Empirical conditional mutual information I(A_i; A_j | C) (in nats).
 
     Parameters
     ----------
     codes : ndarray of shape (n_samples, n_features)
-        Integer codes of the (discretized) attributes, in ``[0, cards[j])``.
+        Integer codes of the (discretized) attributes, in ``[0, cards[j])``
+        (``-1`` for missing values).
     y_idx : ndarray of shape (n_samples,)
         Class indices in ``[0, n_classes)``.
     cards : ndarray of shape (n_features,)
         Number of values of each attribute.
     n_classes : int
         Number of classes.
+    sample_weight : ndarray of shape (n_samples,) or None, default=None
+        Per-sample weights.
 
     Returns
     -------
     cmi : ndarray of shape (n_features, n_features)
         Symmetric matrix with zeros on the diagonal.
     """
+    sw = (
+        np.empty(0, dtype=np.float64)
+        if sample_weight is None
+        else np.ascontiguousarray(sample_weight, dtype=np.float64)
+    )
     return conditional_mutual_info(
         np.ascontiguousarray(codes.T, dtype=np.int32),
         np.asarray(y_idx, dtype=np.int64),
         np.asarray(cards, dtype=np.int64),
         n_classes,
+        sw,
     )
 
 
@@ -119,24 +134,29 @@ class _BaseAugmentedNB(
     take their conditionals from the class-level Naive Bayes ``backoff_``.
     """
 
-    def _fit(self, X, y):
+    def _fit(self, X, y, sample_weight=None):
         """Learn the structure and count the conditionals; returns the
-        validated ``X`` and the class indices of ``y``."""
+        validated ``X``, the class indices of ``y`` and the filtered
+        ``sample_weight``."""
         X, y = _validate_input(self, X, y)
+        sw = _validate_sample_weight(sample_weight, X)
         self.classes_ = unique_labels(y)
         self._check_structure_params()
         n_classes = len(self.classes_)
         y_idx = np.searchsorted(self.classes_, y).astype(np.int64)
+        if sw is not None and np.any(sw == 0):
+            pos = sw > 0
+            X, y_idx, sw = X[pos], y_idx[pos], sw[pos]
 
         # --- 1. Class-level model: prior, parentless conditionals, types ---
-        X, discrete, gaussian = _discretized_children(self, X, y_idx)
+        X, discrete, gaussian = _discretized_children(self, X, y_idx, sw)
         self.backoff_ = MixedNB(
             alpha=self.alpha,
             categorical_features=self.categorical_features,
             bernoulli_features=self.bernoulli_features,
             gaussian_features=gaussian,
             var_prior_weight=self.var_prior_weight,
-        )._fit_encoded(X, y_idx, self.classes_, discrete)
+        )._fit_encoded(X, y_idx, self.classes_, discrete, sample_weight=sw)
         types = self.backoff_.feature_types_
 
         # --- 2. Discretize attributes (structure learning and parents), with
@@ -147,23 +167,24 @@ class _BaseAugmentedNB(
             gaussian_features=types["gaussian"],
             discrete_features=types["categorical"] + types["bernoulli"],
         )
-        codes = self._encoder.fit_transform(X, y_idx)
+        codes = self._encoder.fit_transform(X, y_idx, sample_weight=sw)
         gauss = types["gaussian"]
         Xg = np.asarray(X[:, gauss], dtype=float) if gauss else np.zeros((len(X), 0))
-        self._pooled_mean = Xg.mean(axis=0) if gauss else np.zeros(0)
-        self._pooled_var = Xg.var(axis=0) + (
+        pooled_mean, pooled_var = _weighted_moments(Xg, sw)
+        self._pooled_mean = pooled_mean
+        self._pooled_var = pooled_var + (
             self.backoff_.estimators_["gaussian"].epsilon_ if gauss else 0.0
         )
 
         # --- 3. Structure, then the conditionals of every attribute ---
         with _threads(self.n_jobs):
             parents = self._learn_structure(
-                codes, y_idx, self._encoder.cards_, n_classes
+                codes, y_idx, self._encoder.cards_, n_classes, sample_weight=sw
             )
-            self._fit_conditionals(X, y_idx, codes, parents)
-        return X, y_idx
+            self._fit_conditionals(X, y_idx, codes, parents, sample_weight=sw)
+        return X, y_idx, sw
 
-    def _fit_conditionals(self, X, y_idx, codes, parents):
+    def _fit_conditionals(self, X, y_idx, codes, parents, sample_weight=None):
         """Count ``P(x_i | y, x_parents[i])`` for every attribute that is not
         ignored, and copy the parentless ones from ``backoff_``."""
         types = self.backoff_.feature_types_
@@ -194,6 +215,11 @@ class _BaseAugmentedNB(
         value_codes = self._value_codes(X)
         codes_t = np.ascontiguousarray(codes.T)
         child_cards = np.where(kind[children] == DISCRETE, cards[children], 0)
+        sw_arr = (
+            np.empty(0, dtype=np.float64)
+            if sample_weight is None
+            else np.ascontiguousarray(sample_weight, dtype=np.float64)
+        )
         # A discrete child whose table (states x values) would be much larger
         # than the training data keeps only its non-empty cells (n_cells > 0)
         n_states, n_cells = count_states(
@@ -204,8 +230,11 @@ class _BaseAugmentedNB(
             n_combos,
             n_classes,
             value_codes,
+            xg,
             children,
             child_cards,
+            kind,
+            gidx,
         )
         state_off = np.concatenate([[0], np.cumsum(n_states)]).astype(np.int64)
         cell_off = np.concatenate([[0], np.cumsum(n_cells)]).astype(np.int64)
@@ -227,6 +256,7 @@ class _BaseAugmentedNB(
             kind,
             gidx,
             cards,
+            sw_arr,
         )
 
         # Discrete children: log((N(s, v) + alpha) / (N(s) + alpha * card)),
@@ -254,9 +284,10 @@ class _BaseAugmentedNB(
         # Gaussian children: the variance of GaussianNB on the attribute (plus
         # var_smoothing times its variance), shrunk towards that variance
         if xg.shape[1]:
+            _, gvar = _weighted_moments(xg, sample_weight)
             factor = np.repeat(np.arange(n_factors), n_states)
             is_gauss = kind[children[factor]] == GAUSSIAN
-            col_var = np.var(xg, axis=0)[gidx[children[factor]]]
+            col_var = gvar[gidx[children[factor]]]
             epsilon = _VAR_SMOOTHING * col_var
             nu = self.var_prior_weight
             shrunk = (count * (var + epsilon) + nu * (col_var + epsilon)) / (count + nu)
@@ -268,9 +299,9 @@ class _BaseAugmentedNB(
         for m in np.flatnonzero(n_parents == 0):
             j = children[m]
             if kind[j] == GAUSSIAN:
-                o = state_off[m]
-                var[o : o + n_classes] = self.backoff_.estimators_["gaussian"].var_[
-                    :, gidx[j]
+                lo, hi = state_off[m], state_off[m + 1]
+                var[lo:hi] = self.backoff_.estimators_["gaussian"].var_[
+                    keys[lo:hi], gidx[j]
                 ]
         # log(2 pi var) of the Gaussian children, once per fit rather than at
         # every evaluation
@@ -345,49 +376,19 @@ class _BaseAugmentedNB(
             the arcs of ``edges_``.
         """
         check_is_fitted(self, attributes=["parents_"])
-        if feature_names is None:
-            feature_names = getattr(
-                self,
-                "feature_names_in_",
-                [f"x{i}" for i in range(self.n_features_in_)],
-            )
-        if len(feature_names) != self.n_features_in_:
-            raise ValueError(
-                f"feature_names must have {self.n_features_in_} names, got"
-                f" {len(feature_names)}."
-            )
-
-        def quoted(name):
-            return '"' + str(name).replace("\\", "\\\\").replace('"', '\\"') + '"'
-
-        used = set(self._tables.children.tolist())
-        lines = [
-            f"    {quoted(class_name)} -> {quoted(feature_names[i])};"
-            for i in sorted(used)
-        ]
-        lines += [
-            f"    {quoted(feature_names[p])} -> {quoted(feature_names[i])};"
-            for p, i in self.edges_
-            if p in used and i in used
-        ]
-        return "\n".join(["digraph {", *lines, "}"]) + "\n"
+        return _format_dot(
+            self,
+            set(self._tables.children.tolist()),
+            self.edges_,
+            feature_names=feature_names,
+            class_name=class_name,
+        )
 
     def _factor(self, feature):
         """Index of an attribute, given by its index or by its name, and the
         position of its conditional among the factors of the network."""
         check_is_fitted(self, attributes=["parents_"])
-        if isinstance(feature, str):
-            names = getattr(self, "feature_names_in_", None)
-            if names is None or feature not in names:
-                raise ValueError(
-                    f"{feature!r} is not the name of a feature seen in fit."
-                )
-            feature = int(np.flatnonzero(names == feature)[0])
-        elif not (isinstance(feature, Integral) and 0 <= feature < self.n_features_in_):
-            raise ValueError(
-                "feature must be the name of a feature seen in fit or its index in"
-                f" [0, {self.n_features_in_ - 1}], got {feature!r}."
-            )
+        feature = _resolve_feature(self, feature)
         where = np.flatnonzero(self._tables.children == feature)
         if not len(where):
             raise ValueError(
@@ -408,23 +409,11 @@ class _BaseAugmentedNB(
         return parents, values
 
     def _feature_name(self, j):
-        names = getattr(self, "feature_names_in_", None)
-        return f"x{j}" if names is None else names[j]
+        return _feature_name(self, j)
 
     @staticmethod
     def _table_frame(data, index_values, index_names, columns=None):
-        """A DataFrame of ``data`` whose rows are indexed by the arrays
-        ``index_values``, named ``index_names``; a single row when there is
-        nothing to tell the rows apart."""
-        try:
-            import pandas as pd
-        except ImportError as error:
-            raise ImportError("as_frame=True requires pandas.") from error
-        if index_values:
-            index = pd.MultiIndex.from_arrays(index_values, names=index_names)
-        else:
-            index = pd.Index(["all"])
-        return pd.DataFrame(data, index=index, columns=columns)
+        return _table_frame(data, index_values, index_names, columns)
 
     def conditional_table(self, feature, as_frame=False):
         """
@@ -630,7 +619,7 @@ class _WeightedAugmentedNB:
     }
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """
         Fit the network, then learn the discriminative weights.
 
@@ -641,22 +630,28 @@ class _WeightedAugmentedNB:
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
-            Training vectors.
+            Training vectors. May contain missing values (``NaN`` or missing
+            labels).
 
         y : array-like of shape (n_samples,)
             Target values.
+
+        sample_weight : array-like of shape (n_samples,), default=None
+            Non-negative weights applied to individual samples.
 
         Returns
         -------
         self : object
             Returns the instance itself.
         """
-        X, y_idx = self._fit(X, y)
+        X, y_idx, sw = self._fit(X, y, sample_weight=sample_weight)
         inputs = self._evaluation_inputs(X)
         self._setup_weights(self._term_keys(inputs))
         terms, index = self._design(inputs)
         del inputs
         Y = np.eye(len(self.classes_))[y_idx]
+        if sw is not None:
+            Y = Y * sw[:, None]
         weights, self.n_iter_, converged = _fit_weights(
             lambda w: self._nll_and_grad(w, terms, index, Y),
             np.ones(self.n_weights_),
@@ -802,14 +797,20 @@ class _WeightedAugmentedNB:
 
     def _setup_weights(self, keys):
         """Lay out the weights on the term keys of the training samples: the
-        sorted keys seen of every term, then the class when the level has
-        it, innermost (the order of :class:`WeightedAnDE`)."""
+        sorted non-negative keys seen of every term, then the class when the
+        level has it, innermost (the order of :class:`WeightedAnDE`)."""
         dims = _LEVEL_DIMS["factor"][self.weight_level]
-        seen = [np.unique(keys[:, t]) for t in range(keys.shape[1])]
+        seen = []
+        for t in range(keys.shape[1]):
+            col = keys[:, t]
+            valid = col[col >= 0]
+            seen.append(np.unique(valid) if len(valid) else np.zeros(0, dtype=np.int64))
         self._class_weights = len(self.classes_) if "class" in dims else 1
         sizes = np.array([len(s) for s in seen], dtype=np.int64)
         self._key_off = np.concatenate([[0], np.cumsum(sizes)])
-        self._weight_keys = np.concatenate(seen)
+        self._weight_keys = (
+            np.concatenate(seen) if sizes.sum() else np.zeros(0, dtype=np.int64)
+        )
         self.n_weights_ = int(sizes.sum()) * self._class_weights + 1
 
     def _design(self, inputs):
@@ -821,16 +822,22 @@ class _WeightedAugmentedNB:
         n_classes = len(self.classes_)
         with _threads(self.n_jobs):
             terms = conditional_scores(inputs, self._tables, n_classes, True)
-        terms[:, :, 0] = self.backoff_.class_log_prior_
+        terms[:, :, 0] = np.nan_to_num(
+            self.backoff_.class_log_prior_, nan=LOG_ZERO, neginf=LOG_ZERO
+        )
 
         # The weight of class 0 of every term; those of the other classes
         # follow it (see _Design in ande.py)
         n_seen = self.n_weights_ - 1
-        index = np.empty(
-            keys.shape, dtype=np.int32 if n_seen < 2**31 - n_classes else np.int64
+        index = np.full(
+            keys.shape,
+            n_seen,
+            dtype=np.int32 if n_seen < 2**31 - n_classes else np.int64,
         )
         for t in range(keys.shape[1]):
             seen = self._weight_keys[self._key_off[t] : self._key_off[t + 1]]
+            if not len(seen):
+                continue
             pos = np.minimum(np.searchsorted(seen, keys[:, t]), len(seen) - 1)
             offset = self._key_off[t] * self._class_weights
             index[:, t] = np.where(
@@ -866,7 +873,7 @@ class _WeightedAugmentedNB:
         and its gradient with respect to the weights."""
         scores = self._scores(weights, terms, index)
         log_prob = scores - logsumexp(scores, axis=1, keepdims=True)
-        dscores = np.exp(log_prob) - Y
+        dscores = np.exp(log_prob) * Y.sum(axis=1, keepdims=True) - Y
         n_samples, n_classes, _ = terms.shape
         args = self._kernel_args(terms, index)
         grad = _weighted_geometric_gradient(
@@ -875,7 +882,9 @@ class _WeightedAugmentedNB:
             np.ones((n_samples, 1), dtype=bool),
             weights.size + args[1] * (n_classes - 1),
         )
-        return -np.sum(log_prob * Y), _fold_padding(grad, weights.size)
+        with np.errstate(invalid="ignore"):
+            nll = -np.sum(np.where(Y > 0, log_prob * Y, 0.0))
+        return nll, _fold_padding(grad, weights.size)
 
     def _joint_log_likelihood(self, X):
         """Computes the weighted ``log P^w(y, x)`` for every sample and class,

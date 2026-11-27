@@ -2,6 +2,25 @@
 
 All notable changes to scikit-bayes are listed here. The project follows [semantic versioning](https://semver.org/).
 
+## 1.5.0 (2026-11-27)
+
+A new model, `WeightedNB`, and every classifier now takes missing values and `sample_weight` without a pipeline around it. On complete data without weights the predictions are those of 1.4.0 (to rounding), and models pickled with 1.4.0 still load and predict.
+
+### New
+
+- `WeightedNB`: weighted Mixed Naive Bayes with discriminative exponent weights learned by maximising the conditional log-likelihood with L-BFGS-B (WANBIA-C at `weight_level=1`, weighted CCBN on Naive Bayes at `weight_level=2` and `weight_level=3`). Exposes `prior_weights_`, `feature_weights_` and `weight_table(feature)`.
+- Native missing-value support (`NaN`, `None`, `pd.NA`) across all classifiers in both `fit` and `predict`. Parameters are estimated from available cases during training, missing child attributes are marginalised out at prediction time, and missing parents fall back to the same path as unseen categories.
+- `sample_weight` support in `fit(X, y, sample_weight=...)` across every classifier and discretizer (`MDLPDiscretizer` and `DecisionTreeDiscretizer`), propagating weights through counts, Gaussian moments, discretization, mutual information and discriminative log-likelihood optimization. Zero-weight rows are ignored.
+- Homogeneous inspection across model families:
+  - `MixedNB` (and `WeightedNB`) now expose `edges_`, `to_dot()` and `conditional_table(feature)`.
+  - `WeightedAnDE` (and `GaussianALR`) now expose `component_weights_` and `weight_table(component=None, feature=None, as_frame=False)`.
+  - `AnJE` (and `ALR`) now expose `cut_points_`, and `ALR` exposes `prior_weights_` and `weight_table(join=None, as_frame=False)`.
+
+### Changed
+
+- A missing value in a column of labels no longer raises an error asking for imputation: it is treated as any other missing value.
+- Updated package development status classifier to `Production/Stable`, aligned copyright years and authors across metadata, and kept the version-independent Zenodo concept DOI in `CITATION.cff`, `README.md` and `doc/citing.rst`.
+
 ## 1.4.0 (2026-11-12)
 
 Two new models, `WeightedTAN` and `WeightedKDB`, every classifier takes columns of labels without an encoder, and the networks show their structure and tables. `WeightedAnDE` now runs its optimizer to convergence by default, so its weights and predictions change; the other models change their predictions only in the cases listed under Changed and Fixed. Models pickled with an earlier version must be fitted again.

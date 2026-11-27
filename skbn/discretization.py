@@ -15,7 +15,19 @@ from sklearn.base import (
 )
 from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.utils._param_validation import Interval, StrOptions
-from sklearn.utils.validation import validate_data
+from sklearn.utils.validation import _check_sample_weight, validate_data
+
+
+def _validate_discretizer_sample_weight(sample_weight, X):
+    """Validate optional per-sample weights for discretizers."""
+    if sample_weight is None:
+        return None
+    sw = _check_sample_weight(sample_weight, X, dtype=np.float64)
+    if np.any(sw < 0):
+        raise ValueError("sample_weight must be non-negative.")
+    if sw.sum() <= 0:
+        raise ValueError("sample_weight must have a positive sum.")
+    return sw
 
 
 class DecisionTreeDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
@@ -119,12 +131,12 @@ class DecisionTreeDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstima
 
     def __init__(
         self,
-        n_bins: int = 10,
-        criterion: str = "entropy",
-        min_samples_leaf: int = 5,
-        fallback: str = "single",
+        n_bins=10,
+        criterion="entropy",
+        min_samples_leaf=5,
+        fallback="single",
         random_state=None,
-    ) -> None:
+    ):
         self.n_bins = n_bins
         self.criterion = criterion
         self.min_samples_leaf = min_samples_leaf
@@ -141,7 +153,7 @@ class DecisionTreeDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstima
     # ------------------------------------------------------------------
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """
         Fit one decision tree per feature to determine bin boundaries.
 
@@ -151,6 +163,9 @@ class DecisionTreeDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstima
             Training data.  May contain ``NaN`` values.
         y : array-like of shape (n_samples,)
             Target class labels used to guide supervised splitting.
+        sample_weight : array-like of shape (n_samples,), default=None
+            Non-negative weights of the training samples. Samples with weight
+            0 are ignored.
 
         Returns
         -------
@@ -167,29 +182,61 @@ class DecisionTreeDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstima
         from sklearn.tree import DecisionTreeClassifier
 
         X, y = validate_data(self, X, y, ensure_all_finite="allow-nan")
+        sw = _validate_discretizer_sample_weight(sample_weight, X)
+        if sw is not None:
+            pos = sw > 0
+            if not np.all(pos):
+                X = X[pos]
+                y = y[pos]
+                sw = sw[pos]
         self.thresholds_ = []
         self.imputers_ = []
         self.fallback_discretizers_ = []
+
+        total_weight = float(sw.sum()) if sw is not None else float(X.shape[0])
+        if sw is None:
+            tree_min_leaf = self.min_samples_leaf
+            tree_min_weight_frac = 0.0
+            can_split = True
+        elif isinstance(self.min_samples_leaf, Integral):
+            can_split = 2 * self.min_samples_leaf <= total_weight
+            tree_min_leaf = 1
+            if can_split:
+                frac = self.min_samples_leaf / total_weight
+                if frac * total_weight > self.min_samples_leaf:
+                    frac = float(np.nextafter(frac, 0.0))
+                tree_min_weight_frac = min(0.5, frac)
+            else:
+                tree_min_weight_frac = 0.5
+        else:
+            can_split = self.min_samples_leaf <= 0.5
+            tree_min_leaf = 1
+            tree_min_weight_frac = min(0.5, float(self.min_samples_leaf))
 
         for i in range(self.n_features_in_):
             xi = X[:, i].reshape(-1, 1)
             imputer = self._fit_imputer(xi)
             xi_clean = imputer.transform(xi) if imputer is not None else xi
 
-            tree = DecisionTreeClassifier(
-                criterion=self.criterion,
-                max_leaf_nodes=self.n_bins,
-                min_samples_leaf=self.min_samples_leaf,
-                random_state=self.random_state,
-            )
-            tree.fit(xi_clean, y)
-
-            raw = tree.tree_.threshold
-            thresholds = np.sort(np.unique(raw[raw != -2]))
+            if can_split:
+                tree = DecisionTreeClassifier(
+                    criterion=self.criterion,
+                    max_leaf_nodes=self.n_bins,
+                    min_samples_leaf=tree_min_leaf,
+                    min_weight_fraction_leaf=tree_min_weight_frac,
+                    random_state=self.random_state,
+                )
+                tree.fit(xi_clean, y, sample_weight=sw)
+                raw = tree.tree_.threshold
+                thresholds = np.sort(np.unique(raw[raw != -2]))
+            else:
+                thresholds = np.empty(0, dtype=float)
 
             self.thresholds_.append(thresholds)
             self.imputers_.append(imputer)
-            self.fallback_discretizers_.append(self._fit_fallback(xi_clean, thresholds))
+            self.fallback_discretizers_.append(
+                self._fit_fallback(xi_clean, thresholds, sample_weight=sw)
+            )
 
         return self
 
@@ -247,7 +294,7 @@ class DecisionTreeDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstima
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _fit_fallback(self, xi: np.ndarray, thresholds: np.ndarray):
+    def _fit_fallback(self, xi, thresholds, sample_weight=None):
         """Return a fitted fallback discretizer if needed, or ``None``.
 
         A fallback is only created when ``thresholds`` is empty (i.e. the
@@ -260,6 +307,8 @@ class DecisionTreeDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstima
             Imputed single-feature column.
         thresholds : ndarray of shape (n_thresholds,)
             Split thresholds extracted from the fitted tree.
+        sample_weight : ndarray of shape (n_samples,) or None, default=None
+            Positive sample weights.
 
         Returns
         -------
@@ -268,16 +317,29 @@ class DecisionTreeDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstima
         if thresholds.size > 0 or self.fallback == "single":
             return None
 
+        kwargs = {}
+        fit_kwargs = {}
+        if self.fallback == "quantile":
+            import sklearn
+            from sklearn.utils.fixes import parse_version
+
+            if parse_version(
+                parse_version(sklearn.__version__).base_version
+            ) >= parse_version("1.7"):
+                kwargs["quantile_method"] = "averaged_inverted_cdf"
+            if sample_weight is not None:
+                fit_kwargs["sample_weight"] = sample_weight
         discretizer = KBinsDiscretizer(
             n_bins=self.n_bins,
             encode="ordinal",
             strategy=self.fallback,  # "quantile" or "uniform"
+            **kwargs,
         )
-        discretizer.fit(xi)
+        discretizer.fit(xi, **fit_kwargs)
         return discretizer
 
     @staticmethod
-    def _fit_imputer(xi: np.ndarray):
+    def _fit_imputer(xi):
         """Return a fitted median imputer for *xi*, or ``None`` if not needed.
 
         Parameters
@@ -309,7 +371,7 @@ def _entropy(counts):
     return -(p * logp).sum(axis=1)
 
 
-def _mdlp_cuts(x, y, n_classes, max_bins=None):
+def _mdlp_cuts(x, y, n_classes, max_bins=None, sample_weight=None):
     """Cut-points of Fayyad and Irani (1993) for the values ``x`` with class
     indices ``y``, sorted.
 
@@ -318,27 +380,38 @@ def _mdlp_cuts(x, y, n_classes, max_bins=None):
     order of the entropy they remove, so that ``max_bins`` keeps the most
     informative ones; without it the order does not change the result.
     """
+    if sample_weight is not None:
+        pos = sample_weight > 0
+        if not np.all(pos):
+            x = x[pos]
+            y = y[pos]
+            sample_weight = sample_weight[pos]
     order = np.argsort(x, kind="mergesort")
     xs = x[order]
-    # counts[i]: number of samples of each class among the first i values
+    # counts[i]: weighted number of samples of each class among the first i
     counts = np.zeros((len(xs) + 1, n_classes))
-    counts[np.arange(1, len(xs) + 1), y[order]] = 1.0
+    if sample_weight is None:
+        counts[np.arange(1, len(xs) + 1), y[order]] = 1.0
+    else:
+        counts[np.arange(1, len(xs) + 1), y[order]] = sample_weight[order]
     np.cumsum(counts, axis=0, out=counts)
 
     def best_split(lo, hi):
         """``(-entropy removed, lo, hi, position)`` of the best cut of
         ``xs[lo:hi]``, or None when no cut passes the MDL test."""
-        n = hi - lo
-        if n < 2:
+        if hi - lo < 2:
             return None
         seg_x = xs[lo:hi]
         candidates = np.flatnonzero(seg_x[1:] > seg_x[:-1]) + 1  # left sizes
         if candidates.size == 0:
             return None
         total = counts[hi] - counts[lo]
+        n = float(total.sum())
+        if n <= 1.0:
+            return None
         left = counts[lo + candidates] - counts[lo]
         right = total - left
-        n_left = candidates.astype(float)
+        n_left = left.sum(axis=1)
         n_right = n - n_left
         ent_split = (n_left * _entropy(left) + n_right * _entropy(right)) / n
         best = int(np.argmin(ent_split))
@@ -351,7 +424,7 @@ def _mdlp_cuts(x, y, n_classes, max_bins=None):
         k1 = np.count_nonzero(left[best])
         k2 = np.count_nonzero(right[best])
         delta = np.log2(3.0**k - 2.0) - (k * ent_s - k1 * ent_l - k2 * ent_r)
-        if gain <= (np.log2(n - 1) + delta) / n:
+        if gain <= (np.log2(n - 1.0) + delta) / n:
             return None
         return -n * gain, lo, hi, lo + int(candidates[best])
 
@@ -435,7 +508,7 @@ class MDLPDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
         return tags
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """
         Find the MDL cut-points of every feature.
 
@@ -445,6 +518,9 @@ class MDLPDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
             Training data. May contain ``NaN`` values.
         y : array-like of shape (n_samples,)
             Class labels.
+        sample_weight : array-like of shape (n_samples,), default=None
+            Non-negative weights of the training samples. Samples with weight
+            0 are ignored.
 
         Returns
         -------
@@ -452,6 +528,13 @@ class MDLPDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
             Fitted estimator.
         """
         X, y = validate_data(self, X, y, ensure_all_finite="allow-nan")
+        sw = _validate_discretizer_sample_weight(sample_weight, X)
+        if sw is not None:
+            pos = sw > 0
+            if not np.all(pos):
+                X = X[pos]
+                y = y[pos]
+                sw = sw[pos]
         y_codes = np.unique(y, return_inverse=True)[1]
         n_classes = y_codes.max() + 1
 
@@ -462,11 +545,11 @@ class MDLPDiscretizer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
             imputer = DecisionTreeDiscretizer._fit_imputer(xi)
             xi = (imputer.transform(xi) if imputer is not None else xi).ravel()
             self.imputers_.append(imputer)
-            self.cut_points_.append(self._fit_feature(xi, y_codes, n_classes))
+            self.cut_points_.append(self._fit_feature(xi, y_codes, n_classes, sw))
         return self
 
-    def _fit_feature(self, x, y, n_classes):
-        return _mdlp_cuts(x, y, n_classes, self.max_bins)
+    def _fit_feature(self, x, y, n_classes, sample_weight=None):
+        return _mdlp_cuts(x, y, n_classes, self.max_bins, sample_weight=sample_weight)
 
     def transform(self, X):
         """

@@ -5,10 +5,9 @@ General tests for all estimators in skbn.
 # Authors: scikit-bayes developers
 # SPDX-License-Identifier: BSD-3-Clause
 
-import pytest
-from sklearn.utils.estimator_checks import check_estimator
+from sklearn.utils.estimator_checks import parametrize_with_checks
 
-from skbn import TAN, AnDE, WeightedAnDE, WeightedKDB
+from skbn import TAN, AnDE, WeightedAnDE, WeightedKDB, WeightedNB
 from skbn.tests._discovery import all_estimators
 
 
@@ -22,28 +21,26 @@ def _few_iterations(estimator):
     return estimator
 
 
-@pytest.mark.parametrize("name, Estimator", all_estimators())
-def test_all_estimators(name, Estimator):
-    check_estimator(_few_iterations(Estimator()))
+VARIANTS = [
+    AnDE(mean="geometric"),
+    WeightedAnDE(mean="geometric"),
+    WeightedAnDE(weight_scope="factor", weight_level=4),
+    WeightedAnDE(mean="geometric", weight_scope="factor", weight_level=4),
+    # The modular hybrid with arithmetic component weights is only
+    # identifiable at the class-specific granularities
+    WeightedAnDE(modular=True, weight_level=3),
+    WeightedAnDE(modular=True, weight_scope="factor", weight_level=1),
+    # Continuous attributes discretized as children too
+    AnDE(continuous_children="discretized"),
+    TAN(strategy="mdlp", continuous_children="discretized"),
+    WeightedKDB(k=2, continuous_children="discretized"),
+    WeightedNB(weight_level=1),
+]
+
+ESTIMATORS = [_few_iterations(Estimator()) for _, Estimator in all_estimators()]
+ESTIMATORS += [_few_iterations(estimator) for estimator in VARIANTS]
 
 
-@pytest.mark.parametrize(
-    "estimator",
-    [
-        AnDE(mean="geometric"),
-        WeightedAnDE(mean="geometric"),
-        WeightedAnDE(weight_scope="factor", weight_level=4),
-        WeightedAnDE(mean="geometric", weight_scope="factor", weight_level=4),
-        # The modular hybrid with arithmetic component weights is only
-        # identifiable at the class-specific granularities
-        WeightedAnDE(modular=True, weight_level=3),
-        WeightedAnDE(modular=True, weight_scope="factor", weight_level=1),
-        # Continuous attributes discretized as children too
-        AnDE(continuous_children="discretized"),
-        TAN(strategy="mdlp", continuous_children="discretized"),
-        WeightedKDB(k=2, continuous_children="discretized"),
-    ],
-    ids=repr,
-)
-def test_variants(estimator):
-    check_estimator(_few_iterations(estimator))
+@parametrize_with_checks(ESTIMATORS)
+def test_sklearn_compatible_estimator(estimator, check):
+    check(estimator)

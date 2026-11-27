@@ -37,6 +37,7 @@ import numpy as np
 from numba import get_num_threads
 from scipy.special import logsumexp
 from sklearn.base import BaseEstimator, ClassifierMixin, _fit_context
+from sklearn.utils import Bunch
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted
@@ -44,12 +45,18 @@ from sklearn.utils.validation import check_is_fitted
 from ._core import (
     _AttributeEncoder,
     _check_label_types,
+    _cut_points,
     _feature_indices,
+    _feature_name,
     _fit_weights,
+    _has_missing,
     _label_feature_indices,
     _LabelInputMixin,
+    _resolve_feature,
     _row_chunks,
+    _table_frame,
     _validate_input,
+    _validate_sample_weight,
     _warn_not_converged,
 )
 from ._kernels import (
@@ -225,7 +232,7 @@ class AnJE(_LabelInputMixin, ClassifierMixin, BaseEstimator):
         self.n_jobs = n_jobs
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """
         Count the n-joins of the training data.
 
@@ -233,27 +240,36 @@ class AnJE(_LabelInputMixin, ClassifierMixin, BaseEstimator):
         ----------
         X : array-like of shape (n_samples, n_features)
             Training vectors, where ``n_samples`` is the number of samples and
-            ``n_features`` is the number of features.
+            ``n_features`` is the number of features. May contain missing
+            values (``NaN`` or missing labels).
 
         y : array-like of shape (n_samples,)
             Target values.
+
+        sample_weight : array-like of shape (n_samples,), default=None
+            Non-negative weights applied to individual samples.
 
         Returns
         -------
         self : object
             Returns the instance itself.
         """
-        self._fit_generative(X, y)
+        self._fit_generative(X, y, sample_weight=sample_weight)
         return self
 
-    def _fit_generative(self, X, y):
-        """Fit the tables and return the transposed training codes and the
-        class indices."""
+    def _fit_generative(self, X, y, sample_weight=None):
+        """Fit the tables and return the transposed training codes, the class
+        indices and the filtered sample weights."""
         X, y = _validate_input(self, X, y)
+        sw = _validate_sample_weight(sample_weight, X)
         self.classes_ = unique_labels(y)
         y_idx = np.searchsorted(self.classes_, y)
+        if sw is not None and np.any(sw == 0):
+            pos = sw > 0
+            X, y_idx, sw = X[pos], y_idx[pos], sw[pos]
         n_samples, n_features = X.shape
         n_classes = len(self.classes_)
+        has_missing = _has_missing(X)
 
         gaussian = _feature_indices(
             self.gaussian_features, n_features, "gaussian_features"
@@ -272,7 +288,7 @@ class AnJE(_LabelInputMixin, ClassifierMixin, BaseEstimator):
             )
             + labelled,
         )
-        codes = self._encoder.fit_transform(X, y_idx, dtype=np.int32)
+        codes = self._encoder.fit_transform(X, y_idx, dtype=np.int32, sample_weight=sw)
 
         # --- Cell keys: 0 is the class prior, then one block per join ---
         n = min(self.n_join, n_features)
@@ -297,9 +313,15 @@ class AnJE(_LabelInputMixin, ClassifierMixin, BaseEstimator):
         codes_t = np.ascontiguousarray(codes.T, dtype=np.int32)
         joins = (self.joins_, self._join_strides, self._join_offsets)
         n_joins = len(self.joins_)
+        use_fast = sw is None and not has_missing
+        sw_arr = (
+            np.empty(0, dtype=np.float64)
+            if sw is None
+            else np.ascontiguousarray(sw, dtype=np.float64)
+        )
         with _threads(self.n_jobs):
             key_counts = None
-            if n_keys * n_classes <= _MAX_KEY_COUNTS:
+            if use_fast and n_keys * n_classes <= _MAX_KEY_COUNTS:
                 # The counts of every key in one pass give the cells seen
                 key_counts = join_key_counts(codes_t, y_idx, *joins, n_keys, n_classes)
                 self._cell_keys = np.flatnonzero(key_counts.any(axis=1))
@@ -329,22 +351,32 @@ class AnJE(_LabelInputMixin, ClassifierMixin, BaseEstimator):
 
             # --- m-estimates (row 0 counts the classes: every sample is in it) ---
             if key_counts is None:
-                counts = join_counts(codes_t, y_idx, *self._cell_args(), n_classes)
+                counts, join_class = join_counts(
+                    codes_t, y_idx, *self._cell_args(), n_classes, sw_arr
+                )
             else:
                 counts = np.zeros((self._n_rows, n_classes))
                 counts[: len(self._cell_keys)] = key_counts[self._cell_keys]
+                join_class = np.broadcast_to(counts[0], (n_joins, n_classes))
         class_counts = counts[0]
+        total_w = float(class_counts.sum())
         m = self.alpha
         n_cells = self._encoder.cards_[self.joins_].prod(axis=1)  # |X_alpha|
         cell_prior = (m / n_cells)[self._row_join[1:]][:, None]
-        with np.errstate(divide="ignore"):
-            self._log_table = np.vstack(
-                [
-                    np.log((class_counts + m / n_classes) / (n_samples + m)),
-                    np.log(counts[1:] + cell_prior) - np.log(class_counts + m),
-                ]
+        denom = join_class[self._row_join[1:]] + m
+        with np.errstate(divide="ignore", invalid="ignore"):
+            prior_num = class_counts + m / n_classes
+            prior_log = np.where(
+                prior_num > 0, np.log(prior_num) - np.log(total_w + m), -np.inf
             )
-        return codes_t, y_idx
+            cell_num = counts[1:] + cell_prior
+            cell_log = np.where(
+                (cell_num > 0) & (denom > 0),
+                np.log(cell_num) - np.log(denom),
+                -np.inf,
+            )
+            self._log_table = np.vstack([prior_log, cell_log])
+        return codes_t, y_idx, sw
 
     def _cell_args(self):
         """How the kernels of :mod:`skbn._kernels` find the table row of a
@@ -452,6 +484,26 @@ class AnJE(_LabelInputMixin, ClassifierMixin, BaseEstimator):
         """
         log_proba = self.predict_log_proba(X)
         return self.classes_[np.argmax(log_proba, axis=1)]
+
+    @property
+    def cut_points_(self):
+        """Cut-points of the continuous attributes that the model bins, and
+        None for the discrete attributes."""
+        check_is_fitted(self, attributes=["classes_", "joins_"])
+        return [
+            None if isinstance(enc, np.ndarray) else _cut_points(enc)
+            for enc in self._encoder.encoders_
+        ]
+
+    def _attribute_values(self, j):
+        """Decoded values of attribute ``j`` in the order of its encoder codes."""
+        enc = self._encoder.encoders_[j]
+        if isinstance(enc, np.ndarray):
+            label_enc = getattr(self, "_label_encoder", None)
+            if label_enc is not None and j in label_enc.columns:
+                return label_enc.labels[label_enc.columns.index(j)][enc.astype(int)]
+            return enc
+        return np.arange(self._encoder.cards_[j])
 
 
 class ALR(AnJE):
@@ -651,7 +703,7 @@ class ALR(AnJE):
         self.tol = tol
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """
         Fit the AnJE tables, then the discriminative weights.
 
@@ -659,18 +711,38 @@ class ALR(AnJE):
         ----------
         X : array-like of shape (n_samples, n_features)
             Training vectors, where ``n_samples`` is the number of samples and
-            ``n_features`` is the number of features.
+            ``n_features`` is the number of features. May contain missing
+            values (``NaN`` or missing labels).
 
         y : array-like of shape (n_samples,)
             Target values.
+
+        sample_weight : array-like of shape (n_samples,), default=None
+            Non-negative weights applied to individual samples.
 
         Returns
         -------
         self : object
             Returns the instance itself.
         """
-        codes_t, y_idx = self._fit_generative(X, y)
+        codes_t, y_idx, sw = self._fit_generative(X, y, sample_weight=sample_weight)
         n_classes = len(self.classes_)
+        sw_arr = (
+            np.empty(0, dtype=np.float64)
+            if sw is None
+            else np.ascontiguousarray(sw, dtype=np.float64)
+        )
+        missing_mask = codes_t < 0
+        has_missing = bool(missing_mask.any())
+        if has_missing:
+            # Replace negative (missing) codes with the unseen slot for row
+            # lookup, then redirect joins containing a missing attribute to a
+            # trailing zero row in the objective table.
+            eval_codes_t = np.where(
+                missing_mask, self._encoder.cards_[:, None], codes_t
+            ).astype(np.int32)
+        else:
+            eval_codes_t = codes_t
 
         # Weight group of every table row
         if self.weight_level == 1:
@@ -682,13 +754,22 @@ class ALR(AnJE):
 
         with _threads(self.n_jobs):
             # The table rows of the training samples, computed once when they fit
-            # in the budget (the objective is evaluated thousands of times)
-            if codes_t.shape[1] * len(self.joins_) <= _MAX_CACHED_ROWS:
-                rows = join_rows(codes_t, *self._cell_args(), n_classes == 2)
+            # in the budget (or when missing values redirect some joins)
+            if has_missing or codes_t.shape[1] * len(self.joins_) <= _MAX_CACHED_ROWS:
+                by_sample = n_classes == 2
+                rows = join_rows(eval_codes_t, *self._cell_args(), by_sample)
+                if has_missing:
+                    miss_j = missing_mask.T[:, self.joins_].any(axis=2)
+                    if by_sample:
+                        rows[miss_j] = self._n_rows
+                    else:
+                        rows[miss_j.T] = self._n_rows
             else:
                 rows = np.zeros((0, 0), dtype=np.int32)
             self.learned_weights_, self.n_iter_, converged = _fit_weights(
-                lambda theta: self._nll_and_grad(theta, codes_t, y_idx, rows),
+                lambda theta: self._nll_and_grad(
+                    theta, eval_codes_t, y_idx, rows, sw_arr, has_missing
+                ),
                 np.ones(self.n_weights_),
                 self.l2_reg,
                 self.max_iter,
@@ -699,23 +780,31 @@ class ALR(AnJE):
         _warn_not_converged(not converged, 1, self.max_iter)
         return self
 
-    def _nll_and_grad(self, theta, codes_t, y_idx, rows=None):
+    def _nll_and_grad(self, theta, codes_t, y_idx, rows=None, sw=None, pad_zero=False):
         """Conditional negative log-likelihood and its gradient, on the
         transposed codes of the samples and their class indices (``rows``
         optionally holds their table rows, from :func:`join_rows`)."""
         if rows is None:
             rows = np.zeros((0, 0), dtype=np.int32)
+        if sw is None:
+            sw = np.empty(0, dtype=np.float64)
         weights = theta.reshape(-1, self._n_columns)
         # Above level 1 every table row has its own weight group
         own = self.weight_level > 1
+        table = (weights if own else weights[self._groups]) * self._log_table
+        if pad_zero:
+            table = np.vstack([table, np.zeros((1, table.shape[1]))])
         nll, dtable = join_objective(
             codes_t,
             y_idx,
             *self._cell_args(),
             rows,
-            (weights if own else weights[self._groups]) * self._log_table,
+            table,
             get_num_threads(),
+            sw,
         )
+        if pad_zero:
+            dtable = dtable[:-1]
         # dNLL/dweight of a row: its log-probability times the residuals of
         # the samples that fall in it
         drow = dtable * self._log_table
@@ -753,6 +842,115 @@ class ALR(AnJE):
         check_is_fitted(self, attributes=["classes_", "joins_", "learned_weights_"])
         return super().predict_log_proba(X)
 
+    @property
+    def prior_weights_(self):
+        """Weights of the class prior: one per class at ``weight_level=3``,
+        a single one below."""
+        check_is_fitted(self, attributes=["learned_weights_"])
+        return self.learned_weights_.reshape(-1, self._n_columns)[0]
+
+    def _resolve_join(self, join):
+        """Index of an n-join from its integer index or a tuple of features."""
+        n_joins = len(self.joins_)
+        if isinstance(join, Integral):
+            if 0 <= join < n_joins:
+                return int(join)
+            raise ValueError(f"join must be in [0, {n_joins - 1}], got {join!r}.")
+        if isinstance(join, (tuple, list)):
+            target = tuple(sorted(_resolve_feature(self, f) for f in join))
+            for j, row in enumerate(self.joins_):
+                if tuple(int(a) for a in row) == target:
+                    return j
+            raise ValueError(f"No n-join has attributes {target}.")
+        raise ValueError(
+            "join must be an integer index or a tuple of feature indices/names."
+        )
+
+    def weight_table(self, join=None, as_frame=False):
+        """Return the learned weights of an n-join (or of all n-joins at
+        ``weight_level=1``) with the attribute values they belong to.
+
+        Parameters
+        ----------
+        join : int, tuple or None, default=None
+            Index of the n-join in ``joins_`` or tuple of its feature indices
+            or names. With ``weight_level=1``, ``None`` returns one row per
+            n-join.
+
+        as_frame : bool, default=False
+            If True, return a pandas DataFrame.
+
+        Returns
+        -------
+        table : :class:`~sklearn.utils.Bunch` or DataFrame
+            Dictionary-like object holding the decoded weights and labels.
+        """
+        check_is_fitted(self, attributes=["classes_", "joins_", "learned_weights_"])
+        weights_2d = self.learned_weights_.reshape(-1, self._n_columns)
+        classes = self.classes_ if self._n_columns > 1 else None
+        columns = ["weight"] if classes is None else classes
+
+        if join is None:
+            if self.weight_level != 1:
+                raise ValueError(
+                    "join must be specified when weight_level > 1; pass a join"
+                    " index or a tuple of features."
+                )
+            labels = [
+                ", ".join(_feature_name(self, int(a)) for a in row)
+                for row in self.joins_
+            ]
+            w = weights_2d[1 : 1 + len(self.joins_)]
+            table = Bunch(
+                join=np.arange(len(self.joins_), dtype=np.int64),
+                features=labels,
+                feature_values=None,
+                weights=w,
+                classes=classes,
+            )
+            if not as_frame:
+                return table
+            return _table_frame(w, [labels], ["join"], columns)
+
+        j = self._resolve_join(join)
+        features = [int(a) for a in self.joins_[j]]
+        if self.weight_level == 1:
+            w = weights_2d[[1 + j]]
+            table = Bunch(
+                join=j,
+                features=features,
+                feature_values=np.empty((1, 0), dtype=object),
+                weights=w,
+                classes=classes,
+            )
+            if not as_frame:
+                return table
+            return _table_frame(w, [], [], columns)
+
+        # Seen table rows belonging to join j (excluding the empty unseen row)
+        n_seen = len(self._cell_keys)
+        rows = np.flatnonzero(self._row_join[:n_seen] == j)
+        keys = self._cell_keys[rows] - self._join_offsets[j]
+        values = np.empty((len(rows), len(features)), dtype=object)
+        strides = self._join_strides[j]
+        for q, feat in enumerate(features):
+            slot = int(self._encoder.cards_[feat]) + 1
+            codes = (keys // strides[q]) % slot
+            values[:, q] = self._attribute_values(feat)[codes]
+        w = weights_2d[rows]
+        table = Bunch(
+            join=j,
+            features=features,
+            feature_values=values,
+            weights=w,
+            classes=classes,
+        )
+        if not as_frame:
+            return table
+        idx_vals = list(values.T)
+        idx_names = [_feature_name(self, f) for f in features]
+        return _table_frame(w, idx_vals, idx_names, columns)
+
 
 # =============================================================================
 # AnJE and ALR on the factors of the SPnDEs (Gaussian children)
@@ -788,11 +986,24 @@ def _root_log_marginals(model):
     """
     if model.n_dependence == 0:
         return model.backoff_.class_log_prior_[:, None]
-    counts = model.class_count_[:, None]
-    combos = np.array([info["n_parent_combos"] for info in model.ensemble_])
-    return np.log(counts + model.alpha * combos) - np.log(
-        counts.sum() + model.alpha * len(model.classes_) * combos
-    )
+    t = model._tables
+    n_classes = len(model.classes_)
+    n_groups = len(t.rep)
+    g_combos = t.n_combos[t.rep]
+    counts_g = np.zeros((n_classes, n_groups))
+    for g in range(n_groups):
+        lo, hi = t.state_off[g], t.state_off[g + 1]
+        if hi > lo:
+            cls = t.state_keys[lo:hi] // g_combos[g]
+            counts_g[:, g] = np.bincount(
+                cls, weights=t.count[lo:hi], minlength=n_classes
+            )
+    totals_g = counts_g.sum(axis=0, keepdims=True)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        num = counts_g + model.alpha * g_combos[None, :]
+        den = totals_g + model.alpha * n_classes * g_combos[None, :]
+        marg_g = np.where((num > 0) & (den > 0), np.log(num) - np.log(den), -np.inf)
+    return marg_g[:, t.group]
 
 
 def _geometric_scores(jll, active, nb_jll):
@@ -1209,7 +1420,7 @@ class GaussianALR(WeightedAnDE):
         self.tol = tol
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """
         Fit the factors of the SPnDEs, then the discriminative weights.
 
@@ -1217,17 +1428,21 @@ class GaussianALR(WeightedAnDE):
         ----------
         X : array-like of shape (n_samples, n_features)
             Training vectors, where ``n_samples`` is the number of samples and
-            ``n_features`` is the number of features.
+            ``n_features`` is the number of features. May contain missing
+            values (``NaN`` or missing labels).
 
         y : array-like of shape (n_samples,)
             Target values.
+
+        sample_weight : array-like of shape (n_samples,), default=None
+            Non-negative weights applied to individual samples.
 
         Returns
         -------
         self : object
             Returns the instance itself.
         """
-        return super().fit(X, y)
+        return super().fit(X, y, sample_weight=sample_weight)
 
     def _design(self, X):
         """Factor-weight design with the root divided by its class marginal,

@@ -39,40 +39,56 @@ from ._augmented import (
 )
 
 
-def _mutual_info_with_class(codes, y_idx, cards, n_classes):
-    """Empirical mutual information I(A_i; C) (in nats).
+def _mutual_info_with_class(codes, y_idx, cards, n_classes, sample_weight=None):
+    """Empirical mutual information I(A_i; C) (in nats), supporting sample
+    weights and missing values (negative codes).
 
     Parameters
     ----------
     codes : ndarray of shape (n_samples, n_features)
-        Integer codes of the (discretized) attributes, in ``[0, cards[j])``.
+        Integer codes of the (discretized) attributes, in ``[0, cards[j])``
+        (``-1`` for missing values).
     y_idx : ndarray of shape (n_samples,)
         Class indices in ``[0, n_classes)``.
     cards : ndarray of shape (n_features,)
         Number of values of each attribute.
     n_classes : int
         Number of classes.
+    sample_weight : ndarray of shape (n_samples,) or None, default=None
+        Per-sample weights.
 
     Returns
     -------
     mi : ndarray of shape (n_features,)
     """
     n_samples, n_features = codes.shape
-    n_c = np.bincount(y_idx, minlength=n_classes).astype(np.float64)
     mi = np.zeros(n_features)
     for i in range(n_features):
+        col = codes[:, i]
+        valid = col >= 0
+        if not valid.any():
+            continue
+        if np.all(valid):
+            y_v, col_v, w_v = y_idx, col, sample_weight
+        else:
+            y_v, col_v = y_idx[valid], col[valid]
+            w_v = None if sample_weight is None else sample_weight[valid]
+        total_w = float(len(y_v)) if w_v is None else float(w_v.sum())
+        if total_w <= 0.0:
+            continue
         ci = int(cards[i])
-        key = y_idx.astype(np.int64) * ci + codes[:, i]
+        key = y_v.astype(np.int64) * ci + col_v
         n_ca = (
-            np.bincount(key, minlength=n_classes * ci)
+            np.bincount(key, weights=w_v, minlength=n_classes * ci)
             .reshape(n_classes, ci)
             .astype(np.float64)
         )
+        n_c = n_ca.sum(axis=1, keepdims=True)
         n_a = n_ca.sum(axis=0, keepdims=True)
         # sum_{c,a} P(a,c) log[ P(a,c) / (P(a) P(c)) ]
         with np.errstate(divide="ignore", invalid="ignore"):
-            terms = n_ca * np.log(n_ca * n_samples / (n_c[:, None] * n_a))
-        mi[i] = max(np.sum(terms[n_ca > 0]) / n_samples, 0.0)
+            terms = n_ca * np.log(n_ca * total_w / (n_c * n_a))
+        mi[i] = max(np.sum(terms[n_ca > 0]) / total_w, 0.0)
     return mi
 
 
@@ -329,7 +345,7 @@ class KDB(_BaseAugmentedNB):
         self.continuous_children = continuous_children
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """
         Fit the KDB classifier according to X, y.
 
@@ -341,17 +357,21 @@ class KDB(_BaseAugmentedNB):
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
-            Training vectors.
+            Training vectors. May contain missing values (``NaN`` or missing
+            labels).
 
         y : array-like of shape (n_samples,)
             Target values.
+
+        sample_weight : array-like of shape (n_samples,), default=None
+            Non-negative weights applied to individual samples.
 
         Returns
         -------
         self : object
             Returns the instance itself.
         """
-        self._fit(X, y)
+        self._fit(X, y, sample_weight=sample_weight)
         return self
 
     def _check_structure_params(self):
@@ -362,11 +382,13 @@ class KDB(_BaseAugmentedNB):
         ):
             raise ValueError(f"k must be a non-negative integer, got {self.k!r}")
 
-    def _learn_structure(self, codes, y_idx, cards, n_classes):
+    def _learn_structure(self, codes, y_idx, cards, n_classes, sample_weight=None):
         """Order by I(A_i; C), parents by I(A_i; A_j | C)."""
-        self.mutual_info_ = _mutual_info_with_class(codes, y_idx, cards, n_classes)
+        self.mutual_info_ = _mutual_info_with_class(
+            codes, y_idx, cards, n_classes, sample_weight=sample_weight
+        )
         self.conditional_mutual_info_ = _conditional_mutual_info(
-            codes, y_idx, cards, n_classes
+            codes, y_idx, cards, n_classes, sample_weight=sample_weight
         )
         self.feature_order_, self.parents_ = _kdb_structure(
             self.mutual_info_, self.conditional_mutual_info_, self.k
@@ -613,7 +635,6 @@ class WeightedKDB(_WeightedAugmentedNB, KDB):
     _parameter_constraints: dict = {
         **KDB._parameter_constraints,
         **_WeightedAugmentedNB._weight_constraints,
-        "continuous_children": [StrOptions({"gaussian", "discretized"})],
     }
 
     def __init__(
@@ -643,9 +664,9 @@ class WeightedKDB(_WeightedAugmentedNB, KDB):
             gaussian_features=gaussian_features,
             var_prior_weight=var_prior_weight,
             n_jobs=n_jobs,
+            continuous_children=continuous_children,
         )
         self.weight_level = weight_level
         self.l2_reg = l2_reg
         self.max_iter = max_iter
         self.tol = tol
-        self.continuous_children = continuous_children

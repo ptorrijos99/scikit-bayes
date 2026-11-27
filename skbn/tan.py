@@ -273,7 +273,7 @@ class TAN(_BaseAugmentedNB):
         self.continuous_children = continuous_children
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """
         Fit the TAN classifier according to X, y.
 
@@ -284,17 +284,21 @@ class TAN(_BaseAugmentedNB):
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
-            Training vectors.
+            Training vectors. May contain missing values (``NaN`` or missing
+            labels).
 
         y : array-like of shape (n_samples,)
             Target values.
+
+        sample_weight : array-like of shape (n_samples,), default=None
+            Non-negative weights applied to individual samples.
 
         Returns
         -------
         self : object
             Returns the instance itself.
         """
-        self._fit(X, y)
+        self._fit(X, y, sample_weight=sample_weight)
         return self
 
     def _check_structure_params(self):
@@ -308,10 +312,10 @@ class TAN(_BaseAugmentedNB):
                 f" {self.root!r}"
             )
 
-    def _learn_structure(self, codes, y_idx, cards, n_classes):
+    def _learn_structure(self, codes, y_idx, cards, n_classes, sample_weight=None):
         """Chow-Liu tree on I(A_i; A_j | C), directed away from ``root``."""
         self.conditional_mutual_info_ = _conditional_mutual_info(
-            codes, y_idx, cards, n_classes
+            codes, y_idx, cards, n_classes, sample_weight=sample_weight
         )
         self.parents_ = _maximum_spanning_tree(self.conditional_mutual_info_, self.root)
         return [[] if p < 0 else [p] for p in self.parents_]
@@ -538,7 +542,6 @@ class WeightedTAN(_WeightedAugmentedNB, TAN):
     _parameter_constraints: dict = {
         **TAN._parameter_constraints,
         **_WeightedAugmentedNB._weight_constraints,
-        "continuous_children": [StrOptions({"gaussian", "discretized"})],
     }
 
     def __init__(
@@ -568,9 +571,9 @@ class WeightedTAN(_WeightedAugmentedNB, TAN):
             gaussian_features=gaussian_features,
             var_prior_weight=var_prior_weight,
             n_jobs=n_jobs,
+            continuous_children=continuous_children,
         )
         self.weight_level = weight_level
         self.l2_reg = l2_reg
         self.max_iter = max_iter
         self.tol = tol
-        self.continuous_children = continuous_children

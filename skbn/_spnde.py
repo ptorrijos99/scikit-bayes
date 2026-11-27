@@ -32,8 +32,11 @@ from ._core import (
     _AttributeEncoder,
     _ChildEncodingMixin,
     _discretized_children,
+    _has_missing,
     _LabelInputMixin,
     _validate_input,
+    _validate_sample_weight,
+    _weighted_moments,
 )
 from ._kernels import (
     _MAX_LIGHT,
@@ -82,13 +85,13 @@ def _parent_frequencies(keys, count, n_combos, state_off):
 
 
 def _constant_parent_groups(
-    parents, parent_cards, informative, b_disc, kind, voff, cards
+    parents, parent_cards, informative, b_disc, kind, voff, cards, missing_parent=None
 ):
     """Groups of the components that differ only in which constant attributes
-    are among their parents: those with a single value as parents, none as
-    children (``informative`` is False) and a back-off estimate of exactly 0.
-    Such an attribute adds exactly 0 to every score, and is 0 in the parent
-    key of every training row.
+    are among their parents: those with a single value as parents (and no
+    missing training values), none as children (``informative`` is False) and
+    a back-off estimate of exactly 0. Such an attribute adds exactly 0 to
+    every score, and is 0 in the parent key of every training row.
 
     Returns the group of every component, the first component of every group
     (groups in the order of their first component) and the mask of constant
@@ -96,6 +99,8 @@ def _constant_parent_groups(
     """
     n_models = len(parents)
     const = (parent_cards == 1) & ~informative
+    if missing_parent is not None:
+        const &= ~missing_parent
     for j in np.flatnonzero(const & (kind == DISCRETE)):
         const[j] = not b_disc[:, voff[j] : voff[j] + cards[j]].any()
     if parents.shape[1] == 0 or not const[parents].any():
@@ -379,7 +384,7 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
         self.unseen_state = unseen_state
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """
         Fit the SPnDEs of the ensemble by counting frequencies.
 
@@ -390,10 +395,14 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
         ----------
         X : array-like of shape (n_samples, n_features)
             Training vectors, where ``n_samples`` is the number of samples and
-            ``n_features`` is the number of features.
+            ``n_features`` is the number of features. May contain missing
+            values (``NaN`` or missing labels).
 
         y : array-like of shape (n_samples,)
             Target values.
+
+        sample_weight : array-like of shape (n_samples,), default=None
+            Non-negative weights applied to individual samples.
 
         Returns
         -------
@@ -401,6 +410,7 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
             Returns the instance itself.
         """
         X, y = _validate_input(self, X, y)
+        sw = _validate_sample_weight(sample_weight, X)
         self.classes_ = unique_labels(y)
         if (
             not isinstance(self.n_dependence, numbers.Integral)
@@ -411,19 +421,23 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
                 f" features ({self.n_features_in_}), got {self.n_dependence!r}"
             )
 
+        y_int = np.searchsorted(self.classes_, y)
+        if sw is not None and np.any(sw == 0):
+            pos = sw > 0
+            X, y_int, sw = X[pos], y_int[pos], sw[pos]
+
         # --- 1. Class-level back-off model (Naive Bayes on the original class),
         #        which also resolves the type of every attribute ---
-        #        (X and y are validated; the codes of the categorical attributes
-        #        serve the parents and the children as well)
-        y_int = np.searchsorted(self.classes_, y)
-        X, discrete, gaussian = _discretized_children(self, X, y_int)
+        X, discrete, gaussian = _discretized_children(self, X, y_int, sw)
         self.backoff_, cat_codes = MixedNB(
             alpha=self.alpha,
             categorical_features=self.categorical_features,
             bernoulli_features=self.bernoulli_features,
             gaussian_features=gaussian,
             var_prior_weight=self.var_prior_weight,
-        )._fit_encoded(X, y_int, self.classes_, discrete, return_codes=True)
+        )._fit_encoded(
+            X, y_int, self.classes_, discrete, return_codes=True, sample_weight=sw
+        )
         types = self.backoff_.feature_types_
 
         # --- 2. Discretize parents, with the types the children use ---
@@ -434,25 +448,27 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
             discrete_features=types["categorical"] + types["bernoulli"],
         )
         # The codes of the training samples, in 16 bits for nearly every
-        # dataset (a single type, so that the kernels compile once)
+        # dataset without missing values (32-bit signed when missing values occur)
         parent_codes = self._encoder.fit_transform(
             X,
             y_int,
             known=(types["categorical"], self.backoff_._categories, cat_codes),
             dtype=None,
+            sample_weight=sw,
         )
         code_type = parent_codes.dtype
         gauss = types["gaussian"]
         Xg = np.asarray(X[:, gauss], dtype=float) if gauss else np.zeros((len(X), 0))
-        self._pooled_mean = Xg.mean(axis=0) if gauss else np.zeros(0)
-        self._pooled_var = Xg.var(axis=0) + (
+        pooled_mean, pooled_var = _weighted_moments(Xg, sw)
+        self._pooled_mean = pooled_mean
+        self._pooled_var = pooled_var + (
             self.backoff_.estimators_["gaussian"].epsilon_ if gauss else 0.0
         )
 
         # --- 3. Count the SPnDEs ---
-        self.class_count_ = np.bincount(y_int, minlength=len(self.classes_)).astype(
-            float
-        )
+        self.class_count_ = np.bincount(
+            y_int, weights=sw, minlength=len(self.classes_)
+        ).astype(float)
         if len(types["categorical"]) == X.shape[1]:
             # Every attribute is categorical: its codes as a child are its
             # codes as a parent
@@ -460,10 +476,10 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
         else:
             codes = self._value_codes(X, cat_codes, code_type)
         del cat_codes
-        self._fit_components(X, y_int, parent_codes, codes)
+        self._fit_components(X, y_int, parent_codes, codes, sample_weight=sw)
         return self
 
-    def _fit_components(self, X, y_int, parent_codes, codes):
+    def _fit_components(self, X, y_int, parent_codes, codes, sample_weight=None):
         """Count every SPnDE and store its log-probabilities in flat tables
         (see :mod:`skbn._kernels`), one entry per augmented state seen in
         training, from the parent codes and the child value codes of the
@@ -473,6 +489,16 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
         n_classes, n_dep = len(self.classes_), self.n_dependence
         alpha = self.alpha
         kind, voff, gidx, cards = self._layout()
+        has_missing = (
+            _has_missing(X) or bool(np.any(parent_codes < 0)) or bool(np.any(codes < 0))
+        )
+        use_fast = sample_weight is None and not has_missing
+        max_light = _MAX_LIGHT if use_fast else 0
+        sw_arr = (
+            np.empty(0, dtype=np.float64)
+            if sample_weight is None
+            else np.ascontiguousarray(sample_weight, dtype=np.float64)
+        )
 
         if n_dep:
             parents = np.array(list(combinations(range(d), n_dep)), dtype=np.int64)
@@ -507,16 +533,23 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
         # tables and scores: each group of them is counted once, for its
         # first component
         group, rep, const = _constant_parent_groups(
-            parents, self._encoder.cards_, informative, b_disc, kind, voff, cards
+            parents,
+            self._encoder.cards_,
+            informative,
+            b_disc,
+            kind,
+            voff,
+            cards,
+            missing_parent=(parent_codes < 0).any(axis=0),
         )
         n_groups = len(rep)
         g_parents, g_strides, g_combos = parents[rep], strides[rep], n_combos[rep]
 
-        # With one or two parents, the discrete children of the components
-        # whose parents are not constant are counted by pairs or triples of
-        # attributes
+        # With one or two parents (and unweighted complete data), the discrete
+        # children of the components whose parents are not constant are counted
+        # by pairs or triples of attributes
         shared = None
-        if n_dep in (1, 2):
+        if use_fast and n_dep in (1, 2):
             shared = _shared_layout(
                 g_parents,
                 g_combos,
@@ -550,13 +583,13 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
                 g_strides,
                 g_combos,
                 n_classes,
-                _MAX_LIGHT,
+                max_light,
             )
             state_off, dense_off, light_off = (
                 np.concatenate([[0], np.cumsum(sizes[:, k])]).astype(np.int64)
                 for k in range(3)
             )
-            keys, count, drow, loff, dense, rows, mean, var = count_tables(
+            keys, count, drow, loff, dense, rows, mean, var, gcount = count_tables(
                 y_int,
                 parent_codes_t,
                 codes,
@@ -565,7 +598,7 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
                 g_strides,
                 g_combos,
                 n_classes,
-                _MAX_LIGHT,
+                max_light,
                 state_off,
                 dense_off,
                 light_off,
@@ -577,6 +610,7 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
                 by_shared,
                 self._encoder.cards_,
                 max_cells,
+                sw_arr,
             )
             if shared is not None:
                 _, codes_t, ucards, first, second, pair_group, child_col = shared
@@ -620,42 +654,58 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
 
         # Root P(y, x_p), Laplace-smoothed over the full grid of augmented
         # states; without parents the component is Naive Bayes (MLE prior)
+        group_total = np.array(
+            [count[state_off[g] : state_off[g + 1]].sum() for g in range(n_groups)]
+        )
         if n_dep:
-            denom = n_samples + alpha * n_classes * g_combos
-            root = np.log((count + alpha) / denom[comp])
-            with np.errstate(divide="ignore"):
-                log_prior_unseen = np.log(alpha / denom)
+            denom = group_total + alpha * n_classes * g_combos
+            with np.errstate(divide="ignore", invalid="ignore"):
+                root = np.log((count + alpha) / denom[comp])
+                log_prior_unseen = np.where(denom > 0, np.log(alpha / denom), -np.inf)
         else:
-            root = np.log(count / count.sum())
+            with np.errstate(divide="ignore"):
+                root = np.log(count / count.sum())
             log_prior_unseen = np.full(n_groups, -np.inf)
 
-        # Discrete children: log((N(s, v) + alpha) / (N(s) + alpha * card)), in
-        # the rows of the dense states and, for the light ones, in a table
-        # indexed by N(s), the cardinality and N(s, v)
-        # (both from the logarithms of every possible count and state total)
-        dense_count = count[drow >= 0]
-        with np.errstate(divide="ignore"):
-            log_hits = np.log(np.arange(n_samples + 1, dtype=float) + alpha)
-            log_total = np.log(dense_count[:, None] + alpha * group_cards[None, :])
-            light = np.arange(_MAX_LIGHT + 1, dtype=float)
-            lut = np.log(light[None, None, :] + alpha) - np.log(
-                light[:, None, None] + alpha * group_cards[None, :, None]
-            )
-        with _threads(self.n_jobs):
-            dense_estimates(
-                dense, log_hits, log_total, np.repeat(grp[multi], cards[multi])
-            )
-        np.nan_to_num(lut, copy=False, nan=LOG_ZERO, neginf=LOG_ZERO)
-        # Codes of the training rows of the light states, read when one is hit
-        used, rows = np.unique(rows, return_inverse=True)
-        rows = rows.astype(np.int32)
-        tcodes = codes[np.ix_(used, multi)]
+        # Discrete children: log((N(s, v) + alpha) / (N(s) + alpha * card))
+        if use_fast:
+            dense_count = count[drow >= 0]
+            with np.errstate(divide="ignore"):
+                log_hits = np.log(np.arange(n_samples + 1, dtype=float) + alpha)
+                log_total = np.log(dense_count[:, None] + alpha * group_cards[None, :])
+                light = np.arange(_MAX_LIGHT + 1, dtype=float)
+                lut = np.log(light[None, None, :] + alpha) - np.log(
+                    light[:, None, None] + alpha * group_cards[None, :, None]
+                )
+            with _threads(self.n_jobs):
+                dense_estimates(
+                    dense, log_hits, log_total, np.repeat(grp[multi], cards[multi])
+                )
+            np.nan_to_num(lut, copy=False, nan=LOG_ZERO, neginf=LOG_ZERO)
+            used, rows = np.unique(rows, return_inverse=True)
+            rows = rows.astype(np.int32)
+            tcodes = codes[np.ix_(used, multi)]
+        else:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                for j in multi:
+                    lo_c, hi_c = doff[j], doff[j] + cards[j]
+                    block = dense[:, lo_c:hi_c]
+                    totals = block.sum(axis=1, keepdims=True)
+                    block[:] = np.log(block + alpha) - np.log(totals + alpha * cards[j])
+            np.nan_to_num(dense, copy=False, nan=LOG_ZERO, neginf=LOG_ZERO)
+            lut = np.zeros((1, len(group_cards), 1))
+            rows = np.zeros(0, dtype=np.int32)
+            tcodes = np.zeros((0, len(multi)), dtype=codes.dtype)
 
         # Gaussian children: the variances of GaussianNB (plus the largest
         # child variance times var_smoothing), shrunk towards the pooled
         # variance when the component has parents
         if xg.shape[1]:
-            pooled = np.var(xg, axis=0)
+            pooled_mean, pooled = _weighted_moments(xg, sample_weight)
+            missing_g = gcount == 0.0
+            if missing_g.any():
+                mean = np.where(missing_g, pooled_mean[None, :], mean)
+                var = np.where(missing_g, pooled[None, :], var)
             is_parent = np.zeros((n_groups, d), dtype=bool)
             is_parent[np.arange(n_groups)[:, None], g_parents] = True
             child_var = np.where(is_parent[:, types["gaussian"]], -np.inf, pooled)
@@ -663,8 +713,7 @@ class _BaseAnDE(_LabelInputMixin, _ChildEncodingMixin, ClassifierMixin, BaseEsti
             var += epsilon[:, None]
             nu = self.var_prior_weight
             if n_dep and nu > 0:
-                n_c = count[:, None]
-                var = (n_c * var + nu * (pooled + epsilon[:, None])) / (n_c + nu)
+                var = (gcount * var + nu * (pooled + epsilon[:, None])) / (gcount + nu)
 
         # The attributes whose estimates for an unseen state can differ from
         # 0: the others (ignored, or discrete with a single value and a

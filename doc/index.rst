@@ -22,8 +22,9 @@ scikit-bayes adds Bayesian network classifiers to scikit-learn. Every model
 follows the scikit-learn estimator API and takes tables that mix continuous,
 categorical and binary attributes.
 
-* :class:`~skbn.MixedNB`: Naive Bayes for continuous, categorical and binary
-  attributes in one model.
+* :class:`~skbn.MixedNB` and :class:`~skbn.WeightedNB`: Naive Bayes for
+  continuous, categorical and binary attributes in one model, and its
+  discriminatively weighted version (WANBIA / wCCBN).
 * :class:`~skbn.AnDE`: Averaged n-Dependence Estimators (AODE, A2DE).
 * :class:`~skbn.AnJE` and :class:`~skbn.GaussianAnJE`: Averaged n-Join
   Estimators.
